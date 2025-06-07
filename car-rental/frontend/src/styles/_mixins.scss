@@ -1,0 +1,28 @@
+
+@mixin hover-scale {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+@mixin button-style {
+  background-color: $primary-blue;
+  color: $white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+  &:hover {
+    background-color: darken($primary-blue, 10%);
+  }
+}
+
+@mixin card-style {
+  background-color: $white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: $shadow-sm;
+  @include hover-scale;
+}

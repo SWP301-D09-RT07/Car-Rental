@@ -1,0 +1,67 @@
+.navbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: transparent;
+    padding: 1rem 0;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo-name-container {
+    display: flex;
+    align-items: center;
+}
+
+.logo {
+    height: 80px;
+    border-radius: 60%;
+}
+
+.brand-name {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    margin-left: 1rem;
+}
+
+.menu-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.menu-link {
+    text-decoration: none;
+    color: white;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    transition: color 0.3s ease;
+}
+
+.menu-link:hover {
+    color: #00cc99;
+}
+
+.menu-container button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    color: white;
+    transition: color 0.3s ease;
+}
+
+.menu-container button:hover {
+    color: #00cc99;
+}

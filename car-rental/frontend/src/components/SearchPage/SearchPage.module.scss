@@ -1,0 +1,293 @@
+@use "sass:color";
+
+$primary-color: #2563eb;
+$secondary-color: #f97316;
+$text-color: #4b5563;
+$background-color: #ffffff;
+$dark-bg: #1f2937;
+$light-gray: #f9fafb;
+$shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+
+.searchPage {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 40px;
+  background-color: $background-color;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+
+  .logo {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: #333;
+  }
+
+  .navLink {
+    margin-left: 16px;
+    color: $text-color;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: color 0.3s;
+
+    &:hover {
+      color: $primary-color;
+    }
+  }
+}
+
+.content {
+  display: flex;
+  padding: 24px;
+  flex: 1;
+}
+
+.filterPanel {
+  width: 25%;
+  padding: 24px;
+  background-color: $light-gray;
+  border-radius: 8px;
+  margin-right: 24px;
+
+  .filterTitle {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  .filterGroup {
+    margin-bottom: 16px;
+
+    .label {
+      display: block;
+      color: #333;
+      margin-bottom: 8px;
+    }
+
+    .select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+
+    .range {
+      width: 100%;
+    }
+
+    .rangeText {
+      color: $text-color;
+      margin-top: 8px;
+    }
+
+    .checkbox {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+
+      input {
+        margin-right: 8px;
+      }
+    }
+  }
+
+  .applyButton {
+    width: 100%;
+    padding: 8px;
+    background-color: $primary-color;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+
+    &:hover {
+      background-color: color.adjust($primary-color, $lightness: -10%);
+    }
+  }
+}
+
+.carListWrapper {
+  flex: 1;
+}
+
+.error {
+  color: #e60000;
+  margin-bottom: 16px;
+}
+
+.carList {
+  padding: 16px;
+
+  .controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+
+    .sortSelect {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .viewToggle {
+      padding: 8px 16px;
+      background-color: #e5e7eb;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+
+      &:hover {
+        background-color: #d1d5db;
+      }
+    }
+  }
+
+  .carGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+  }
+
+  .carListView {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .carCard {
+    display: flex;
+    background-color: $background-color;
+    border-radius: 8px;
+    box-shadow: $shadow;
+    overflow: hidden;
+
+    .carImage {
+      width: 192px;
+      height: 128px;
+      object-fit: cover;
+    }
+
+    .carInfo {
+      padding: 16px;
+      flex: 1;
+
+      .carName {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .carPrice {
+        color: $text-color;
+      }
+
+      .carRating {
+        color: $text-color;
+        margin-bottom: 8px;
+      }
+
+      .viewDetailsLink {
+        color: $primary-color;
+        text-decoration: none;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 24px;
+
+    .pageButton {
+      padding: 8px 16px;
+      background-color: #e5e7eb;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+
+      &:hover {
+        background-color: #d1d5db;
+      }
+    }
+  }
+}
+
+.footer {
+  padding: 24px;
+  background-color: $dark-bg;
+  color: #d1d5db;
+  text-align: center;
+
+  .footerLinks {
+    margin-bottom: 12px;
+
+    .footerLink {
+      margin: 0 8px;
+      color: #93c5fd;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  p {
+    font-size: 1rem;
+    margin: 8px 0;
+  }
+}
+
+@media (max-width: 1024px) {
+  .content {
+    flex-direction: column;
+  }
+
+  .filterPanel {
+    width: 100%;
+    margin-right: 0;
+    margin-bottom: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    padding: 16px;
+
+    .navLink {
+      margin-left: 0;
+      margin-top: 8px;
+    }
+  }
+
+  .carGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .carCard {
+    flex-direction: column;
+
+    .carImage {
+      width: 100%;
+      height: 192px;
+    }
+  }
+}

@@ -1,0 +1,330 @@
+@import "variables";
+@import "mixins";
+
+.paymentsContainer {
+  padding: 32px;
+  background: linear-gradient(135deg, #F9FAFB 0%, #E0F2FE 100%); // Gradient nhạt từ trắng đục đến xanh pastel
+  min-height: calc(100vh - 64px);
+  border-radius: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  .title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: $primary-blue;
+    margin-bottom: 32px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .filters {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+
+    .filterSelect {
+      padding: 12px;
+      border: 1px solid $gray-medium;
+      border-radius: 8px;
+      background-color: $white;
+      font-size: 1rem;
+      color: $gray-dark;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 200px;
+
+      &:hover, &:focus {
+        border-color: $primary-blue;
+        box-shadow: $shadow-sm;
+        outline: none;
+      }
+    }
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: $white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: $shadow-md;
+    animation: fadeIn 0.5s ease-in;
+
+    .tableHeader {
+      background: linear-gradient(90deg, $primary-blue 0%, $primary-light-blue 100%);
+
+      .tableHeaderCell {
+        padding: 16px;
+        text-align: left;
+        color: $white;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
+      }
+    }
+
+    .tableRow {
+      border-bottom: 1px solid $gray-50;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background-color: $gray-50;
+        transform: translateY(-2px);
+        box-shadow: $shadow-sm;
+      }
+
+      .tableCell {
+        padding: 16px;
+        color: $gray-dark;
+        font-size: 0.95rem;
+
+        .statusTag {
+          padding: 6px 12px;
+          border-radius: 12px;
+          font-size: 0.85rem;
+          font-weight: 500;
+          display: inline-block;
+
+          &.paid {
+            background-color: $green-500;
+            color: $white;
+          }
+
+          &.pending {
+            background-color: $yellow-500;
+            color: $gray-dark;
+          }
+        }
+
+        .actionButtons {
+          display: flex;
+          gap: 8px;
+          justify-content: flex-start;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+      }
+    }
+  }
+
+  .viewButton {
+    @include button-style;
+    background-color: $blue-500;
+    min-width: 100px; // Chiều rộng cố định để thẳng hàng
+    text-align: center;
+
+    &:hover {
+      background-color: $blue-700;
+      transform: translateY(-2px);
+    }
+  }
+
+  .refundButton {
+    @include button-style;
+    background-color: $red-500;
+    min-width: 100px; // Chiều rộng cố định để thẳng hàng
+    text-align: center;
+
+    &:hover {
+      background-color: $red-700;
+      transform: translateY(-2px);
+    }
+
+    &:disabled {
+      background-color: $gray-medium;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 32px;
+    gap: 12px;
+
+    .paginationButton {
+      padding: 10px 16px;
+      border: none;
+      background-color: $white;
+      color: $gray-dark;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      box-shadow: $shadow-sm;
+
+      &:hover:not(:disabled) {
+        background: linear-gradient(90deg, $primary-blue 0%, $primary-light-blue 100%);
+        color: $white;
+        transform: translateY(-2px);
+      }
+
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      &.activePage {
+        background: linear-gradient(90deg, $primary-blue 0%, $primary-light-blue 100%);
+        color: $white;
+        font-weight: 600;
+      }
+
+      .icon {
+        font-size: 1.2rem;
+      }
+    }
+  }
+
+  .modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-in;
+
+    .modalContent {
+      background-color: $white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: $shadow-md;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      animation: slideIn 0.3s ease;
+
+      h3 {
+        font-size: 1.5rem;
+        color: $gray-dark;
+        margin-bottom: 16px;
+      }
+
+      p {
+        font-size: 1rem;
+        color: $gray-700;
+        margin-bottom: 24px;
+      }
+
+      .modalActions {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+
+        .cancelButton {
+          @include button-style;
+          background-color: $gray-medium;
+
+          &:hover {
+            background-color: $gray-700;
+          }
+        }
+
+        .confirmButton {
+          @include button-style;
+          background-color: $red-500;
+
+          &:hover {
+            background-color: $red-700;
+          }
+        }
+      }
+    }
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, $gray-50 25%, $gray-light 50%, $gray-50 75%);
+    background-size: 200% 100%;
+    animation: skeletonLoading 1.5s infinite;
+    height: 20px;
+    border-radius: 4px;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes skeletonLoading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .paymentsContainer {
+    padding: 16px;
+
+    .title {
+      font-size: 1.8rem;
+    }
+
+    .filters {
+      flex-direction: column;
+      align-items: stretch;
+
+      .filterSelect {
+        min-width: unset;
+      }
+    }
+
+    .table {
+      font-size: 0.85rem;
+
+      .tableHeaderCell, .tableCell {
+        padding: 8px;
+      }
+
+      .actionButtons {
+        flex-direction: column; // Xếp dọc các nút trên mobile
+        align-items: flex-start;
+      }
+
+      .viewButton, .refundButton {
+        padding: 6px 10px;
+        font-size: 0.85rem;
+        min-width: 80px; // Giảm chiều rộng trên mobile
+      }
+    }
+
+    .pagination {
+      gap: 8px;
+
+      .paginationButton {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+      }
+    }
+  }
+}
