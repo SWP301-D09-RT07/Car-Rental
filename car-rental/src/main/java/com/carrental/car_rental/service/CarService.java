@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.HashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -426,5 +428,76 @@ public class CarService {
         LocalDate endLocalDate = endDate.atZone(ZoneId.of("UTC")).toLocalDate();
         List<Booking> bookings = bookingRepository.findByCarIdAndOverlappingDates(carId, startLocalDate, endLocalDate);
         return bookings.isEmpty();
+    }
+
+    public Page<CarDTO> findSimilarCars(Integer carId, int page, int size) {
+        Car car = repository.findById(carId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Car not found with id: " + carId));
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        
+        // Tìm xe tương tự dựa trên brand
+        Page<Car> similarCars = repository.findSimilarCars(
+            car.getBrand().getId(),
+            carId,
+            pageable
+        );
+
+        return similarCars.map(mapper::toDTO);
+    }
+
+    public CarSpecificationsDTO getCarSpecifications(Integer carId) {
+        Car car = repository.findByIdWithRelations(carId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Car not found with id: " + carId));
+
+        // Parse the features string into a Map
+        Map<String, String> specifications = new HashMap<>();
+        if (car.getFeatures() != null && !car.getFeatures().isEmpty()) {
+            String[] features = car.getFeatures().split(",");
+            for (String feature : features) {
+                String[] parts = feature.split(":");
+                if (parts.length == 2) {
+                    specifications.put(parts[0].trim(), parts[1].trim());
+                }
+            }
+        }
+
+        return new CarSpecificationsDTO(specifications);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CarDTO> findSimilarCarsAdvanced(Integer carId, int page, int size) {
+        logger.info("Tìm xe tương tự nâng cao cho carId: {}, trang {}, kích thước {}", carId, page, size);
+        
+        // Lấy thông tin xe hiện tại
+        Car currentCar = repository.findByIdWithRelations(carId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Xe không tồn tại với id: " + carId));
+        
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Car> similarCars = null;
+        
+        // Thử lấy xe cùng thương hiệu trước
+        similarCars = repository.findByBrand_IdAndIsDeletedFalseAndIdNot(currentCar.getBrand().getId(), carId, pageable);
+        
+        // Nếu không có xe cùng thương hiệu, thử lấy xe cùng khu vực
+        if (similarCars.isEmpty() && currentCar.getRegion() != null) {
+            similarCars = repository.findByRegion_IdAndIsDeletedFalseAndIdNot(currentCar.getRegion().getId(), carId, pageable);
+        }
+        
+        // Nếu vẫn không có, thử lấy xe cùng loại nhiên liệu
+        if (similarCars.isEmpty() && currentCar.getFuelType() != null) {
+            similarCars = repository.findByFuelType_IdAndIsDeletedFalseAndIdNot(currentCar.getFuelType().getId(), carId, pageable);
+        }
+        
+        // Nếu vẫn không có, lấy bất kỳ xe nào khác
+        if (similarCars.isEmpty()) {
+            similarCars = repository.findByIdNotAndIsDeletedFalse(carId, pageable);
+        }
+        
+        return similarCars.map(car -> {
+            CarDTO dto = mapper.toDTO(car);
+            dto.setImages(getImagesForCar(car.getId()));
+            return dto;
+        });
     }
 }

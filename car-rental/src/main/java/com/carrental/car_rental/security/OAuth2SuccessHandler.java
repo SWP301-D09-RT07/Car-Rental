@@ -31,8 +31,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
             String username = customOAuth2User.getAttribute("email");
             AuthResponse authResponse = customOAuth2User.getAuthResponse();
 
+            // Redirect trực tiếp đến trang home thay vì /login
             String redirectUrl = String.format(
-                    "%s/login?token=%s&username=%s&expiresAt=%d&role=%s",
+                    "%s/?token=%s&username=%s&expiresAt=%d&role=%s",
                     frontendUrl,
                     authResponse.getToken(),
                     URLEncoder.encode(username, StandardCharsets.UTF_8),

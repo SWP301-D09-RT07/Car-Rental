@@ -2,48 +2,47 @@ import { useContext } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
 import { AuthContext } from './context/AuthContext';
 
-import HomePage from './components/HomePage/HomePage';
-import SearchPage from './components/SearchPage/SearchPage';
-import CarDetailPage from './components/CarDetailPage/CarDetailPage';
-import BookingConfirmationPage from './components/BookingConfirmationPage/BookingConfirmationPage';
-import PaymentPage from './components/PaymentPage/PaymentPage';
+// Pages
+import HomePage from './pages/home/HomePage/HomePage';
+import CarDetailPage from './pages/cars/detail/CarDetailPage/CarDetailPage';
+import BookingConfirmationPage from './pages/bookings/confirmation/BookingConfirmationPage/BookingConfirmationPage';
+import PaymentPage from './pages/payments/components/PaymentPage/PaymentPage';
 import LoginRegister from './pages/Auth/LoginRegister';
-import FavoritePage from './components/FavoritePage/FavoritePage';
-import ProfilePage from './components/ProfilePage/ProfilePage';
-import Cars from './components/CarPage/Cars';
-import Sidebar from './components/Admin/Sidebar';
+import FavoritePage from './pages/favorites/FavoritePage/FavoritePage';
+import ProfilePage from './pages/profile/ProfilePage/ProfilePage';
+import CarList from './pages/cars/list/CarList/CarList';
 
-import ProtectedRoute from './components/ProtectedRoute';
+
+// Components
+import { Sidebar } from './components/features/admin/components/Admin/Sidebar';
+import { ProtectedRoute } from './components/features/auth/components/ProtectedRoute';
+import { AuthHandler } from './components/features/auth/components/AuthHandler';
 
 // Admin Pages
-import AdminHome from './components/Admin/Home.jsx';
-import Bookings from './components/Admin/Bookings.jsx';
-import CarListings from './components/Admin/CarListings.jsx';
-import Payments from './components/Admin/Payments.jsx';
-import Reports from './components/Admin/Reports.jsx';
-import Users from './components/Admin/Users.jsx';
+import AdminHome from './components/features/admin/components/Admin/Home';
+import Bookings from './components/features/admin/components/Admin/Bookings';
+import CarListings from './components/features/admin/components/Admin/CarListings';
+import Payments from './components/features/admin/components/Admin/Payments';
+import Reports from './components/features/admin/components/Admin/Reports';
+import Users from './components/features/admin/components/Admin/Users';
+import SearchPage from "@/components/features/cars/components/SearchPage/SearchPage";
 
 const App = () => {
     const { user } = useContext(AuthContext);
 
-    // Kiểm tra xem có phải tuyến đường admin không
     const isAdminRoute = window.location.pathname.startsWith('/admin');
     const isAdmin = user && user.role === 'admin';
 
     return (
         <BrowserRouter>
             <div className="app-container">
-                {/* Hiển thị Sidebar chỉ cho admin và trên các tuyến đường admin */}
                 {isAdmin && isAdminRoute && <Sidebar />}
                 <div className={isAdmin && isAdminRoute ? 'main-content' : ''}>
+                    <AuthHandler />
                     <Routes>
-                        {/* Đăng nhập / đăng ký */}
                         <Route path="/login" element={<LoginRegister />} />
-
-                        {/* Chuyển hướng "/" tùy vai trò */}
                         <Route
                             path="/"
                             element={
@@ -58,13 +57,10 @@ const App = () => {
                                 )
                             }
                         />
-
-                        {/* Các route không yêu cầu quyền */}
-                        <Route path="/cars" element={<Cars />} />
-                        <Route path="/search" element={<SearchPage />} />
+                
                         <Route path="/cars/:carId" element={<CarDetailPage />} />
-
-                        {/* Yêu cầu đăng nhập */}
+                        <Route path="/cars" element={<CarList />} />
+                        <Route path="/search" element={<SearchPage />} />
                         <Route
                             path="/booking-confirmation"
                             element={
@@ -97,8 +93,6 @@ const App = () => {
                                 </ProtectedRoute>
                             }
                         />
-
-                        {/* Admin-only routes */}
                         <Route
                             path="/admin"
                             element={
@@ -147,8 +141,6 @@ const App = () => {
                                 </ProtectedRoute>
                             }
                         />
-
-                        {/* Fallback: trang không tồn tại */}
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </div>

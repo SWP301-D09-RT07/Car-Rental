@@ -293,4 +293,41 @@ public class CarController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
+
+    @GetMapping("/{id}/similar")
+    public ResponseEntity<Page<CarDTO>> getSimilarCars(
+            @PathVariable(required = false) Integer id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "4") int size) {
+        if (id == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        logger.info("Yêu cầu lấy xe tương tự với ID: {}", id);
+        return ResponseEntity.ok(service.findSimilarCars(id, page, size));
+    }
+
+    @GetMapping("/{id}/specifications")
+    public ResponseEntity<CarSpecificationsDTO> getCarSpecifications(@PathVariable(required = false) Integer id) {
+        if (id == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        logger.info("Yêu cầu lấy thông số kỹ thuật xe với ID: {}", id);
+        CarSpecificationsDTO specifications = service.getCarSpecifications(id);
+        return ResponseEntity.ok(specifications);
+    }
+
+    @GetMapping("/{id}/similar-advanced")
+    public ResponseEntity<Page<CarDTO>> getSimilarCarsAdvanced(
+            @PathVariable(required = false) Integer id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "4") int size) {
+        logger.info("Yêu cầu lấy xe tương tự nâng cao cho xe với ID: {}, trang {}, kích thước {}", id, page, size);
+        try {
+            Page<CarDTO> similarCars = service.findSimilarCarsAdvanced(id, page, size);
+            return ResponseEntity.ok(similarCars);
+        } catch (Exception e) {
+            logger.error("Lỗi khi lấy xe tương tự nâng cao cho xe {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
 }

@@ -24,12 +24,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
-            "/api/auth/", "/api/cars/featured", "/api/cars/popular", "/api/cars/search",
-            "/api/car-brands/", "/api/languages/", "/api/country-codes/", "/api/fuel-types/",
-            "/api/cars/car-brands", "/api/cars/fuel-types", "/api/cars/regions",
-            "/api/cars/seat-options", "/api/cars/price-ranges", "/api/cars/years",
-            "/api/cars", "/api/cars/{carId}/rentals", "/api/cars/regions/country/**",
-            "/api/cars/country-codes"
+            "/login/oauth2/code/",
+            "/oauth2/authorization/",
+            "/api/auth/",
+            "/api/languages/",
+            "/api/country-codes/",
+            "/api/car-brands/",
+            "/api/fuel-types/",
+            "/api/regions/",
+            "/api/cars/",
+            "/api/service-types/",
+            "/api/bookings/",
+            "/api/ratings/"
     );
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
@@ -48,8 +54,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String path = request.getRequestURI();
+        String method = request.getMethod();
         // Bỏ qua các endpoint không yêu cầu xác thực
-        if (PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith) || path.startsWith("/login/oauth2/code/")) {
+        boolean isPublicEndpoint = PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
+        boolean isGetRestrictedEndpoint = (path.startsWith("/api/bookings/") || path.startsWith("/api/ratings/"))
+                && "GET".equalsIgnoreCase(method);
+
+        if (isPublicEndpoint || isGetRestrictedEndpoint || path.startsWith("/login/oauth2/code/")) {
             filterChain.doFilter(request, response);
             return;
         }

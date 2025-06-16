@@ -1,3 +1,4 @@
+@use '_variables' as *;
 
 @mixin hover-scale {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -7,15 +8,17 @@
   }
 }
 
-@mixin button-style {
-  background-color: $primary-blue;
-  color: $white;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-weight: 500;
-  transition: background-color 0.3s ease;
+@mixin button-style($bg-color: $primary-blue, $text-color: $text-light) {
+  padding: $spacing-sm $spacing-md;
+  border: none;
+  border-radius: $border-radius-md;
+  background-color: $bg-color;
+  color: $text-color;
+  cursor: pointer;
+  transition: $transition-base;
+
   &:hover {
-    background-color: darken($primary-blue, 10%);
+    opacity: 0.9;
   }
 }
 
@@ -25,4 +28,29 @@
   padding: 16px;
   box-shadow: $shadow-sm;
   @include hover-scale;
+}
+
+@mixin flex($direction: row, $justify: flex-start, $align: stretch) {
+  display: flex;
+  flex-direction: $direction;
+  justify-content: $justify;
+  align-items: $align;
+}
+
+@mixin flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+@mixin responsive($breakpoint) {
+  @if $breakpoint == tablet {
+    @media (max-width: 768px) {
+      @content;
+    }
+  } @else if $breakpoint == mobile {
+    @media (max-width: 480px) {
+      @content;
+    }
+  }
 }

@@ -19,7 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.time.chrono.ChronoLocalDate;
+import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -96,7 +96,7 @@ public class BookingFinancialsService {
 
         if (booking.getPromoId() != null) {
             Promotion promo = promotionRepository.findById(booking.getPromoId())
-                    .filter(p -> !p.getIsDeleted() && p.getEndDate().isAfter(ChronoLocalDate.from(LocalDateTime.now())))
+                    .filter(p -> !p.getIsDeleted() && p.getEndDate().isAfter(LocalDate.now()))
                     .orElse(null);
             if (promo != null) {
                 BigDecimal discountRate = promo.getDiscountPercentage().divide(new BigDecimal("100"), 4, BigDecimal.ROUND_HALF_UP);
@@ -150,7 +150,7 @@ public class BookingFinancialsService {
 
         if (booking.getPromoId() != null) {
             Promotion promo = promotionRepository.findById(booking.getPromoId())
-                    .filter(p -> !p.getIsDeleted() && p.getEndDate().isAfter(ChronoLocalDate.from(LocalDateTime.now())))
+                    .filter(p -> !p.getIsDeleted() && p.getEndDate().isAfter(LocalDate.now()))
                     .orElse(null);
             if (promo != null) {
                 BigDecimal discountRate = promo.getDiscountPercentage().divide(new BigDecimal("100"), 4, BigDecimal.ROUND_HALF_UP);

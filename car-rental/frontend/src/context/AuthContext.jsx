@@ -1,12 +1,41 @@
+// src/context/AuthContext.jsx
 import { createContext, useState, useEffect } from 'react';
-import { logout } from '../services/api';
 
-// Export AuthContext để các component có thể import
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('token'));
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        // Check token validity on mount
+        const checkToken = () => {
+            const storedToken = localStorage.getItem('token');
+            const expiresAt = localStorage.getItem('expiresAt');
+            const role = localStorage.getItem('role');
+            const username = localStorage.getItem('username');
+
+            if (storedToken && expiresAt && new Date(expiresAt) > new Date()) {
+                setToken(storedToken);
+                setUser({
+                    username: username || null,
+                    role: role || null,
+                });
+            } else {
+                // Clear invalid token
+                localStorage.removeItem('token');
+                localStorage.removeItem('expiresAt');
+                localStorage.removeItem('role');
+                localStorage.removeItem('username');
+                setToken(null);
+                setUser(null);
+            }
+            setIsLoading(false);
+        };
+
+        checkToken();
+    }, []);
 
     const login = (newToken, userData) => {
         setToken(newToken);
@@ -18,18 +47,11 @@ export const AuthProvider = ({ children }) => {
 
         if (newToken) {
             localStorage.setItem('token', newToken);
-            if (userData.expiresAt) {
-                localStorage.setItem('expiresAt', userData.expiresAt);
-            }
-            if (userData.role) {
-                localStorage.setItem('role', userData.role);
-            }
-            if (userData.username) {
-                localStorage.setItem('username', userData.username);
-            }
+            if (userData.expiresAt) localStorage.setItem('expiresAt', userData.expiresAt);
+            if (userData.role) localStorage.setItem('role', userData.role);
+            if (userData.username) localStorage.setItem('username', userData.username);
         }
     };
-
 
     const logoutHandler = async () => {
         try {
@@ -42,28 +64,27 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('expiresAt');
         localStorage.removeItem('role');
+        localStorage.removeItem('username');
     };
 
-    useEffect(() => {
-        const storedToken = localStorage.getItem('token');
-        const storedExpiresAt = localStorage.getItem('expiresAt');
-        const storedRole = localStorage.getItem('role');
-        if (storedToken && storedExpiresAt) {
-            const now = new Date().getTime();
-            if (now < parseInt(storedExpiresAt)) {
-                setToken(storedToken);
-                setUser({
-                    username: localStorage.getItem('username') || null,
-                    role: storedRole || null,
-                });
-            } else {
-                logoutHandler();
-            }
-        }
-    }, []);
+    const isTokenExpired = () => {
+        const expiresAt = localStorage.getItem('expiresAt');
+        if (!expiresAt) return true;
+        return Date.now() > parseInt(expiresAt, 10);
+    };
+
+    if (isLoading) {
+        return null; // or a loading spinner
+    }
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout: logoutHandler }}>
+        <AuthContext.Provider value={{ 
+            user, 
+            token, 
+            login, 
+            logout: logoutHandler,
+            isAuthenticated: !!token && !isTokenExpired() 
+        }}>
             {children}
         </AuthContext.Provider>
     );

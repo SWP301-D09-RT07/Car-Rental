@@ -8,9 +8,10 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface CarBrandMapper {
     @Mapping(source = "id", target = "carBrandId")
-        // Ánh xạ id sang carBrandId
+    @Mapping(source = "brandName", target = "brandName")
     CarBrandDTO toDTO(CarBrand entity);
 
-    @Mapping(source = "carBrandId", target = "id") // Ánh xạ ngược lại
+    @Mapping(source = "carBrandId", target = "id")
+    @Mapping(source = "brandName", target = "brandName")
     CarBrand toEntity(CarBrandDTO dto);
 }
