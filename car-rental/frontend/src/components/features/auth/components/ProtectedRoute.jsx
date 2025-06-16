@@ -1,7 +1,7 @@
 import { useContext } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '@/context/AuthContext';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
+import LoadingSpinner from '@/components/Common/Loading/LoadingSpinner';
 import { toast } from 'react-hot-toast';
 
 export const ProtectedRoute = ({ children, requiredRole }) => {
