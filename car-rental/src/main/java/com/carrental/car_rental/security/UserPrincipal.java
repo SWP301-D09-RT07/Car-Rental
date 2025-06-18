@@ -8,26 +8,23 @@ import java.util.Collection;
 import java.util.Collections;
 
 public class UserPrincipal implements UserDetails {
+    private Integer id;
+    private String username;
+    private String password;
+    private String role;
 
-    private final Integer id;
-    private final String email;
-    private final String password;
-    private final Collection<? extends GrantedAuthority> authorities;
-
-    public UserPrincipal(Integer id, String email, String password, String role) {
+    public UserPrincipal(Integer id, String username, String password, String role) {
         this.id = id;
-        this.email = email;
+        this.username = username;
         this.password = password;
-        this.authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()));
-    }
-
-    public Integer getId() {
-        return id;
+        this.role = role;
     }
 
     @Override
-    public String getUsername() {
-        return email;
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        // Tạo authority với prefix ROLE_ và uppercase
+        String authority = "ROLE_" + role.toUpperCase();
+        return Collections.singletonList(new SimpleGrantedAuthority(authority));
     }
 
     @Override
@@ -36,8 +33,8 @@ public class UserPrincipal implements UserDetails {
     }
 
     @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return authorities;
+    public String getUsername() {
+        return username;
     }
 
     @Override
@@ -58,5 +55,13 @@ public class UserPrincipal implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
+    }
+
+    public Integer getId() {
+        return id;
+    }
+
+    public String getRole() {
+        return role;
     }
 }

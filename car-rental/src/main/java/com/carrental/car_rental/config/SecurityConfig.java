@@ -60,10 +60,10 @@ public class SecurityConfig {
                         .requestMatchers("/login/oauth2/code/**", "/oauth2/authorization/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/cars/**", "/api/languages/**", "/api/country-codes/**",
                                 "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**",
-                                "/api/cars/**/features", "/api/service-types/**").permitAll()
+                                "/api/cars/*/features", "/api/service-types/**").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/bookings/**", "/api/ratings/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("admin")
-                        .requestMatchers("/api/customer/**").hasRole("customer")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/users/**").authenticated()
                         .anyRequest().authenticated()
                 )

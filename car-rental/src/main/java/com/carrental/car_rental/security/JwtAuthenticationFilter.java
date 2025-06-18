@@ -63,20 +63,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (isPublicEndpoint || isGetRestrictedEndpoint || path.startsWith("/login/oauth2/code/")) {
             filterChain.doFilter(request, response);
             return;
-        }
-
-        String token = getJwtFromRequest(request);
+        }        String token = getJwtFromRequest(request);
+        logger.debug("Processing request: {} {}, Token present: {}", method, path, token != null);
+        
         if (token != null && jwtTokenProvider.validateToken(token)) {
-            logger.info("Valid JWT token found for request: {}", path);
+            logger.info("Valid JWT token found for request: {} {}", method, path);
             String username = jwtTokenProvider.getUsernameFromToken(token);
             String role = jwtTokenProvider.getRoleFromToken(token);
+            logger.debug("Token details - Username: {}, Role: {}", username, role);
+            
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities());
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } else if (token != null) {
-            logger.debug("No valid JWT token found for request: {}", path);
+            logger.warn("Invalid JWT token found for request: {} {} - Token validation failed", method, path);
+        } else {
+            logger.debug("No JWT token found for request: {} {}", method, path);
         }
         filterChain.doFilter(request, response);
     }

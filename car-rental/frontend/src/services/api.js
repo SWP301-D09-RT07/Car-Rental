@@ -36,13 +36,30 @@ const isTokenExpired = () => {
 api.interceptors.request.use(
     async (config) => {
         const token = localStorage.getItem('token');
-        if (token && !isTokenExpired()) {
+        const expiresAt = localStorage.getItem('expiresAt');
+        
+        console.log('🔍 API Request:', {
+            url: config.url,
+            method: config.method,
+            hasToken: !!token,
+            tokenExpired: isTokenExpired(),
+            expiresAt: expiresAt ? new Date(parseInt(expiresAt)).toISOString() : 'N/A',
+            currentTime: new Date().toISOString()
+        });
+          if (token && !isTokenExpired()) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log('✅ Token added to request:', {
+                tokenPreview: token.substring(0, 50) + '...',
+                authHeader: config.headers.Authorization.substring(0, 60) + '...'
+            });
         } else if (token) {
+            console.warn('⚠️ Token expired, clearing localStorage');
             localStorage.removeItem('token');
             localStorage.removeItem('expiresAt');
             localStorage.removeItem('role');
-            window.location.href = '/login?error=token_expired';
+            localStorage.removeItem('username');
+            localStorage.removeItem('userEmail');
+            // Don't redirect here - let components handle it
             return Promise.reject(new Error('Token hết hạn'));
         }
         return config;
@@ -55,15 +72,16 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            // Chỉ xóa token và chuyển hướng nếu không phải là request lấy danh sách xe
+            console.warn('⚠️ 401 Unauthorized response received');
+            // Don't automatically clear token or redirect - let components handle it
+            // Only clear if it's not a cars request (for public access)
             if (!error.config.url.includes('/cars')) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('expiresAt');
-                localStorage.removeItem('role');
-                window.location.href = '/login?error=unauthorized';
-            }
-        } else if (error.response?.status === 400) {
-            const message = error.response?.data?.message || error.response?.data?.errors?.join(', ') || 'Dữ liệu không hợp lệ';
+                console.warn('⚠️ Clearing token due to 401 on protected endpoint');
+            }        } else if (error.response?.status === 400) {
+            const message = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          error.response?.data?.errors?.join(', ') || 
+                          'Dữ liệu không hợp lệ';
             return Promise.reject(new Error(message));
         }
         return Promise.reject(error);
@@ -140,11 +158,24 @@ export const resetPassword = async (email, newPassword) => {
 
 export const changePassword = async (currentPassword, newPassword) => {
     if (!currentPassword || !newPassword) throw new Error('Vui lòng cung cấp mật khẩu hiện tại và mật khẩu mới');
+    
+    const payload = { currentPassword, newPassword };
+    console.log('🔐 Change password payload:', payload);
+    
     try {
-        const response = await api.post('/api/auth/change-password', { currentPassword, newPassword });
+        const response = await api.post('/api/users/change-password', payload);
+        console.log('✅ Change password success:', response.data);
         return response.data;
     } catch (error) {
-        throw new Error(error.response?.data?.message || 'Đổi mật khẩu thất bại');
+        console.error('❌ Change password error:', error);
+        console.error('Error response:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+        // Handle different error formats from backend
+        const errorMessage = error.response?.data?.error || 
+                            error.response?.data?.message || 
+                            error.message || 
+                            'Đổi mật khẩu thất bại';
+        throw new Error(errorMessage);
     }
 };
 
@@ -174,20 +205,48 @@ export const logout = async () => {
 // Quản lý người dùng
 export const getProfile = async () => {
     try {
+        console.log('🔄 Fetching user profile...');
         const response = await api.get('/api/users/profile');
+        console.log('✅ Profile fetched successfully:', response.data);
         return response.data;
     } catch (error) {
-        throw new Error(error.response?.data?.message || 'Lấy thông tin người dùng thất bại');
+        console.error('❌ Profile fetch error:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            headers: error.response?.headers,
+            message: error.message
+        });
+        
+        // Provide more specific error messages based on status code
+        if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.response?.status === 403) {
+            throw new Error('Bạn không có quyền truy cập thông tin này.');
+        } else if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy thông tin người dùng.');
+        } else if (error.response?.status === 500) {
+            throw new Error('Lỗi hệ thống. Vui lòng thử lại sau.');
+        } else {
+            throw new Error(error.response?.data?.message || 'Lấy thông tin người dùng thất bại');
+        }
     }
 };
 
-export const updateProfile = async (userId, userData) => {
-    if (!userId || !userData) throw new Error('Vui lòng cung cấp ID người dùng và dữ liệu cập nhật');
+export const updateProfile = async (userData) => {
+    if (!userData) throw new Error('Vui lòng cung cấp dữ liệu cập nhật');
+    
     try {
-        const response = await api.put(`/api/users/${userId}`, userData);
+        const response = await api.put('/api/users/profile', userData);
         return response.data;
     } catch (error) {
-        throw new Error(error.response?.data?.message || 'Cập nhật hồ sơ thất bại');
+        console.error('Update profile error:', error);
+        // Handle different error formats from backend
+        const errorMessage = error.response?.data?.error || 
+                            error.response?.data?.message || 
+                            error.message || 
+                            'Cập nhật hồ sơ thất bại';
+        throw new Error(errorMessage);
     }
 };
 
@@ -533,6 +592,24 @@ export const getSimilarCarsAdvanced = async (carId, page = 0, size = 4) => {
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Lấy danh sách xe tương tự nâng cao thất bại');
+    }
+};
+
+// Test authentication endpoint
+export const testAuth = async () => {
+    try {
+        console.log('🧪 Testing authentication...');
+        const response = await api.get('/api/users/profile');
+        console.log('✅ Auth test successful:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Auth test failed:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            headers: error.response?.headers
+        });
+        throw error;
     }
 };
 
