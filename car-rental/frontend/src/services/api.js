@@ -352,11 +352,18 @@ export const getCarById = async (carId) => {
     }
 };
 
+export function getToken() {
+    return localStorage.getItem('token');
+}
+
 export const getCarBrands = async () => {
     const cacheKey = 'carBrands';
     if (cache.has(cacheKey)) return cache.get(cacheKey);
     try {
-        const response = await api.get('/api/car-brands');
+        const token = getToken();
+        const response = await api.get('/api/car-brands', {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         cache.set(cacheKey, response.data);
         return response.data;
     } catch (error) {
@@ -399,7 +406,10 @@ export const getRegions = async () => {
     const cacheKey = 'regions';
     if (cache.has(cacheKey)) return cache.get(cacheKey);
     try {
-        const response = await api.get('/api/regions');
+        const token = getToken();
+        const response = await api.get('/api/regions', {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         cache.set(cacheKey, response.data);
         return response.data;
     } catch (error) {
@@ -624,13 +634,31 @@ export const getReportsData = async () => {
     }
 };
 
-export const getMonthlyUserRegistrations = async () => {
-    try {
-        const response = await api.get('/api/reports/user-registrations');
-        return response.data;
-    } catch (error) {
-        throw new Error(error.response?.data?.message || 'Lấy thống kê đăng ký người dùng thất bại');
-    }
+// Lấy booking gần đây nhất cho dashboard admin
+export const getRecentBookings = async (size = 5) => {
+    const token = getToken();
+    const response = await api.get(`/api/admin/bookings/recent?size=${size}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+    return response.data;
+};
+
+// Lấy khách hàng mới đăng ký theo tháng/năm cho dashboard admin
+export const getNewUsersByMonth = async (month, year) => {
+    const token = getToken();
+    const response = await api.get(`/api/users/new-by-month?month=${month}&year=${year}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+    return response.data;
+};
+
+// Lấy user có booking gần đây nhất cho dashboard admin
+export const getRecentBookingUsers = async (size = 5) => {
+    const token = getToken();
+    const response = await api.get(`/api/users/recent-userbooking?size=${size}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+    return response.data;
 };
 
 export default api;

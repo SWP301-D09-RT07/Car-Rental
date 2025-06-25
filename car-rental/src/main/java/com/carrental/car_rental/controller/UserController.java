@@ -6,6 +6,7 @@ import com.carrental.car_rental.dto.UpdateUserDTO;
 import com.carrental.car_rental.dto.UserDTO;
 import com.carrental.car_rental.dto.ToggleUserStatusRequest;
 import com.carrental.car_rental.service.UserService;
+import com.carrental.car_rental.service.BookingService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -37,11 +38,13 @@ public class UserController {
 
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final BookingService bookingService;
 
     @Autowired
-    public UserController(UserService userService, JwtTokenProvider jwtTokenProvider) {
+    public UserController(UserService userService, JwtTokenProvider jwtTokenProvider, BookingService bookingService) {
         this.userService = userService;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.bookingService = bookingService;
     }
 
     @GetMapping("/{id}")
@@ -272,5 +275,18 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body((UserDTO) createErrorResponse("Lỗi khi cập nhật trạng thái: " + e.getMessage()));
         }
+    }
+
+    // Lấy user role customer đăng ký trong tháng/năm (của hoàng)
+    @GetMapping("/new-by-month")
+    public ResponseEntity<List<UserDTO>> getNewUsersByMonth(@RequestParam int month, @RequestParam int year) {
+        List<UserDTO> users = userService.findNewUsersByMonth(month, year);
+        return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/recent-userbooking")
+    public ResponseEntity<List<UserDTO>> getRecentBookingUsers(@RequestParam(defaultValue = "5") int size) {
+        List<UserDTO> users = bookingService.findRecentBookingUsers(size);
+        return ResponseEntity.ok(users);
     }
 }

@@ -34,4 +34,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
             @Param("roleName") String roleName,
             @Param("statusName") String statusName,
             Pageable pageable);
+    // Lấy user role customer đăng ký trong tháng/năm (của hoàng)
+    @Query("SELECT u FROM User u WHERE u.isDeleted = false AND u.role.roleName = :roleName AND FUNCTION('MONTH', u.createdAt) = :month AND FUNCTION('YEAR', u.createdAt) = :year")
+    List<User> findByRoleNameAndCreatedAtInMonth(@Param("roleName") String roleName, @Param("month") int month, @Param("year") int year);
 }

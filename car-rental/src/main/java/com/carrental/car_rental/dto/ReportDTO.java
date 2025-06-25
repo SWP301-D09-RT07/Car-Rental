@@ -13,7 +13,6 @@ public class ReportDTO {
     private List<SupplierRevenueDTO> suppliersRevenue;
     private List<MonthlyDataDTO> monthlyRevenue;
     private List<MonthlyDataDTO> monthlyBookings;
-    private List<MonthlyDataDTO> monthlyRegistrations;
     private List<MonthlyPopularCarDTO> monthlyPopularCar;
 
     @Data

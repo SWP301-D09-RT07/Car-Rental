@@ -1,14 +1,19 @@
 package com.carrental.car_rental.service;
 
+import com.carrental.car_rental.dto.CarDTO;
+import com.carrental.car_rental.dto.ImageDTO;
 import com.carrental.car_rental.dto.ReportDTO;
-import com.carrental.car_rental.entity.*;
-import com.carrental.car_rental.repository.*;
+import com.carrental.car_rental.entity.BookingFinancial;
+import com.carrental.car_rental.repository.BookingFinancialsRepository;
+import com.carrental.car_rental.repository.BookingRepository;
+import com.carrental.car_rental.repository.CarRepository;
+import com.carrental.car_rental.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -16,10 +21,10 @@ import java.util.stream.Collectors;
 public class ReportService {
 
     @Autowired
-    private BookingRepository bookingRepository;
+    private BookingFinancialsRepository bookingFinancialsRepository;
 
     @Autowired
-    private BookingFinancialsRepository bookingFinancialsRepository;
+    private BookingRepository bookingRepository;
 
     @Autowired
     private CarRepository carRepository;
@@ -51,95 +56,147 @@ public class ReportService {
                 .entrySet()
                 .stream()
                 .max((e1, e2) -> Long.compare(e1.getValue(), e2.getValue()))
-                .flatMap(entry -> {
-                    Integer carId = entry.getKey();
-                    return carRepository.findById(carId).map(car -> {
-                        ReportDTO.PopularCarDetailDTO detail = new ReportDTO.PopularCarDetailDTO();
-                        detail.setCarId(carId.longValue());
-                        detail.setCarModel(car.getModel());
-                        detail.setLicensePlate(car.getLicensePlate());
-                        detail.setBrandName(car.getBrand().getBrandName());
-                        detail.setSupplierName(car.getSupplier().getUsername());
-                        detail.setBookingCount(entry.getValue());
-                        
-                        // Tính tổng doanh thu của xe này
-                        BigDecimal carRevenue = bookingRepository.findAllByIsDeletedFalse()
-                                .stream()
-                                .filter(b -> b.getCar().getId().equals(carId))
-                                .map(b -> bookingFinancialsRepository.findByBookingIdAndIsDeletedFalse(b.getId())
+                .flatMap(e -> {
+                    Integer carId = e.getKey();
+                    Long bookingCount = e.getValue();
+                    
+                    return carRepository.findByIdWithRelations(carId)
+                            .map(c -> {
+                                ReportDTO.PopularCarDetailDTO detail = new ReportDTO.PopularCarDetailDTO();
+                                detail.setCarId(c.getId().longValue());
+                                detail.setCarModel(c.getModel());
+                                detail.setLicensePlate(c.getLicensePlate());
+                                detail.setBrandName(c.getBrand() != null ? c.getBrand().getBrandName() : "N/A");
+                                detail.setImageUrl(c.getImage()); // URL hình ảnh chính
+                                detail.setBookingCount(bookingCount);
+                                
+                                // Lấy tên chủ xe
+                                if (c.getSupplier() != null) {
+                                    userRepository.findById(c.getSupplier().getId())
+                                            .ifPresent(u -> detail.setSupplierName(u.getUsername()));
+                                } else {
+                                    detail.setSupplierName("N/A");
+                                }
+                                
+                                // Tính tổng doanh thu của xe này
+                                BigDecimal carRevenue = bookingRepository.findAllByIsDeletedFalse()
                                         .stream()
-                                        .findFirst()
-                                        .map(BookingFinancial::getTotalFare)
-                                        .orElse(BigDecimal.ZERO))
-                                .reduce(BigDecimal.ZERO, BigDecimal::add);
-                        detail.setTotalRevenue(carRevenue);
-                        
-                        return detail;
-                    });
+                                        .filter(b -> b.getCar().getId().equals(carId))
+                                        .map(b -> bookingFinancialsRepository.findByBookingIdAndIsDeletedFalse(b.getId())
+                                                .stream()
+                                                .findFirst()
+                                                .map(BookingFinancial::getTotalFare)
+                                                .orElse(BigDecimal.ZERO))
+                                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                                detail.setTotalRevenue(carRevenue);
+                                
+                                return detail;
+                            });
                 })
                 .orElse(null);
         report.setPopularCarDetail(popularCarDetail);
 
-        // Doanh thu theo tháng (12 tháng gần nhất)
-        List<ReportDTO.MonthlyDataDTO> monthlyRevenue = generateMonthlyRevenueData();
-        report.setMonthlyRevenue(monthlyRevenue);
+        // Doanh thu nhà cung cấp
+        List<ReportDTO.SupplierRevenueDTO> suppliersRevenue = bookingRepository.findAllByIsDeletedFalse()
+                .stream()
+                .collect(Collectors.groupingBy(
+                        b -> b.getCar().getSupplier().getId(),
+                        Collectors.mapping(
+                                b -> bookingFinancialsRepository.findByBookingIdAndIsDeletedFalse(b.getId())
+                                        .stream()
+                                        .findFirst()
+                                        .map(BookingFinancial::getTotalFare)
+                                        .orElse(BigDecimal.ZERO),
+                                Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
+                        )
+                ))
+                .entrySet()
+                .stream()
+                .map(e -> {
+                    ReportDTO.SupplierRevenueDTO dto = new ReportDTO.SupplierRevenueDTO();
+                    userRepository.findById(e.getKey()).ifPresent(u -> dto.setSupplierName(u.getUsername()));
+                    dto.setRevenue(e.getValue());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+        report.setSuppliersRevenue(suppliersRevenue);
 
-        // Lượt đặt theo tháng (12 tháng gần nhất)
-        List<ReportDTO.MonthlyDataDTO> monthlyBookings = generateMonthlyBookingsData();
+        // Doanh thu và lượt đặt hàng tháng
+        LocalDate oneYearAgo = LocalDate.now().minusYears(1); // Hoặc LocalDate.of(2025, 1, 1)
+        List<ReportDTO.MonthlyDataDTO> monthlyRevenue = bookingRepository.findAllByIsDeletedFalse()
+                .stream()
+                .filter(b -> b.getBookingDate().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(oneYearAgo))
+                .collect(Collectors.groupingBy(
+                        b -> b.getBookingDate().atZone(ZoneId.systemDefault()).getMonthValue(),
+                        Collectors.mapping(
+                                b -> bookingFinancialsRepository.findByBookingIdAndIsDeletedFalse(b.getId())
+                                        .stream()
+                                        .findFirst()
+                                        .map(BookingFinancial::getTotalFare)
+                                        .orElse(BigDecimal.ZERO),
+                                Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
+                        )
+                ))
+                .entrySet()
+                .stream()
+                .map(e -> {
+                    ReportDTO.MonthlyDataDTO dto = new ReportDTO.MonthlyDataDTO();
+                    dto.setMonth(e.getKey());
+                    dto.setRevenue(e.getValue());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        List<ReportDTO.MonthlyDataDTO> monthlyBookings = bookingRepository.findAllByIsDeletedFalse()
+                .stream()
+                .filter(b -> b.getBookingDate().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(oneYearAgo))
+                .collect(Collectors.groupingBy(
+                        b -> b.getBookingDate().atZone(ZoneId.systemDefault()).getMonthValue(),
+                        Collectors.counting()
+                ))
+                .entrySet()
+                .stream()
+                .map(e -> {
+                    ReportDTO.MonthlyDataDTO dto = new ReportDTO.MonthlyDataDTO();
+                    dto.setMonth(e.getKey());
+                    dto.setCount(e.getValue());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        report.setMonthlyRevenue(monthlyRevenue);
         report.setMonthlyBookings(monthlyBookings);
 
+        // Tỷ lệ xe phổ biến hàng tháng
+        List<ReportDTO.MonthlyPopularCarDTO> monthlyPopularCar = bookingRepository.findAllByIsDeletedFalse()
+                .stream()
+                .filter(b -> b.getBookingDate().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(oneYearAgo))
+                .collect(Collectors.groupingBy(
+                        b -> b.getBookingDate().atZone(ZoneId.systemDefault()).getMonthValue(),
+                        Collectors.groupingBy(
+                                b -> b.getCar().getId(),
+                                Collectors.counting()
+                        )
+                ))
+                .entrySet()
+                .stream()
+                .map(e -> {
+                    Long totalBookingsInMonth = e.getValue().values().stream().mapToLong(Long::longValue).sum();
+                    return e.getValue().entrySet().stream()
+                            .max((e1, e2) -> Long.compare(e1.getValue(), e2.getValue()))
+                            .map(maxEntry -> {
+                                ReportDTO.MonthlyPopularCarDTO dto = new ReportDTO.MonthlyPopularCarDTO();
+                                dto.setMonth(e.getKey());
+                                dto.setPercentage((maxEntry.getValue() * 100.0) / totalBookingsInMonth);
+                                return dto;
+                            })
+                            .orElse(null);
+                })
+                .filter(dto -> dto != null)
+                .collect(Collectors.toList());
+
+        report.setMonthlyPopularCar(monthlyPopularCar);
+
         return report;
-    }
-
-    private List<ReportDTO.MonthlyDataDTO> generateMonthlyRevenueData() {
-        List<ReportDTO.MonthlyDataDTO> monthlyData = new java.util.ArrayList<>();
-        
-        for (int i = 11; i >= 0; i--) {
-            YearMonth yearMonth = YearMonth.now().minusMonths(i);
-            int month = yearMonth.getMonthValue();
-            int year = yearMonth.getYear();
-            
-            BigDecimal monthlyRevenue = bookingFinancialsRepository.findAll()
-                    .stream()
-                    .filter(bf -> !bf.getIsDeleted())
-                    .filter(bf -> {
-                        LocalDate bookingDate = bf.getBooking().getStartDate();
-                        return bookingDate.getMonthValue() == month && bookingDate.getYear() == year;
-                    })
-                    .map(BookingFinancial::getTotalFare)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-            
-            ReportDTO.MonthlyDataDTO data = new ReportDTO.MonthlyDataDTO();
-            data.setMonth(month);
-            data.setRevenue(monthlyRevenue);
-            monthlyData.add(data);
-        }
-        
-        return monthlyData;
-    }
-
-    private List<ReportDTO.MonthlyDataDTO> generateMonthlyBookingsData() {
-        List<ReportDTO.MonthlyDataDTO> monthlyData = new java.util.ArrayList<>();
-        
-        for (int i = 11; i >= 0; i--) {
-            YearMonth yearMonth = YearMonth.now().minusMonths(i);
-            int month = yearMonth.getMonthValue();
-            int year = yearMonth.getYear();
-            
-            Long monthlyBookings = bookingRepository.findAllByIsDeletedFalse()
-                    .stream()
-                    .filter(b -> {
-                        LocalDate bookingDate = b.getStartDate();
-                        return bookingDate.getMonthValue() == month && bookingDate.getYear() == year;
-                    })
-                    .count();
-            
-            ReportDTO.MonthlyDataDTO data = new ReportDTO.MonthlyDataDTO();
-            data.setMonth(month);
-            data.setCount(monthlyBookings);
-            monthlyData.add(data);
-        }
-        
-        return monthlyData;
     }
 }

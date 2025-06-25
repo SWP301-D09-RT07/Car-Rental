@@ -92,9 +92,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             logger.info("Authentication set in SecurityContext");
         } else if (token != null) {
-            logger.error("Invalid JWT token found for request: {}", path);
+            logger.error("Invalid JWT token found for request: {}. Token: {}", path, token);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Invalid or expired JWT token");
+            logger.error("Set response 401 Unauthorized for invalid token");
+            return;
         } else {
             logger.warn("No JWT token found for request: {}", path);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Missing JWT token");
+            logger.warn("Set response 401 Unauthorized for missing token");
+            return;
         }
         
         logger.info("=== JWT FILTER - KẾT THÚC XỬ LÝ REQUEST ===");

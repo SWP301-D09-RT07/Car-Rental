@@ -66,7 +66,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/cars/{id}", "/api/cars/supplier/**", "/api/cars/brand/**").authenticated()
                         .requestMatchers("/api/cars/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("admin")
-                        .requestMatchers("/api/reports/**").hasRole("admin")
                         .requestMatchers("/api/customer/**").hasRole("customer")
                         .requestMatchers("/api/users/**").authenticated()
                         .anyRequest().authenticated()

@@ -347,9 +347,11 @@ const HomePage = () => {
                 setIsLoading(true)
                 setError("")
 
+                const token = localStorage.getItem('token');
+                const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
                 const [featuredResponse, popularResponse, brandsResponse, regionsResponse] = await Promise.all([
-                    api.get("/api/cars/featured"),
-                    api.get("/api/cars/popular"),
+                    api.get("/api/cars/featured", config),
+                    api.get("/api/cars/popular", config),
                     getCarBrands(),
                     getRegions(),
                 ])
