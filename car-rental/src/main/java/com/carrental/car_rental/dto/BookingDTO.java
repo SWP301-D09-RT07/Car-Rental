@@ -52,8 +52,8 @@ public class BookingDTO {
     private LocalDate endDate;
     // private Instant bookingInstant;
     // private Instant createdInstant;
-    public Boolean getIsSelfDrive() { 
-        return isSelfDrive != null ? isSelfDrive : (driverId == null); 
-    }
-    public void setIsSelfDrive(Boolean isSelfDrive) { this.isSelfDrive = isSelfDrive; }
+//    public Boolean getIsSelfDrive() {
+//        return isSelfDrive != null ? isSelfDrive : (driverId == null);
+//    }
+   // public void setIsSelfDrive(Boolean isSelfDrive) { this.isSelfDrive = isSelfDrive; }
 }

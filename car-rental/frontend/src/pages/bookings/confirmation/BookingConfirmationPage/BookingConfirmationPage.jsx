@@ -460,6 +460,7 @@ const BookingConfirmationPage = () => {
         dropoffDateTime: bookingData.dropoffDateTime,
         withDriver: withDriver,
         deliveryRequested: deliveryRequested,
+        seatNumber: car?.numOfSeats || car?.seatNumber
       };
       
       console.log('[BookingConfirm] Gọi createBooking với:', bookingPayload);
@@ -842,7 +843,6 @@ const BookingConfirmationPage = () => {
                 </div>
               </div>
             </div>
-
 
             {/* Terms and Conditions */}
             <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl mb-8 border border-gray-100">

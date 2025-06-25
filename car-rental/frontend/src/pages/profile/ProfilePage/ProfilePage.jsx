@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../../../context/AuthContext';
+import { AuthContext } from '@/store/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { 
     getProfile, 
@@ -11,7 +11,7 @@ import {
     sendEmailVerification,
     cancelBooking,
     getBookingDetails
-} from '../../../services/api';
+} from '@/services/api';
 import { toast } from 'react-toastify';
 import './ProfilePage.scss';
 

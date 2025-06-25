@@ -228,13 +228,6 @@ public class BookingService {
             logger.warn("No region specified, using default region ID: 1");
         }
 
-        if (dto.getPromoId() != null) {
-            Promotion promo = promotionRepository.findById(dto.getPromoId())
-                    .filter(p -> !p.getIsDeleted() && p.getEndDate().isAfter(ChronoLocalDate.from(LocalDateTime.now())))
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired promotion"));
-            booking.setPromo(promo);
-        }
-
         // Set promotion if specified
         if (dto.getPromoId() != null) {
             Promotion promotion = promotionRepository.findById(dto.getPromoId())
