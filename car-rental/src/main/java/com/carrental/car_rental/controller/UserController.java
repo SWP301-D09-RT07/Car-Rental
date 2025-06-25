@@ -2,13 +2,15 @@ package com.carrental.car_rental.controller;
 
 import com.carrental.car_rental.config.JwtTokenProvider;
 import com.carrental.car_rental.dto.CreateUserDTO;
+import com.carrental.car_rental.dto.BookingDTO;
 import com.carrental.car_rental.dto.UpdateProfileDTO;
 import com.carrental.car_rental.dto.UpdateUserDTO;
 import com.carrental.car_rental.dto.UserDTO;
-import com.carrental.car_rental.dto.UserDetailDTO; // THÊM IMPORT NÀY
+import com.carrental.car_rental.dto.UserDetailDTO;
 import com.carrental.car_rental.entity.User;
 import com.carrental.car_rental.repository.UserRepository;
 import com.carrental.car_rental.service.UserService;
+import com.carrental.car_rental.service.BookingService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -22,6 +24,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
@@ -38,12 +41,14 @@ public class UserController {
     private static final Pattern PASSWORD_PATTERN = Pattern.compile("^(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#+\\-_])[A-Za-z\\d@$!%*?&#+\\-_]{8,}$");    private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+    private final BookingService bookingService;
 
     @Autowired
-    public UserController(UserService userService, JwtTokenProvider jwtTokenProvider, UserRepository userRepository) {
+    public UserController(UserService userService, JwtTokenProvider jwtTokenProvider, UserRepository userRepository, BookingService bookingService) {
         this.userService = userService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
+        this.bookingService = bookingService;
     }
 
     @GetMapping("/profile")
@@ -76,6 +81,21 @@ public class UserController {
                     .body(createErrorResponse("Lỗi khi lấy thông tin người dùng: " + e.getMessage()));
         }
     }
+    
+//    @PostMapping("/send-email-verification")
+//    @PreAuthorize("hasRole('CUSTOMER')")
+//    public ResponseEntity<?> sendEmailVerification(Authentication authentication) {
+//    try {
+//        String username = authentication.getName();
+//        userService.sendEmailVerification(username);
+//
+//        return ResponseEntity.ok(Map.of("success", true, "message", "Email xác thực đã được gửi"));
+//    } catch (Exception e) {
+//        logger.error("Error sending email verification", e);
+//        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//            .body(Map.of("success", false, "error", "Lỗi khi gửi email xác thực"));
+//    }
+//}
 
     @PostMapping("/change-password")
     @PreAuthorize("hasRole('CUSTOMER')")
@@ -282,7 +302,42 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(createErrorResponse("Không tìm thấy người dùng để xóa: " + e.getMessage()));
         }
-    }    private String getClientIp(Authentication authentication) {
+    }
+
+    @GetMapping("/profile/bookings")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getUserBookingHistory(Authentication authentication) {
+        logger.info("Getting booking history for user: {}", authentication.getName());
+        
+        try {
+            String username = authentication.getName();
+            Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
+            
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "error", "Không tìm thấy người dùng"));
+            }
+            
+            // Sử dụng BookingService thay vì repository trực tiếp
+            List<BookingDTO> bookingHistory = bookingService.findByUserId(userOpt.get().getId());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", bookingHistory);
+            response.put("total", bookingHistory.size());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            logger.error("Error getting booking history", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("error", "Lỗi khi tải lịch sử đặt xe: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    private String getClientIp(Authentication authentication) {
         String clientIp = "Unknown";
         if (org.springframework.web.context.request.RequestContextHolder.getRequestAttributes() != null) {
             jakarta.servlet.http.HttpServletRequest request = (jakarta.servlet.http.HttpServletRequest) org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes().resolveReference(org.springframework.web.context.request.RequestAttributes.REFERENCE_REQUEST);

@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -20,6 +21,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.chrono.ChronoLocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -84,9 +86,11 @@ public class BookingService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
     public List<BookingDTO> findByUserId(Integer userId) {
         logger.info("Fetching bookings for userId: {}", userId);
-        return bookingRepository.findByCustomerIdAndIsDeleted(userId, false)
+        // Sử dụng query với eager loading
+        return bookingRepository.findByCustomerIdWithDetails(userId)
                 .stream()
                 .map(bookingMapper::toDTO)
                 .collect(Collectors.toList());
@@ -155,13 +159,34 @@ public class BookingService {
         booking.setCreatedAt(Instant.now());
         booking.setUpdatedAt(Instant.now());
         booking.setIsDeleted(false);
-        booking.setDepositAmount(BigDecimal.ZERO);
-        booking.setSeatNumber((short) 0);
+        booking.setDepositAmount(dto.getDepositAmount() != null ? dto.getDepositAmount() : BigDecimal.ZERO);
+        booking.setSeatNumber(dto.getSeatNumber() != null ? dto.getSeatNumber() : (short) 0);
 
-        booking.setDriver(driverRepository.findById(1)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Default driver not found")));
-        booking.setRegion(regionRepository.findById(1)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Default region not found")));
+        // SỬA 1: Hỗ trợ xe tự lái và có tài xế
+        if (dto.getDriverId() != null && dto.getDriverId() > 0) {
+            // Có tài xế được chỉ định
+            Driver driver = driverRepository.findById(dto.getDriverId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Driver not found with ID: " + dto.getDriverId()));
+            booking.setDriver(driver);
+            logger.info("Booking assigned to driver: {}", dto.getDriverId());
+        } else {
+            // Xe tự lái - không có tài xế
+            booking.setDriver(null);
+            logger.info("Booking set as self-drive (no driver)");
+        }
+
+        // SỬA 2: Sử dụng region từ input thay vì hardcode
+        if (dto.getRegionId() != null && dto.getRegionId() > 0) {
+            Region region = regionRepository.findById(dto.getRegionId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Region not found with ID: " + dto.getRegionId()));
+            booking.setRegion(region);
+            logger.info("Booking assigned to region: {}", dto.getRegionId());
+        } else {
+            // Fallback to default region nếu không có region được chỉ định
+            booking.setRegion(regionRepository.findById(1)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Default region not found")));
+            logger.warn("No region specified, using default region ID: 1");
+        }
 
         if (dto.getPromoId() != null) {
             Promotion promo = promotionRepository.findById(dto.getPromoId())
@@ -249,5 +274,71 @@ public class BookingService {
         booking.setIsDeleted(true);
         booking.setUpdatedAt(Instant.now());
         bookingRepository.save(booking);
+    }
+
+    public List<BookingDTO> getBookingsByCustomerId(Integer customerId) {
+        logger.info("Fetching bookings for customerId: {}", customerId);
+        return bookingRepository.findByCustomerIdAndIsDeleted(customerId, false)
+                .stream()
+                .map(bookingMapper::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public BookingDTO findByIdWithDetails(Integer bookingId) {
+        logger.info("Fetching booking with id: {}", bookingId);
+
+        try {
+            // Sử dụng query với JOIN để eager load
+            Optional<Booking> bookingOpt = bookingRepository.findByIdWithAllDetails(bookingId);
+
+            if (bookingOpt.isEmpty()) {
+                throw new RuntimeException("Không tìm thấy booking với ID: " + bookingId);
+            }
+
+            Booking booking = bookingOpt.get();
+            BookingDTO dto = bookingMapper.toDTO(booking);
+
+            logger.info("Successfully fetched booking details: {}", dto.getBookingId());
+            return dto;
+
+        } catch (Exception e) {
+            logger.error("Error fetching booking with id: {}", bookingId, e);
+            throw new RuntimeException("Không thể tải chi tiết đặt xe");
+        }
+    }
+
+    @Transactional
+    public BookingDTO cancelBooking(Integer bookingId) {
+        logger.info("Cancelling booking with id: {}", bookingId);
+        
+        try {
+            // Tìm booking
+            Booking booking = bookingRepository.findById(bookingId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy booking với ID: " + bookingId));
+            
+            // Kiểm tra trạng thái có thể hủy
+            String currentStatus = booking.getStatus().getStatusName();
+            if (!"confirmed".equals(currentStatus) && !"pending".equals(currentStatus)) {
+                throw new RuntimeException("Không thể hủy booking với trạng thái: " + currentStatus);
+            }
+            
+            // Tìm cancelled status - DÙNG ID thay vì tạo mới
+            Status cancelledStatus = statusRepository.findById(CANCELLED_STATUS_ID)
+                    .orElseThrow(() -> new RuntimeException("Lỗi hệ thống: Không tìm thấy trạng thái cancelled"));
+            
+            // Cập nhật trạng thái
+            booking.setStatus(cancelledStatus);
+            
+            // Lưu booking
+            Booking savedBooking = bookingRepository.save(booking);
+            
+            logger.info("Successfully cancelled booking: {}", bookingId);
+            return bookingMapper.toDTO(savedBooking);
+            
+        } catch (Exception e) {
+            logger.error("Error cancelling booking: {}", bookingId, e);
+            throw new RuntimeException("Không thể hủy đặt xe: " + e.getMessage());
+        }
     }
 }

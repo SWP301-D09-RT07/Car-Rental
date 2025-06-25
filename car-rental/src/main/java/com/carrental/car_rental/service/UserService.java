@@ -91,9 +91,10 @@ public class UserService {
                             .ifPresent(ud -> dto.setUserDetail(userDetailMapper.toDTO(ud)));
                     return dto;
                 });
-    }    public Optional<UserDTO> findByUsername(String username) {
+    }  
+      public Optional<UserDTO> findByUsername(String username) {
         return userRepository.findByUsername(username)
-                .filter(user -> !user.getIsDeleted()) // Check isDeleted manually
+                .filter(user -> !user.getIsDeleted())
                 .map(user -> {
                     UserDTO dto = userMapper.toDto(user);
                     userDetailRepository.findByUserIdAndIsDeletedFalse(user.getId())
@@ -225,7 +226,8 @@ public class UserService {
                     ud.setIsDeleted(true);
                     userDetailRepository.save(ud);
                 });
-    }    @Transactional
+    }
+    @Transactional
     public void changePassword(String username, String currentPassword, String newPassword) {
         try {
             log.info("Changing password for user: {}", username);

@@ -46,12 +46,10 @@ api.interceptors.request.use(
             expiresAt: expiresAt ? new Date(parseInt(expiresAt)).toISOString() : 'N/A',
             currentTime: new Date().toISOString()
         });
-          if (token && !isTokenExpired()) {
+        
+        if (token && !isTokenExpired()) {
             config.headers.Authorization = `Bearer ${token}`;
-            console.log('✅ Token added to request:', {
-                tokenPreview: token.substring(0, 50) + '...',
-                authHeader: config.headers.Authorization.substring(0, 60) + '...'
-            });
+            console.log('✅ Token added to request');
         } else if (token) {
             console.warn('⚠️ Token expired, clearing localStorage');
             localStorage.removeItem('token');
@@ -59,8 +57,14 @@ api.interceptors.request.use(
             localStorage.removeItem('role');
             localStorage.removeItem('username');
             localStorage.removeItem('userEmail');
-            // Don't redirect here - let components handle it
-            return Promise.reject(new Error('Token hết hạn'));
+            
+            // Chỉ reject cho các endpoint cần authentication
+            const protectedEndpoints = ['/api/users/', '/api/bookings/', '/api/favorites/'];
+            const isProtectedEndpoint = protectedEndpoints.some(endpoint => config.url.includes(endpoint));
+            
+            if (isProtectedEndpoint) {
+                return Promise.reject(new Error('Token hết hạn'));
+            }
         }
         return config;
     },
@@ -156,12 +160,13 @@ export const resetPassword = async (email, newPassword) => {
     }
 };
 
+// Sửa changePassword function trong api.js
 export const changePassword = async (currentPassword, newPassword) => {
     if (!currentPassword || !newPassword) throw new Error('Vui lòng cung cấp mật khẩu hiện tại và mật khẩu mới');
-    
+
     const payload = { currentPassword, newPassword };
     console.log('🔐 Change password payload:', payload);
-    
+
     try {
         const response = await api.post('/api/users/change-password', payload);
         console.log('✅ Change password success:', response.data);
@@ -171,10 +176,10 @@ export const changePassword = async (currentPassword, newPassword) => {
         console.error('Error response:', error.response?.data);
         console.error('Error status:', error.response?.status);
         // Handle different error formats from backend
-        const errorMessage = error.response?.data?.error || 
-                            error.response?.data?.message || 
-                            error.message || 
-                            'Đổi mật khẩu thất bại';
+        const errorMessage = error.response?.data?.error ||
+            error.response?.data?.message ||
+            error.message ||
+            'Đổi mật khẩu thất bại';
         throw new Error(errorMessage);
     }
 };
@@ -432,12 +437,32 @@ export const updateBooking = async (bookingId, bookingData) => {
 };
 
 export const cancelBooking = async (bookingId) => {
-    if (!bookingId) throw new Error('Vui lòng cung cấp ID đặt xe');
     try {
-        const response = await api.delete(`/api/bookings/${bookingId}`);
+        console.log('🔄 Cancelling booking ID:', bookingId);
+        const response = await api.put(`/api/bookings/${bookingId}/cancel`);
+        console.log('✅ Booking cancelled successfully:', response.data);
         return response.data;
     } catch (error) {
-        throw new Error(error.response?.data?.message || 'Hủy đặt xe thất bại');
+        console.error('❌ Cancel booking error:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            url: error.config?.url
+        });
+        
+        if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.response?.status === 403) {
+            throw new Error('Bạn không có quyền hủy đặt xe này.');
+        } else if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy thông tin đặt xe.');
+        } else if (error.response?.status === 400) {
+            throw new Error(error.response?.data?.error || 'Không thể hủy đặt xe với trạng thái hiện tại.');
+        } else if (error.response?.status === 500) {
+            throw new Error(error.response?.data?.error || 'Lỗi hệ thống khi hủy đặt xe.');
+        } else {
+            throw new Error(error.response?.data?.error || 'Lỗi khi hủy đặt xe');
+        }
     }
 };
 
@@ -612,5 +637,95 @@ export const testAuth = async () => {
         throw error;
     }
 };
+
+
+export const getUserBookingHistory = async () => {
+    try {
+        console.log('🔄 Fetching user booking history...');
+        const response = await api.get('/api/users/profile/bookings');
+        console.log('✅ Booking history fetched successfully:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Booking history fetch error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Lỗi khi tải lịch sử đặt xe');
+    }
+};
+
+// Send email verification
+export const sendEmailVerification = async () => {
+    try {
+        console.log('🔄 Sending email verification...');
+        const response = await api.post('/api/users/send-email-verification');
+        console.log('✅ Email verification sent:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Send email verification error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Lỗi khi gửi email xác thực');
+    }
+};
+
+// Verify email
+export const verifyEmail = async (token) => {
+    try {
+        console.log('🔄 Verifying email...');
+        const response = await api.post('/api/users/verify-email', { token });
+        console.log('✅ Email verified successfully:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Verify email error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Lỗi khi xác thực email');
+    }
+};
+export const getFavoriteCars = async () => {
+    try {
+        console.log('🔄 Fetching favorite cars...');
+        const response = await api.get('/api/users/favorites');
+        console.log('✅ Favorite cars fetched:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Fetch favorites error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Lỗi khi tải xe yêu thích');
+    }
+};
+
+// Get booking details
+export const getBookingDetails = async (bookingId) => {
+    try {
+        console.log('🔄 Fetching booking details for ID:', bookingId);
+        console.log('🔍 Current token:', localStorage.getItem('token') ? 'Present' : 'Missing');
+        console.log('🔍 Current role:', localStorage.getItem('role'));
+        
+        const response = await api.get(`/api/bookings/${bookingId}`);
+        console.log('✅ Booking details fetched:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Fetch booking details error:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            url: error.config?.url,
+            headers: error.config?.headers
+        });
+        
+        // Xử lý các loại lỗi cụ thể
+        if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.response?.status === 403) {
+            const errorData = error.response?.data;
+            if (errorData?.code === 'ACCESS_DENIED') {
+                throw new Error(errorData.error || 'Bạn không có quyền xem chi tiết đặt xe này.');
+            }
+            throw new Error('Bạn không có quyền truy cập.');
+        } else if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy thông tin đặt xe.');
+        } else if (error.response?.status === 500) {
+            const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Lỗi hệ thống';
+            throw new Error(errorMsg);
+        } else {
+            throw new Error(error.response?.data?.error || 'Lỗi khi tải chi tiết đặt xe');
+        }
+    }
+};
+
 
 export default api;

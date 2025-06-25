@@ -9,27 +9,40 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
 import jakarta.validation.Valid;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.carrental.car_rental.entity.Booking;
+import com.carrental.car_rental.entity.User;
+import com.carrental.car_rental.repository.BookingRepository;
+import com.carrental.car_rental.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/bookings")
 public class BookingController {
     private static final Logger logger = LoggerFactory.getLogger(BookingController.class);
-    private final BookingService bookingService;
+
     private final BookingFinancialsService financialsService;
+     
+    @Autowired
+    private BookingService bookingService;
+
+    @Autowired
+    private BookingRepository bookingRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     public BookingController(BookingService bookingService, BookingFinancialsService financialsService) {
         this.bookingService = bookingService;
         this.financialsService = financialsService;
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<BookingDTO> getBooking(@PathVariable Integer id) {
-        logger.info("Request to get booking by ID: {}", id);
-        return ResponseEntity.ok(bookingService.findById(id));
     }
 
     @GetMapping
@@ -89,5 +102,130 @@ public class BookingController {
         logger.warn("Request to delete booking with ID: {}", id);
         bookingService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+    
+    
+    
+    // @GetMapping("/debug/role")
+    // public ResponseEntity<?> debugRole(Authentication authentication) {
+    //     logger.info("Debug role - Authentication: {}", authentication);
+    //     if (authentication != null) {
+    //         logger.info("Debug role - Name: {}", authentication.getName());
+    //         logger.info("Debug role - Authorities: {}", authentication.getAuthorities());
+    //         logger.info("Debug role - Principal: {}", authentication.getPrincipal());
+            
+    //         return ResponseEntity.ok(Map.of(
+    //             "name", authentication.getName(),
+    //             "authorities", authentication.getAuthorities().toString(),
+    //             "principal", authentication.getPrincipal().toString()
+    //         ));
+    //     }
+    //     return ResponseEntity.ok("No authentication");
+    // }
+
+    @GetMapping("/{bookingId}")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<?> getBookingById(@PathVariable Integer bookingId, Authentication authentication) {
+        logger.info("Request to get booking by ID: {}", bookingId);
+        logger.info("Authentication object: {}", authentication);
+        
+        try {
+            BookingDTO booking = bookingService.findByIdWithDetails(bookingId);
+            
+            // Kiểm tra quyền truy cập
+            if (authentication != null) {
+                String username = authentication.getName();
+                Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
+                
+                if (userOpt.isPresent() && !booking.getUserId().equals(userOpt.get().getId())) {
+                    logger.warn("Access denied - Booking userId: {}, Current userId: {}", booking.getUserId(), userOpt.get().getId());
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("success", false, "error", "Không có quyền truy cập booking này"));
+                }
+            } else {
+                logger.error("Authentication is null");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("success", false, "error", "Phiên đăng nhập đã hết hạn"));
+            }
+            
+            return ResponseEntity.ok(Map.of("success", true, "data", booking));
+            
+        } catch (Exception e) {
+            logger.error("Error getting booking by ID: {}", bookingId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "error", "Không thể tải chi tiết đặt xe: " + e.getMessage()));
+        }
+    }
+
+    // Nếu cần method cho admin, tạo endpoint khác
+    @GetMapping("/admin/details/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getBookingDetailsForAdmin(@PathVariable Integer id) {
+        try {
+            BookingDTO booking = bookingService.findByIdWithDetails(id);
+            return ResponseEntity.ok(Map.of("success", true, "data", booking));
+        } catch (Exception e) {
+            logger.error("Error getting booking details for admin: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    // Thêm endpoint test đơn giản
+    // @GetMapping("/test/{bookingId}")
+    // public ResponseEntity<?> testGetBooking(@PathVariable Integer bookingId) {
+    //     logger.info("Test request to get booking by ID: {}", bookingId);
+        
+    //     try {
+    //         BookingDTO booking = bookingService.findByIdWithDetails(bookingId);
+    //         return ResponseEntity.ok(Map.of("success", true, "data", booking));
+    //     } catch (Exception e) {
+    //         logger.error("Test error getting booking: {}", bookingId, e);
+    //         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+    //             .body(Map.of("success", false, "error", e.getMessage()));
+    //     }
+    // }
+
+    @PutMapping("/{bookingId}/cancel")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<?> cancelBooking(@PathVariable Integer bookingId, Authentication authentication) {
+        logger.info("Request to cancel booking: {}", bookingId);
+        
+        try {
+            String username = authentication.getName();
+            Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
+            
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "error", "Không tìm thấy người dùng"));
+            }
+            
+            // Get booking and verify ownership
+            BookingDTO booking = bookingService.findByIdWithDetails(bookingId);
+            if (!booking.getUserId().equals(userOpt.get().getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("success", false, "error", "Bạn không có quyền hủy booking này"));
+            }
+            
+            // Check if booking can be cancelled
+            if (!"confirmed".equals(booking.getStatusName()) && !"pending".equals(booking.getStatusName())) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("success", false, "error", "Không thể hủy booking với trạng thái hiện tại"));
+            }
+            
+            // Cancel the booking
+            BookingDTO cancelledBooking = bookingService.cancelBooking(bookingId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true, 
+                "message", "Hủy đặt xe thành công",
+                "data", cancelledBooking
+            ));
+            
+        } catch (Exception e) {
+            logger.error("Error cancelling booking: {}", bookingId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "error", "Không thể hủy đặt xe: " + e.getMessage()));
+        }
     }
 }
