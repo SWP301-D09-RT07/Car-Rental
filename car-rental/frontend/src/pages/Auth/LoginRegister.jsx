@@ -3,11 +3,11 @@
 import { useState, useContext, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
-import { AuthContext } from "../../store/AuthContext"
+import { AuthContext } from "../../context/AuthContext"
 import { login, register } from "@/services/api"
 
 const LoginRegisterPage = () => {
-  const { login: setAuthData } = useContext(AuthContext);
+  const { login: setAuthData, token, user } = useContext(AuthContext);
   const [isRegisterActive, setRegisterActive] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,50 +49,36 @@ const LoginRegisterPage = () => {
     resetRegister();
   };
 
+  useEffect(() => {
+    if (token && user) {
+      if (user.role === 'ADMIN') {
+        navigate('/admin', { replace: true });
+      } else if (user.role === 'SUPPLIER') {
+        navigate('/supplier/dashboard', { replace: true });
+      } else if (user.role === 'CUSTOMER') {
+        navigate('/', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [token, user, navigate]);
+
   const onLoginSubmit = async (data) => {
     setLoading(true);
     setError('');
     try {
-      console.log('[LoginRegister] Attempting login with:', { username: data.username, password: '***' });
       const response = await login(data.username, data.password);
-      console.log('[LoginRegister] Login response:', response);
-      console.log('[LoginRegister] Response structure:', {
-        hasToken: !!response.token,
-        tokenLength: response.token ? response.token.length : 0,
-        hasExpiresAt: !!response.expiresAt,
-        expiresAt: response.expiresAt,
-        hasRole: !!response.role,
-        role: response.role,
-        hasUsername: !!response.username,
-        username: response.username
-      });
-      
+      console.log('Login response:', response);
       setAuthData(response.token, {
         expiresAt: response.expiresAt,
         role: response.role || 'customer',
         username: response.username || data.username,
         email: response.email || data.username
       });
-
-      // Lưu email vào localStorage
       localStorage.setItem('userEmail', response.email || data.username);
-      // Lưu username vào localStorage
-      localStorage.setItem('username', response.username || data.username);
-
+      console.log('Token in localStorage after login:', localStorage.getItem('token'));
       showToast('Đăng nhập thành công!', 'success');
-      
-      const urlParams = new URLSearchParams(window.location.search);
-      const redirectTo = urlParams.get('redirectTo') || '/';
-
-      setTimeout(() => {
-        if (response.role === 'admin') {
-          navigate('/admin', { replace: true });
-        } else {
-          navigate(redirectTo, { replace: true });
-        }
-      }, 1000);
     } catch (err) {
-      console.error('[LoginRegister] Login error:', err);
       setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.');
       showToast('Đăng nhập thất bại!', 'error');
     } finally {
@@ -109,10 +95,9 @@ const LoginRegisterPage = () => {
         email: data.email,
         password: data.password,
         phone: data.phone,
-        roleId: data.userType === 'renter' ? 3 : 2,
-        statusId: 8,
+        roleId: data.userType === 'renter' ? 1 : 2,
+        statusId: 1,
         countryCode: '+84',
-        preferredLanguage: 'vi',
         userDetail: {
           name: data.username,
           address: 'Unknown',

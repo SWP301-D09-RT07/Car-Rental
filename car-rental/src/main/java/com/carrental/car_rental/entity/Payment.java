@@ -59,7 +59,4 @@ public class Payment {
     @Column(name = "is_deleted")
     private Boolean isDeleted;
 
-    @Column(name = "payment_type", length = 20, nullable = false)
-    private String paymentType; // "deposit", "full_payment", "refund"
-
 }
