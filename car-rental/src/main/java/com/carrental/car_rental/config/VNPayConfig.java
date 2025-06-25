@@ -10,8 +10,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.net.URLEncoder;
-import java.io.UnsupportedEncodingException;
 
 @Component
 public class VNPayConfig {
@@ -39,46 +37,26 @@ public class VNPayConfig {
             throw new IllegalArgumentException("Fields map cannot be null or empty.");
         }
 
-        logger.info("Starting hash generation for {} fields (Reference Logic)", fields.size());
-
         List<String> fieldNames = new ArrayList<>(fields.keySet());
         Collections.sort(fieldNames);
         StringBuilder dataToHash = new StringBuilder();
-
-        try {
-            for (String fieldName : fieldNames) {
-                String fieldValue = fields.get(fieldName);
-                if (fieldValue != null && !fieldValue.isEmpty() && !fieldName.equals("vnp_SecureHash")) {
-                    // Applying reference logic: URL-encode the value before hashing
-                    String encodedValue = URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString());
-                    if (dataToHash.length() > 0) {
-                        dataToHash.append("&");
-                    }
-                    dataToHash.append(fieldName).append("=").append(encodedValue);
-                    logger.debug("Added field to hash: {}={}", fieldName, encodedValue);
-                } else {
-                    logger.debug("Skipped field: {} (value: {})", fieldName, fieldValue);
+        boolean first = true;
+        for (String fieldName : fieldNames) {
+            String fieldValue = fields.get(fieldName);
+            if (fieldValue != null && !fieldValue.isEmpty() && !fieldName.equals("vnp_SecureHash")) {
+                if (!first) {
+                    dataToHash.append("&");
                 }
+                dataToHash.append(fieldName).append("=").append(fieldValue);
+                first = false;
             }
-
-            String data = dataToHash.toString();
-            logger.info("Data to hash ({} characters): {}", data.length(), data);
-
-            if (data.isEmpty()) {
-                logger.error("No valid fields found for hashing");
-                throw new IllegalArgumentException("No valid fields found for hashing");
-            }
-
-            String hash = hmacSHA512(VNP_SECRET_KEY, data);
-            logger.info("Hash generated successfully (Reference Logic): {}", hash);
-            return hash;
-        } catch (UnsupportedEncodingException e) {
-            logger.error("Failed to URL-encode field values: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to generate hash due to encoding error: " + e.getMessage(), e);
-        } catch (Exception e) {
-            logger.error("Failed to generate hash: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to generate hash: " + e.getMessage(), e);
         }
+
+        String data = dataToHash.toString();
+        logger.info("Data to hash: {}", data);
+        String hash = hmacSHA512(VNP_SECRET_KEY, data);
+        logger.info("Generated vnp_SecureHash: {}", hash);
+        return hash;
     }
 
     public String hmacSHA512(String key, String data) {
@@ -115,26 +93,13 @@ public class VNPayConfig {
         String ipAddress;
         try {
             ipAddress = request.getHeader("X-FORWARDED-FOR");
-            if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-                ipAddress = request.getHeader("Proxy-Client-IP");
-            }
-            if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
-                ipAddress = request.getHeader("WL-Proxy-Client-IP");
-            }
-            if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+            if (ipAddress == null || ipAddress.isEmpty()) {
                 ipAddress = request.getRemoteAddr();
-                if ("0:0:0:0:0:0:0:1".equals(ipAddress) || "::1".equals(ipAddress)) {
-                    ipAddress = "127.0.0.1";
-                }
-            }
-            // For multiple IPs in X-FORWARDED-FOR, take the first one
-            if (ipAddress != null && ipAddress.contains(",")) {
-                ipAddress = ipAddress.split(",")[0].trim();
             }
             logger.info("Client IP Address: {}", ipAddress);
         } catch (Exception e) {
-            ipAddress = "127.0.0.1"; // Fallback IP
-            logger.error("Error getting IP address: {}. Defaulting to {}", e.getMessage(), ipAddress, e);
+            ipAddress = "Invalid IP: " + e.getMessage();
+            logger.error("Error getting IP address: {}", e.getMessage(), e);
         }
         return ipAddress;
     }

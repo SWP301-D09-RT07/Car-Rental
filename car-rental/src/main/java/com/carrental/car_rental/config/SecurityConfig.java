@@ -29,7 +29,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
@@ -56,18 +56,17 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authz -> authz
+                .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/login/oauth2/code/**", "/oauth2/authorization/**").permitAll()
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-email", "/oauth2/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/api/cars/**", "/api/languages/**", "/api/country-codes/**",
-                                "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**",
-                                "/api/cars/*/features", "/api/service-types/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/ratings", "/api/ratings/summary", "/api/ratings/**").permitAll()
-                        .requestMatchers("/api/payments/callback", "/api/payments/test", "/api/payments/test-cash").permitAll()
-                        .requestMatchers(HttpMethod.GET,"/api/bookings/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("admin")
-                        .requestMatchers("/api/customer/**").hasRole("customer")
-                        .requestMatchers("/api/users/**").authenticated()
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/cars/**", "/api/languages/**", "/api/country-codes/**",
+                                "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**", "/api/service-types/**",
+                                "/api/cars/popular", "/api/cars/featured").permitAll()
+                        .requestMatchers(HttpMethod.GET,"/api/bookings/**", "/api/ratings/**").permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
+                        .requestMatchers("/api/users/**").hasAnyRole("ADMIN", "CUSTOMER", "SUPPLIER")
+                        .requestMatchers("/api/supplier/**").hasRole("SUPPLIER")
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
@@ -88,7 +87,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(frontendUrl, "http://localhost:8080"));
+        configuration.setAllowedOrigins(List.of(frontendUrl, "http://localhost:8080", "http://localhost:5174", "http://localhost:5173"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

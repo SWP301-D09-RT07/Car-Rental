@@ -17,8 +17,4 @@ public class CarResponseDTO {
     private String regionName;
     private String statusName;
     private String features;
-
-    // Thêm các trường mới
-    private String transmission;
-    private String describe;
 }

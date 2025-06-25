@@ -41,20 +41,4 @@ public class SecurityService {
             return false;
         }
     }
-
-    public boolean canAccessProfile(Authentication authentication) {
-        if (authentication == null || authentication.getPrincipal() == null) {
-            logger.warn("Authentication hoặc principal là null khi kiểm tra quyền truy cập profile");
-            return false;
-        }
-        try {
-            // For profile access, we just need to check if user is authenticated
-            boolean canAccess = authentication.isAuthenticated();
-            logger.debug("Kiểm tra quyền truy cập profile cho user: {}. Kết quả: {}", authentication.getName(), canAccess);
-            return canAccess;
-        } catch (Exception e) {
-            logger.error("Lỗi khi kiểm tra quyền truy cập profile cho user: {}. Lỗi: {}", authentication.getName(), e.getMessage());
-            return false;
-        }
-    }
 }
