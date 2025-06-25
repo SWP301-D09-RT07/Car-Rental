@@ -56,12 +56,15 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
+                .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/login/oauth2/code/**", "/oauth2/authorization/**").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-email", "/oauth2/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/cars/**", "/api/languages/**", "/api/country-codes/**",
                                 "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**",
-                                "/api/cars/**/features", "/api/service-types/**").permitAll()
-                        .requestMatchers(HttpMethod.GET,"/api/bookings/**", "/api/ratings/**").permitAll()
+                                "/api/cars/*/features", "/api/service-types/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/ratings", "/api/ratings/summary", "/api/ratings/**").permitAll()
+                        .requestMatchers("/api/payments/callback", "/api/payments/test", "/api/payments/test-cash").permitAll()
+                        .requestMatchers(HttpMethod.GET,"/api/bookings/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("admin")
                         .requestMatchers("/api/customer/**").hasRole("customer")
                         .requestMatchers("/api/users/**").authenticated()

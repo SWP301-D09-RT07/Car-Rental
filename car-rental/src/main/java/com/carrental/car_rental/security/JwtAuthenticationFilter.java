@@ -26,7 +26,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
             "/login/oauth2/code/",
             "/oauth2/authorization/",
-            "/api/auth/",
+            "/api/auth/login",
+            "/api/auth/register",
+            "/api/auth/check-email",
             "/api/languages/",
             "/api/country-codes/",
             "/api/car-brands/",
@@ -35,7 +37,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/cars/",
             "/api/service-types/",
             "/api/bookings/",
-            "/api/ratings/"
+            "/api/ratings/",
+            "/api/payments/callback"
     );
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
@@ -54,13 +57,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String path = request.getRequestURI();
+        logger.info("Request path: {}", path);
         String method = request.getMethod();
-        // Bỏ qua các endpoint không yêu cầu xác thực
-        boolean isPublicEndpoint = PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
+
+        // So sánh chính xác endpoint hoặc bắt đầu bằng prefix
+        boolean isPublicEndpoint = PUBLIC_ENDPOINTS.stream()
+            .anyMatch(publicPath -> path.equals(publicPath) || path.startsWith(publicPath));
         boolean isGetRestrictedEndpoint = (path.startsWith("/api/bookings/") || path.startsWith("/api/ratings/"))
                 && "GET".equalsIgnoreCase(method);
 
-        if (isPublicEndpoint || isGetRestrictedEndpoint || path.startsWith("/login/oauth2/code/")) {
+        if (isPublicEndpoint || isGetRestrictedEndpoint) {
             filterChain.doFilter(request, response);
             return;
         }

@@ -4,6 +4,7 @@ import com.carrental.car_rental.entity.Car;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -13,11 +14,19 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface CarRepository extends JpaRepository<Car, Integer> {
-    @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.isDeleted = false AND c.status.id = 11")
+public interface CarRepository extends JpaRepository<Car, Integer>, JpaSpecificationExecutor<Car> {
+    @Query("SELECT c FROM Rating r " +
+        "JOIN r.car c " +
+        "WHERE c.isDeleted = false AND c.status.id = 11 AND r.isDeleted = false " +
+        "GROUP BY c " +
+        "ORDER BY AVG(r.ratingScore) DESC")
     Page<Car> findFeaturedCars(Pageable pageable);
 
-    @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.isDeleted = false AND c.status.id = 11")
+    @Query("SELECT c FROM Booking b " +
+        "JOIN b.car c " +
+        "WHERE c.isDeleted = false AND c.status.id = 11 " +
+        "GROUP BY c " +
+        "ORDER BY COUNT(b.id) DESC")
     Page<Car> findPopularCars(Pageable pageable);
 
     @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.isDeleted = false")

@@ -20,9 +20,6 @@ public class UserDetailDTO {
     @Size(max = 200, message = "Address must be less than 200 characters")
     private String address;
 
-    @Size(max = 255, message = "Avatar URL must be less than 255 characters")
-    private String avatar;
-
     @Size(max = 20, message = "Tax code must be less than 20 characters")
     private String taxcode;
 

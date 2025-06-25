@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getProfile, updateProfile, changePassword, getBookingsByUserId, getBookingFinancials } from '../../../services/api';
+import { getProfile, updateProfile, changePassword, getBookingsByUserId, getBookingFinancials } from '@/services/api';
 import { toast } from 'react-toastify';
 import './ProfilePage.scss';
 

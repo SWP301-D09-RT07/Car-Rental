@@ -9,11 +9,13 @@ import org.mapstruct.Named;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Mapper(componentModel = "spring", uses = CommonMapper.class)
+@Mapper(componentModel = "spring", uses = {CommonMapper.class, UserMapper.class, CarMapper.class})
 public interface BookingMapper {
     @Mapping(source = "id", target = "bookingId")
     @Mapping(source = "customer.id", target = "userId")
     @Mapping(source = "car.id", target = "carId")
+    @Mapping(source = "customer", target = "customer")
+    @Mapping(source = "car", target = "car")
     @Mapping(source = "car.licensePlate", target = "carLicensePlate")
     @Mapping(source = "driver.id", target = "driverId")
     @Mapping(source = "region.id", target = "regionId")
@@ -28,9 +30,12 @@ public interface BookingMapper {
     @Mapping(source = "status.id", target = "statusId")
     @Mapping(source = "status.statusName", target = "statusName")
     @Mapping(source = "startDate", target = "pickupDateTime", qualifiedByName = "localDateToLocalDateTime")
-    @Mapping(source = "endDate", target = "dropoffDate", qualifiedByName = "localDateToLocalDateTime")
+    @Mapping(source = "endDate", target = "dropoffDateTime", qualifiedByName = "localDateToLocalDateTime")
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "instantToLocalDateTime")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "instantToLocalDateTime")
+    @Mapping(target = "withDriver", source = "withDriver")
+    @Mapping(target = "deliveryRequested", constant = "false")
+    @Mapping(target = "estimatedOvertimeHours", constant = "0")
     BookingDTO toDTO(Booking entity);
 
     @Mapping(source = "bookingId", target = "id")
@@ -48,7 +53,7 @@ public interface BookingMapper {
     @Mapping(source = "extensionStatusId", target = "extensionStatus.id")
     @Mapping(source = "statusId", target = "status.id")
     @Mapping(source = "pickupDateTime", target = "startDate", qualifiedByName = "localDateTimeToLocalDate")
-    @Mapping(source = "dropoffDate", target = "endDate", qualifiedByName = "localDateTimeToLocalDate")
+    @Mapping(source = "dropoffDateTime", target = "endDate", qualifiedByName = "localDateTimeToLocalDate")
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "localDateTimeToInstant")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "localDateTimeToInstant")
     Booking toEntity(BookingDTO dto);

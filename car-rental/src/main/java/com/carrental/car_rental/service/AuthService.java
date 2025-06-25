@@ -120,6 +120,10 @@ public class AuthService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid statusId"));
         user.setStatus(status);
 
+        Language language = languageRepository.findById(createUserDTO.getPreferredLanguage())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ngôn ngữ không hợp lệ"));
+        user.setPreferredLanguage(language);
+
         User savedUser = userRepository.save(user);
         UserDetail userDetail = createUserDetail(savedUser, createUserDTO.getUserDetail() != null ? createUserDTO.getUserDetail().getFullName() : null);
 

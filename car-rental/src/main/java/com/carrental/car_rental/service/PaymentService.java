@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.UnsupportedEncodingException;
@@ -76,8 +77,24 @@ public class PaymentService {
         Payment entity = mapper.toEntity(dto);
         Booking booking = bookingRepository.findById(dto.getBookingId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-        Region region = regionRepository.findByCurrencyAndIsDeletedFalse(dto.getCurrency())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid currency: " + dto.getCurrency()));
+        
+        // Xử lý trường hợp có nhiều Region với cùng currency
+        Region region;
+        try {
+            region = regionRepository.findByCurrencyAndIsDeletedFalse(dto.getCurrency())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Region with currency VND not found"));
+        } catch (Exception e) {
+            // Nếu có nhiều kết quả, lấy Region đầu tiên
+            List<Region> regions = regionRepository.findAll().stream()
+                    .filter(r -> r.getCurrency().equals(dto.getCurrency()) && !r.getIsDeleted())
+                    .toList();
+            if (regions.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Region with currency VND not found");
+            }
+            region = regions.get(0);
+            logger.info("Multiple regions found for currency {}, using first one: {}", dto.getCurrency(), region.getRegionName());
+        }
+        
         Status status = statusRepository.findByStatusName("pending")
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status 'pending' not found"));
 
@@ -89,56 +106,97 @@ public class PaymentService {
         return mapper.toDTO(repository.save(entity));
     }
 
-    public PaymentResponseDTO processPayment(PaymentDTO dto, HttpServletRequest request) throws UnsupportedEncodingException {
+    public PaymentResponseDTO processPayment(PaymentDTO dto, HttpServletRequest request) {
         logger.info("Processing payment for booking ID: {}", dto.getBookingId());
         if (!List.of("vnpay", "cash").contains(dto.getPaymentMethod())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid payment method: " + dto.getPaymentMethod());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ thanh toán qua VNPay hoặc tiền mặt.");
+        }
+        if (dto.getAmount() == null || dto.getAmount().intValue() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền thanh toán phải lớn hơn 0.");
         }
         if (dto.getCurrency() == null || !dto.getCurrency().equals("VND")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only VND currency is supported");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ thanh toán bằng VND");
         }
 
         Booking booking = bookingRepository.findById(dto.getBookingId())
                 .filter(b -> !b.getIsDeleted())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-        Region region = regionRepository.findByCurrencyAndIsDeletedFalse(dto.getCurrency())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Region with currency VND not found"));
+        
+        // Xử lý trường hợp có nhiều Region với cùng currency
+        Region region;
+        try {
+            region = regionRepository.findByCurrencyAndIsDeletedFalse(dto.getCurrency())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Region with currency VND not found"));
+        } catch (Exception e) {
+            // Nếu có nhiều kết quả, lấy Region đầu tiên
+            List<Region> regions = regionRepository.findAll().stream()
+                    .filter(r -> r.getCurrency().equals(dto.getCurrency()) && !r.getIsDeleted())
+                    .toList();
+            if (regions.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Region with currency VND not found");
+            }
+            region = regions.get(0);
+            logger.info("Multiple regions found for currency {}, using first one: {}", dto.getCurrency(), region.getRegionName());
+        }
+        
         Status pendingStatus = statusRepository.findByStatusName("pending")
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status 'pending' not found"));
-        Status successStatus = statusRepository.findByStatusName("success")
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status 'success' not found"));
+        Status paidStatus = statusRepository.findByStatusName("paid")
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status 'paid' not found"));
 
-        Payment payment = mapper.toEntity(dto);
+        Payment payment = new Payment();
         payment.setBooking(booking);
         payment.setRegion(region);
+        payment.setAmount(dto.getAmount());
+        payment.setPaymentMethod(dto.getPaymentMethod());
         payment.setIsDeleted(false);
         payment.setPaymentDate(Instant.now());
+        payment.setPaymentType(dto.getPaymentType() != null ? dto.getPaymentType() : "deposit");
 
         PaymentResponseDTO response = new PaymentResponseDTO();
         if ("vnpay".equals(dto.getPaymentMethod())) {
             String paymentId = "PAY_" + System.nanoTime();
             payment.setTransactionId(paymentId);
             payment.setPaymentStatus(pendingStatus);
+            payment.setPaymentMethod("vnpay");
 
-            String redirectUrl = createVnpayPaymentUrl(request, paymentId, dto.getAmount().longValue(), dto.getBookingId());
-            Payment savedPayment = repository.save(payment);
+            try {
+                String redirectUrl = createVnpayPaymentUrl(request, paymentId, dto.getAmount().longValue(), dto.getBookingId());
+                Payment savedPayment = repository.save(payment);
 
-            response.setPaymentId(savedPayment.getId());
-            response.setBookingId(savedPayment.getBooking().getId());
-            response.setAmount(savedPayment.getAmount());
-            response.setCurrency(savedPayment.getRegion().getCurrency());
-            response.setTransactionId(savedPayment.getTransactionId());
-            response.setPaymentMethod(savedPayment.getPaymentMethod());
-            response.setStatus(savedPayment.getPaymentStatus().getStatusName());
-            response.setRedirectUrl(redirectUrl);
-            response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+                response.setPaymentId(savedPayment.getId());
+                response.setBookingId(savedPayment.getBooking().getId());
+                response.setAmount(savedPayment.getAmount());
+                response.setCurrency(savedPayment.getRegion().getCurrency());
+                response.setTransactionId(savedPayment.getTransactionId());
+                response.setPaymentMethod(savedPayment.getPaymentMethod());
+                response.setStatus(savedPayment.getPaymentStatus().getStatusName());
+                response.setRedirectUrl(redirectUrl);
+                response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+            } catch (UnsupportedEncodingException e) {
+                logger.error("Failed to create VNPay payment URL", e);
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tạo URL thanh toán VNPay");
+            }
         } else {
-            payment.setPaymentStatus(successStatus);
+            // Thanh toán tiền mặt
+            String paymentId = "PAY_" + System.nanoTime();
+            payment.setTransactionId(paymentId);
+            payment.setPaymentStatus(paidStatus);
+            
             Payment savedPayment = repository.save(payment);
+            
+            // Gửi email xác nhận (không làm crash nếu lỗi)
             try {
                 sendBookingConfirmationEmail(savedPayment);
+                logger.info("Confirmation email sent successfully for cash payment, booking ID: {}", dto.getBookingId());
             } catch (MessagingException e) {
-                logger.error("Failed to send confirmation email: {}", e.getMessage(), e);
+                logger.error("Failed to send confirmation email for cash payment, booking ID: {}. Error: {}", 
+                    dto.getBookingId(), e.getMessage());
+                // Không throw exception vì thanh toán đã thành công
+            } catch (Exception e) {
+                logger.error("Unexpected error sending confirmation email for cash payment, booking ID: {}. Error: {}", 
+                    dto.getBookingId(), e.getMessage());
+                // Không throw exception vì thanh toán đã thành công
             }
 
             response.setPaymentId(savedPayment.getId());
@@ -154,7 +212,10 @@ public class PaymentService {
         return response;
     }
 
-    public void handlePaymentCallback(HttpServletRequest request) throws UnsupportedEncodingException {
+    @Transactional
+    public String handlePaymentCallback(HttpServletRequest request) throws UnsupportedEncodingException {
+        logger.info("Processing VNPay callback request");
+        
         Map<String, String> vnp_Params = new HashMap<>();
         for (Enumeration<String> params = request.getParameterNames(); params.hasMoreElements();) {
             String paramName = params.nextElement();
@@ -162,91 +223,147 @@ public class PaymentService {
             vnp_Params.put(paramName, paramValue);
         }
 
-        logger.info("VNPay callback parameters: {}", vnp_Params);
+        logger.info("VNPay callback parameters received: {}", vnp_Params);
+        
         String vnp_TxnRef = vnp_Params.get("vnp_TxnRef");
         String vnp_ResponseCode = vnp_Params.get("vnp_ResponseCode");
         String vnp_SecureHash = vnp_Params.remove("vnp_SecureHash");
 
         if (vnp_SecureHash == null || vnp_SecureHash.isEmpty()) {
-            logger.warn("vnp_SecureHash is missing in callback response.");
+            logger.error("vnp_SecureHash is missing in callback response");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid callback: missing secure hash");
         }
 
-        String signValue = vnPayConfig.hashAllFields(vnp_Params);
-        if (!signValue.equals(vnp_SecureHash)) {
-            logger.warn("Hash validation failed. Calculated: {}, Received: {}", signValue, vnp_SecureHash);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid callback: hash validation failed");
+        logger.info("Validating VNPay callback - TxnRef: {}, ResponseCode: {}, SecureHash: {}", 
+                   vnp_TxnRef, vnp_ResponseCode, vnp_SecureHash);
+
+        try {
+            String signValue = vnPayConfig.hashAllFields(vnp_Params);
+            logger.info("Calculated hash: {}, Received hash: {}", signValue, vnp_SecureHash);
+            
+            if (!signValue.equals(vnp_SecureHash)) {
+                logger.error("Hash validation failed. Calculated: {}, Received: {}", signValue, vnp_SecureHash);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid callback: hash validation failed");
+            }
+            
+            logger.info("Hash validation successful");
+            
+        } catch (Exception e) {
+            logger.error("Error during hash validation: {}", e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Error validating callback signature: " + e.getMessage());
         }
 
         Payment payment = repository.findByTransactionIdAndIsDeletedFalse(vnp_TxnRef)
                 .filter(p -> !p.getIsDeleted())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found for TxnRef: " + vnp_TxnRef));
+                .orElseThrow(() -> {
+                    logger.error("Payment not found for TxnRef: {}", vnp_TxnRef);
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found for TxnRef: " + vnp_TxnRef);
+                });
 
-        Status status = statusRepository.findByStatusName("00".equals(vnp_ResponseCode) ? "success" : "failed")
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status not found"));
+        logger.info("Payment found for TxnRef: {}, current status: {}", vnp_TxnRef, payment.getPaymentStatus().getStatusName());
+
+        Status status = statusRepository.findByStatusName("00".equals(vnp_ResponseCode) ? "paid" : "failed")
+                .orElseThrow(() -> {
+                    logger.error("Status not found for response code: {}", vnp_ResponseCode);
+                    return new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status not found");
+                });
+        
         payment.setPaymentStatus(status);
+        
+        // Update payment method to 'vnpay' for consistency
+        payment.setPaymentMethod("vnpay");
         repository.save(payment);
+        
+        logger.info("Payment status updated to: {}", status.getStatusName());
 
         if ("00".equals(vnp_ResponseCode)) {
             try {
                 sendBookingConfirmationEmail(payment);
+                logger.info("Payment successful for TxnRef: {}, confirmation email sent", vnp_TxnRef);
             } catch (MessagingException e) {
-                logger.error("Failed to send confirmation email: {}", e.getMessage(), e);
+                logger.error("Failed to send confirmation email for TxnRef: {}", vnp_TxnRef, e);
+                // Không throw exception vì thanh toán đã thành công
             }
+        } else {
+            logger.warn("Payment failed for TxnRef: {}, response code: {}", vnp_TxnRef, vnp_ResponseCode);
         }
+        
+        return vnp_TxnRef;
     }
 
     private String createVnpayPaymentUrl(HttpServletRequest request, String paymentId, long amount, Integer bookingId) throws UnsupportedEncodingException {
-        String vnp_Version = VNPayConfig.VNP_VERSION;
-        String vnp_Command = VNPayConfig.VNP_COMMAND;
-        String vnp_OrderInfo = "Thanh toán cọc đặt xe #" + bookingId;
-        String vnp_OrderType = VNPayConfig.VNP_ORDER_TYPE;
+        logger.info("Creating VNPay payment URL for payment ID: {}, amount: {}, booking ID: {}", paymentId, amount, bookingId);
+        
+        String vnp_Version = "2.1.0";
+        String vnp_Command = "pay";
+        String vnp_OrderType = "250000";
+        String vnp_TmnCode = vnPayConfig.VNP_TMN_CODE;
         String vnp_Amount = String.valueOf(amount * 100);
+        String vnp_CurrCode = "VND";
         String vnp_IpAddr = vnPayConfig.getIpAddress(request);
+        String vnp_Locale = "vn";
+        String vnp_ReturnUrl = vnPayConfig.VNP_RETURN_URL;
         String vnp_TxnRef = paymentId;
-        String vnp_CreateDate = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        String vnp_Locale = VNPayConfig.VNP_LOCALE;
-        String vnp_CurrCode = VNPayConfig.VNP_CURRENCY_CODE;
+        String vnp_OrderInfo = "Thanh toan don hang:" + vnp_TxnRef;
 
         Map<String, String> vnp_Params = new HashMap<>();
         vnp_Params.put("vnp_Version", vnp_Version);
         vnp_Params.put("vnp_Command", vnp_Command);
-        vnp_Params.put("vnp_TmnCode", vnPayConfig.VNP_TMN_CODE);
+        vnp_Params.put("vnp_TmnCode", vnp_TmnCode);
         vnp_Params.put("vnp_Amount", vnp_Amount);
         vnp_Params.put("vnp_CurrCode", vnp_CurrCode);
         vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
         vnp_Params.put("vnp_OrderInfo", vnp_OrderInfo);
         vnp_Params.put("vnp_OrderType", vnp_OrderType);
         vnp_Params.put("vnp_Locale", vnp_Locale);
-        vnp_Params.put("vnp_ReturnUrl", vnPayConfig.VNP_RETURN_URL);
+        vnp_Params.put("vnp_ReturnUrl", vnp_ReturnUrl);
         vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
+
+        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        String vnp_CreateDate = formatter.format(cld.getTime());
         vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
 
-        StringBuilder hashData = new StringBuilder();
-        StringBuilder query = new StringBuilder();
-        List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
-        Collections.sort(fieldNames);
+        cld.add(Calendar.MINUTE, 15);
+        String vnp_ExpireDate = formatter.format(cld.getTime());
+        vnp_Params.put("vnp_ExpireDate", vnp_ExpireDate);
 
-        for (String fieldName : fieldNames) {
-            String fieldValue = vnp_Params.get(fieldName);
-            if (fieldValue != null && !fieldValue.isEmpty()) {
-                String encodedValue = URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString());
-                hashData.append(fieldName).append("=").append(encodedValue);
-                query.append(fieldName).append("=").append(encodedValue);
-                if (fieldNames.indexOf(fieldName) < fieldNames.size() - 1) {
-                    hashData.append("&");
-                    query.append("&");
+        logger.info("VNPay parameters prepared: {}", vnp_Params);
+
+        try {
+            // Sử dụng phương thức hashAllFields từ VNPayConfig
+            String vnp_SecureHash = vnPayConfig.hashAllFields(vnp_Params);
+            logger.info("VNPay SecureHash generated successfully: {}", vnp_SecureHash);
+
+            // Tạo query string
+            List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
+            Collections.sort(fieldNames);
+            StringBuilder query = new StringBuilder();
+            Iterator<String> itr = fieldNames.iterator();
+            while (itr.hasNext()) {
+                String fieldName = itr.next();
+                String fieldValue = vnp_Params.get(fieldName);
+                if ((fieldValue != null) && (fieldValue.length() > 0)) {
+                    query.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString()));
+                    query.append('=');
+                    query.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
+                    if (itr.hasNext()) {
+                        query.append('&');
+                    }
                 }
             }
+            
+            String queryUrl = query.toString();
+            queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
+            String paymentUrl = vnPayConfig.VNP_PAY_URL + "?" + queryUrl;
+            
+            logger.info("VNPay payment URL generated successfully: {}", paymentUrl);
+            return paymentUrl;
+            
+        } catch (Exception e) {
+            logger.error("Error generating VNPay payment URL: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate VNPay payment URL: " + e.getMessage(), e);
         }
-
-        logger.info("Hash data for payment URL: {}", hashData.toString());
-        String vnp_SecureHash = vnPayConfig.hmacSHA512(vnPayConfig.VNP_SECRET_KEY, hashData.toString());
-        query.append("&vnp_SecureHash=").append(vnp_SecureHash);
-        String paymentUrl = vnPayConfig.VNP_PAY_URL + "?" + query.toString();
-        logger.info("Generated payment URL: {}", paymentUrl);
-
-        return paymentUrl;
     }
 
     private void sendBookingConfirmationEmail(Payment payment) throws MessagingException {
