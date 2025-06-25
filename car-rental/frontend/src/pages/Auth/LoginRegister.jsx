@@ -3,7 +3,7 @@
 import { useState, useContext, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
-import { AuthContext } from "../../context/AuthContext"
+import { AuthContext } from "../../store/AuthContext"
 import { login, register } from "@/services/api"
 
 const LoginRegisterPage = () => {
@@ -53,7 +53,20 @@ const LoginRegisterPage = () => {
     setLoading(true);
     setError('');
     try {
+      console.log('[LoginRegister] Attempting login with:', { username: data.username, password: '***' });
       const response = await login(data.username, data.password);
+      console.log('[LoginRegister] Login response:', response);
+      console.log('[LoginRegister] Response structure:', {
+        hasToken: !!response.token,
+        tokenLength: response.token ? response.token.length : 0,
+        hasExpiresAt: !!response.expiresAt,
+        expiresAt: response.expiresAt,
+        hasRole: !!response.role,
+        role: response.role,
+        hasUsername: !!response.username,
+        username: response.username
+      });
+      
       setAuthData(response.token, {
         expiresAt: response.expiresAt,
         role: response.role || 'customer',
@@ -63,6 +76,8 @@ const LoginRegisterPage = () => {
 
       // Lưu email vào localStorage
       localStorage.setItem('userEmail', response.email || data.username);
+      // Lưu username vào localStorage
+      localStorage.setItem('username', response.username || data.username);
 
       showToast('Đăng nhập thành công!', 'success');
       
@@ -77,6 +92,7 @@ const LoginRegisterPage = () => {
         }
       }, 1000);
     } catch (err) {
+      console.error('[LoginRegister] Login error:', err);
       setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.');
       showToast('Đăng nhập thất bại!', 'error');
     } finally {
@@ -93,9 +109,10 @@ const LoginRegisterPage = () => {
         email: data.email,
         password: data.password,
         phone: data.phone,
-        roleId: data.userType === 'renter' ? 1 : 2,
-        statusId: 1,
+        roleId: data.userType === 'renter' ? 3 : 2,
+        statusId: 8,
         countryCode: '+84',
+        preferredLanguage: 'vi',
         userDetail: {
           name: data.username,
           address: 'Unknown',

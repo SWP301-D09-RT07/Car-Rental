@@ -46,4 +46,13 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
            "WHERE b.customer.id = :customerId " +
            "ORDER BY b.createdAt DESC")
     List<Booking> findByCustomerIdWithDetails(@Param("customerId") Integer customerId);
+
+    @Query("SELECT COUNT(b) FROM Booking b WHERE b.car.id = :carId AND b.isDeleted = false")
+    int countBookingsByCarId(@Param("carId") Integer carId);
+
+    @Query("SELECT b FROM Booking b WHERE b.car.id = :carId AND b.status.statusName != :statusName AND b.isDeleted = false")
+    List<Booking> findByCarIdAndStatusStatusNameNotAndIsDeletedFalse(
+            @Param("carId") Integer carId, 
+            @Param("statusName") String statusName);
+
 }

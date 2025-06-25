@@ -33,9 +33,9 @@ public class Booking {
     @JoinColumn(name = "car_id", nullable = false)
     private Car car;
 
-    
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "driver_id", nullable = true)
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "driver_id")
     private Driver driver;
 
     @NotNull
@@ -111,4 +111,8 @@ public class Booking {
     public void preUpdate() {
         this.updatedAt = Instant.now();
     }
+
+    @Column(name = "with_driver", nullable = false)
+    private Boolean withDriver = false;
+    
 }

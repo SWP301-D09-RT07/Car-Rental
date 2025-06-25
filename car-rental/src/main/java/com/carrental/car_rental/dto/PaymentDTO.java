@@ -19,4 +19,5 @@ public class PaymentDTO {
     private String paymentMethod;
     private String statusName;
     private LocalDateTime paymentDate;
+    private String paymentType; // Thêm trường này
 }
