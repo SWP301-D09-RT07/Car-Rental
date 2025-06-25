@@ -24,6 +24,7 @@ public class MaintenanceService {
         return mapper.toDTO(entity);
     }
 
+    // Lấy tất cả bảo trì (của hoàng)
     public List<MaintenanceDTO> findAll() {
         return repository.findAll().stream()
                 .filter(e -> !e.getIsDeleted())
@@ -37,6 +38,7 @@ public class MaintenanceService {
                 .collect(Collectors.toList());
     }
 
+    // Lưu bảo trì mới (của hoàng)
     public MaintenanceDTO save(MaintenanceDTO dto) {
         Maintenance entity = mapper.toEntity(dto);
         entity.setIsDeleted(false);

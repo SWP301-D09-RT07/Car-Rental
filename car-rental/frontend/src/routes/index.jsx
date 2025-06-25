@@ -25,6 +25,17 @@ import Payments from '../components/features/admin/Admin/Payments';
 import Reports from '../components/features/admin/Admin/Reports';
 import Users from '../components/features/admin/Admin/Users';
 
+// (Có thể import Sidebar nếu muốn)
+// import Sidebar from '../components/features/admin/Sidebar';
+
+// Admin Layout Wrapper
+const AdminLayout = ({ children }) => (
+    <div className="admin-layout" style={{ display: 'flex', minHeight: '100vh' }}>
+        {/* <Sidebar /> */}
+        <div style={{ flex: 1 }}>{children}</div>
+    </div>
+);
+
 const AppRoutes = () => {
     const { user } = useContext(AuthContext);
 
@@ -96,11 +107,15 @@ const AppRoutes = () => {
                     </ProtectedRoute>
                 }
             />
+
+            {/* Admin routes bọc bởi AdminLayout */}
             <Route
                 path="/admin"
                 element={
                     <ProtectedRoute requiredRole="admin">
-                        <AdminHome />
+                        <AdminLayout>
+                            <AdminHome />
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -108,7 +123,9 @@ const AppRoutes = () => {
                 path="/admin/bookings"
                 element={
                     <ProtectedRoute requiredRole="admin">
-                        <Bookings />
+                        <AdminLayout>
+                            <Bookings />
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -116,7 +133,9 @@ const AppRoutes = () => {
                 path="/admin/car-listings"
                 element={
                     <ProtectedRoute requiredRole="admin">
-                        <CarListings />
+                        <AdminLayout>
+                            <CarListings />
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -124,7 +143,9 @@ const AppRoutes = () => {
                 path="/admin/payments"
                 element={
                     <ProtectedRoute requiredRole="admin">
-                        <Payments />
+                        <AdminLayout>
+                            <Payments />
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -132,7 +153,9 @@ const AppRoutes = () => {
                 path="/admin/reports"
                 element={
                     <ProtectedRoute requiredRole="admin">
-                        <Reports />
+                        <AdminLayout>
+                            <Reports />
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -140,7 +163,9 @@ const AppRoutes = () => {
                 path="/admin/users"
                 element={
                     <ProtectedRoute requiredRole="admin">
-                        <Users />
+                        <AdminLayout>
+                            <Users />
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />

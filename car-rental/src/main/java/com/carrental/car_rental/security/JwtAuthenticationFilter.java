@@ -51,7 +51,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        logger.info("=== JWT FILTER - BẮT ĐẦU XỬ LÝ REQUEST ===");
+        logger.info("Request URI: {}", request.getRequestURI());
+        logger.info("Request method: {}", request.getMethod());
+        logger.info("Authorization header: {}", request.getHeader("Authorization"));
+        
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            logger.info("OPTIONS request, skipping authentication");
             filterChain.doFilter(request, response);
             return;
         }
@@ -82,7 +88,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 //                && "GET".equalsIgnoreCase(method);
 //
 //        if (isPublicEndpoint || isGetRestrictedEndpoint) {
-
             filterChain.doFilter(request, response);
             return;
         }
@@ -98,6 +103,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             logger.info("Token details - Username: {}, Role: {}", username, role);
             
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
             logger.info("UserDetails authorities: {}", userDetails.getAuthorities());
             
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
@@ -111,7 +117,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         } else {
             logger.debug("No JWT token found for request: {} {}", method, path);
         }
-        
+
         filterChain.doFilter(request, response);
     }
 

@@ -711,7 +711,8 @@ VALUES
     (N'failed', N'Thất bại'),
 	(N'unavailable', N'Không khả dụng'),
     (N'refunded', N'Đã hoàn tiền'),
-	('unread', N'Chưa đọc');
+	('unread', N'Chưa đọc'),
+    (N'blocked', N'Bị chặn');
 GO
 
 -- 4. Bảng Language (SỬA: Thêm ngôn ngữ mới)
@@ -739,7 +740,11 @@ VALUES
     (2, N'Sales Tax', 'percentage', 5.00, N'Thuế bán hàng Hoa Kỳ'),
     (3, N'Consumption Tax', 'percentage', 8.00, N'Thuế tiêu thụ Nhật Bản');
 GO
-
+Select*from Status
+INSERT INTO Status (status_name, description)
+VALUES ('blocked', N'Bị chặn');
+INSERT INTO Status (status_name, description)
+VALUES ('active', N'Mở chặn');
 --8. Bảng User
 INSERT INTO [User] (
     username,
