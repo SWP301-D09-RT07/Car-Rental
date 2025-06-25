@@ -14,6 +14,7 @@ const Header = ({
 }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user } = useAuth();
     return (
         <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-xl shadow-lg z-50 border-b border-blue-100">
             <div className="container mx-auto px-4 py-4">
@@ -106,7 +107,7 @@ const Header = ({
                                 <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl py-3 border border-blue-100 animate-in slide-in-from-top-5 duration-200">
                                     <div className="px-6 py-4 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl">
                                         <p className="text-sm font-semibold text-gray-900">Xin chào!</p>
-                                        <p className="text-xs text-gray-500">{userEmail || "user@example.com"}</p>
+                                        <p className="text-xs text-gray-500">{user?.username || localStorage.getItem('username') || "user@example.com"}</p>
                                     </div>
                                     {[
                                         { icon: FaUser, text: "Hồ sơ của tôi", path: "/profile" },

@@ -15,7 +15,12 @@ const defaultContextValue = {
 export const AuthContext = createContext(defaultContextValue);
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+    // Lấy username và role từ localStorage khi khởi tạo
+    const [user, setUser] = useState(() => {
+        const username = localStorage.getItem('username');
+        const role = localStorage.getItem('role');
+        return username ? { username, role } : null;
+    });
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [isLoading, setIsLoading] = useState(true);
 
