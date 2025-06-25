@@ -14,6 +14,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.carrental.car_rental.config.JwtTokenProvider;
+import com.carrental.car_rental.service.UserService;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -24,22 +31,44 @@ public class AuthController {
     @Value("${frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
-    public AuthController(AuthService authService, EmailService emailService) {
+    private final AuthenticationManager authenticationManager;
+    private final JwtTokenProvider tokenProvider;
+    private final UserService userService;
+
+    public AuthController(AuthService authService, EmailService emailService,
+                         AuthenticationManager authenticationManager,
+                         JwtTokenProvider tokenProvider,
+                         UserService userService) {
         this.authService = authService;
         this.emailService = emailService;
+        this.authenticationManager = authenticationManager;
+        this.tokenProvider = tokenProvider;
+        this.userService = userService;
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody AuthRequest authRequest) {
-        logger.info("Xử lý đăng nhập cho username: {}", authRequest.getUsername());
-        try {
-            AuthResponse authResponse = authService.login(authRequest);
-            return ResponseEntity.ok(authResponse);
-        } catch (Exception e) {
-            logger.warn("Đăng nhập thất bại: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(createErrorResponse("Tên người dùng hoặc mật khẩu không đúng"));
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+        Authentication authentication = authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(
+                loginRequest.getUsername(),
+                loginRequest.getPassword()
+            )
+        );
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String jwt = tokenProvider.generateToken(authentication);
+        String role = tokenProvider.getRoleFromToken(jwt);
+        if (role != null && role.startsWith("ROLE_")) {
+            role = role.substring(5);
         }
+        long expiresAt = tokenProvider.getExpirationDateFromToken(jwt).getTime();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("jwt", jwt);
+        response.put("role", role);
+        response.put("username", loginRequest.getUsername());
+        response.put("expiresAt", expiresAt);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/register")

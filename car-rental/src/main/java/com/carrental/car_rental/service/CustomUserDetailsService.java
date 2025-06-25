@@ -24,13 +24,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         logger.info("Tải thông tin người dùng: {}", username);
         return userRepository.findByUsernameOrEmail(username, username)
-                .map(user -> {
-                    String role = user.getRole().getRoleName();
-                    logger.info("User found: {}, Role from DB: {}", username, role);
-                    UserPrincipal principal = new UserPrincipal(user.getId(), user.getUsername(), user.getPasswordHash(), role);
-                    logger.info("UserPrincipal created with authorities: {}", principal.getAuthorities());
-                    return principal;
-                })
+                .map(UserPrincipal::create)
                 .orElseThrow(() -> {
                     logger.error("Không tìm thấy người dùng: {}", username);
                     return new UsernameNotFoundException("Không tìm thấy người dùng: " + username);

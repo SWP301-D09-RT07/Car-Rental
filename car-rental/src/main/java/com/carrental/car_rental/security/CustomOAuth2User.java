@@ -10,27 +10,26 @@ import java.util.Map;
 
 @Getter
 public class CustomOAuth2User implements OAuth2User {
-
-    private final OAuth2User delegate;
+    private final OAuth2User oauth2User;
     private final AuthResponse authResponse;
 
-    public CustomOAuth2User(OAuth2User delegate, AuthResponse authResponse) {
-        this.delegate = delegate;
+    public CustomOAuth2User(OAuth2User oauth2User, AuthResponse authResponse) {
+        this.oauth2User = oauth2User;
         this.authResponse = authResponse;
     }
 
     @Override
     public Map<String, Object> getAttributes() {
-        return delegate.getAttributes();
+        return oauth2User.getAttributes();
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return delegate.getAuthorities();
+        return oauth2User.getAuthorities();
     }
 
     @Override
     public String getName() {
-        return delegate.getName();
+        return oauth2User.getAttribute("email");
     }
 }

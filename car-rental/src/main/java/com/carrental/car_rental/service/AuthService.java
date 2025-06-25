@@ -15,12 +15,14 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.carrental.car_rental.security.UserPrincipal;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -78,16 +80,20 @@ public class AuthService {
         checkUserStatus(user);
 
         try {
-            authenticationManager.authenticate(
+            Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(authRequest.getUsername(), authRequest.getPassword())
             );
             user.setLastLogin(Instant.now());
             userRepository.save(user);
 
-            String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().getRoleName());
+            String token = jwtTokenProvider.generateToken(authentication);
             long expiresAt = jwtTokenProvider.getExpirationDateFromToken(token).getTime();
             logger.info("Đăng nhập thành công cho username: {}", authRequest.getUsername());
-            return new AuthResponse(token, expiresAt, user.getRole().getRoleName());
+            String role = user.getRole().getRoleName();
+            if (role != null && role.startsWith("ROLE_")) {
+                role = role.substring(5);
+            }
+            return new AuthResponse(token, expiresAt, role);
         } catch (AuthenticationException e) {
             logger.warn("Đăng nhập thất bại: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tên người dùng hoặc mật khẩu không đúng");
@@ -119,10 +125,6 @@ public class AuthService {
         Status status = statusRepository.findById(createUserDTO.getStatusId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid statusId"));
         user.setStatus(status);
-
-        Language language = languageRepository.findById(createUserDTO.getPreferredLanguage())
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ngôn ngữ không hợp lệ"));
-        user.setPreferredLanguage(language);
 
         User savedUser = userRepository.save(user);
         UserDetail userDetail = createUserDetail(savedUser, createUserDTO.getUserDetail() != null ? createUserDTO.getUserDetail().getFullName() : null);
@@ -213,10 +215,16 @@ public class AuthService {
             user.setLastLogin(Instant.now());
             userRepository.save(user);
 
-            String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().getRoleName());
+            UserPrincipal principal = UserPrincipal.create(user);
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+            String token = jwtTokenProvider.generateToken(authentication);
             long expiresAt = jwtTokenProvider.getExpirationDateFromToken(token).getTime();
             logger.info("Đăng nhập Google thành công cho email: {}", email);
-            return new AuthResponse(token, expiresAt, user.getRole().getRoleName());
+            String role = user.getRole().getRoleName();
+            if (role != null && role.startsWith("ROLE_")) {
+                role = role.substring(5);
+            }
+            return new AuthResponse(token, expiresAt, role);
         } catch (ResponseStatusException e) {
             logger.error("Lỗi xử lý đăng nhập Google: {}", e.getMessage());
             throw e;

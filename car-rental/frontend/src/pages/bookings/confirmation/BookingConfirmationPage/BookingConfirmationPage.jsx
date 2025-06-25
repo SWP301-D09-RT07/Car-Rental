@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
-import { getCarById, post, createBooking, ensureBookingFinancials } from "@/services/api"
+import { getCarById, post } from "../../../../../src/services/api"
 import {
   FaCarSide,
   FaUser,
@@ -32,7 +32,6 @@ import {
   FaUndoAlt,
 } from "react-icons/fa"
 import { toast } from "react-toastify"
-import { useAuth } from '@/hooks/useAuth'
 
 // Enhanced Loading Spinner Component
 const LoadingSpinner = ({ size = "medium", color = "blue" }) => {
@@ -190,7 +189,7 @@ const PaymentMethodCard = ({ method, selected, onSelect, icon: Icon, title, desc
         value={method}
         checked={selected}
         onChange={() => onSelect(method)}
-        className="sr-only peer"
+        className="sr-only"
       />
       <div
         className={`w-12 h-12 flex items-center justify-center rounded-full mr-4 ${
@@ -222,7 +221,6 @@ const PaymentMethodCard = ({ method, selected, onSelect, icon: Icon, title, desc
 }
 
 const BookingConfirmationPage = () => {
-  const { isAuthenticated, user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const { bookingData } = location.state || {}
@@ -237,12 +235,10 @@ const BookingConfirmationPage = () => {
     fullName: "",
     phone: "",
     email: "",
-    pickupAddress: "",
-    dropoffAddress: "",
+    address: "",
   })
   const [contactErrors, setContactErrors] = useState({})
-  const [withDriver, setWithDriver] = useState(false)
-  const [deliveryRequested, setDeliveryRequested] = useState(false)
+  const [paymentMethod, setPaymentMethod] = useState("bank-transfer")
   const [priceBreakdown, setPriceBreakdown] = useState({
     basePrice: 0,
     extraFee: 0,
@@ -252,57 +248,6 @@ const BookingConfirmationPage = () => {
     total: 0,
     deposit: 0,
   })
-
-  // Load saved form data from localStorage
-  const loadSavedFormData = () => {
-    try {
-      const savedData = localStorage.getItem('bookingFormData')
-      if (savedData) {
-        const parsedData = JSON.parse(savedData)
-        setContactInfo(prev => ({
-          ...prev,
-          ...parsedData
-        }))
-        if (parsedData.withDriver !== undefined) {
-          setWithDriver(parsedData.withDriver)
-        }
-        if (parsedData.deliveryRequested !== undefined) {
-          setDeliveryRequested(parsedData.deliveryRequested)
-        }
-      }
-    } catch (error) {
-      console.error('Error loading saved form data:', error)
-    }
-  }
-
-  // Save form data to localStorage
-  const saveFormData = (data) => {
-    try {
-      localStorage.setItem('bookingFormData', JSON.stringify(data))
-    } catch (error) {
-      console.error('Error saving form data:', error)
-    }
-  }
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login')
-      return
-    }
-
-    // Auto-fill user information
-    if (user) {
-      setContactInfo(prev => ({
-        ...prev,
-        fullName: user.fullName || user.username || "",
-        phone: user.phone || "",
-        email: user.email || "",
-      }))
-    }
-
-    // Load saved form data
-    loadSavedFormData()
-  }, [isAuthenticated, navigate, user])
 
   useEffect(() => {
     if (!bookingData) {
@@ -314,14 +259,9 @@ const BookingConfirmationPage = () => {
     const fetchCar = async () => {
       try {
         setIsLoading(true)
-        if (bookingData.car) {
-          setCar(bookingData.car)
-          calculatePrice(bookingData.car.dailyRate || bookingData.car.daily_rate)
-        } else {
-          const carData = await getCarById(bookingData.carId)
-          setCar(carData)
-          calculatePrice(carData.dailyRate || carData.daily_rate)
-        }
+        const carData = await getCarById(bookingData.carId)
+        setCar(carData)
+        calculatePrice(carData.dailyRate || carData.daily_rate)
       } catch (err) {
         setError("Không thể tải thông tin xe. Vui lòng thử lại.")
         toast.error("Không thể tải thông tin xe")
@@ -330,34 +270,25 @@ const BookingConfirmationPage = () => {
       }
     }
     fetchCar()
-  }, [bookingData, navigate, withDriver, deliveryRequested])
+  }, [bookingData, navigate])
 
   const calculatePrice = (dailyRate) => {
     if (!bookingData || !dailyRate) return
 
     try {
-      const start = new Date(bookingData.pickupDateTime)
-      const end = new Date(bookingData.dropoffDateTime)
+      const start = new Date(bookingData.startDate)
+      const end = new Date(bookingData.endDate)
       if (isNaN(start) || isNaN(end)) {
         throw new Error("Ngày không hợp lệ")
       }
 
       const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) || 1
       const basePrice = dailyRate * days
-      
-      // Tính phí dịch vụ
-      let extraFee = 0
-      if (withDriver) {
-        extraFee += 300000 * days // 300,000 VND/ngày cho tài xế
-      }
-      if (deliveryRequested) {
-        extraFee += 100000 // 100,000 VND phí giao xe
-      }
-      
+      const extraFee = bookingData.delivery ? 100000 : 0
       const serviceFee = Math.round(basePrice * 0.1) // 10% service fee
       const tax = Math.round(basePrice * 0.1) // 10% VAT
       const total = basePrice + extraFee + serviceFee + tax
-      const deposit = Math.round(total * 0.3) // 30% deposit
+      const deposit = Math.round(total * 0.3)
 
       setPriceBreakdown({
         basePrice,
@@ -385,8 +316,7 @@ const BookingConfirmationPage = () => {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactInfo.email)) {
       errors.email = "Email không hợp lệ"
     }
-    if (!contactInfo.pickupAddress.trim()) errors.pickupAddress = "Vui lòng nhập địa chỉ nhận xe"
-    if (!contactInfo.dropoffAddress.trim()) errors.dropoffAddress = "Vui lòng nhập địa chỉ trả xe"
+    if (!contactInfo.address.trim()) errors.address = "Vui lòng nhập địa chỉ"
 
     setContactErrors(errors)
     return Object.keys(errors).length === 0
@@ -407,12 +337,11 @@ const BookingConfirmationPage = () => {
       const discount = Math.round(priceBreakdown.basePrice * (discountPercentage / 100))
       const newTotal =
         priceBreakdown.basePrice + priceBreakdown.extraFee + priceBreakdown.serviceFee + priceBreakdown.tax - discount
-      const newDeposit = Math.round(newTotal * 0.3)
       setPriceBreakdown((prev) => ({
         ...prev,
         discount,
         total: newTotal,
-        deposit: newDeposit,
+        deposit: Math.round(newTotal * 0.3),
       }))
       setError(null)
       toast.success(`Áp dụng mã giảm giá thành công! Giảm ${discountPercentage}%`)
@@ -424,13 +353,6 @@ const BookingConfirmationPage = () => {
   }
 
   const handleConfirm = async () => {
-    console.log('[BookingConfirm] Bắt đầu handleConfirm', { bookingData, contactInfo, priceBreakdown, withDriver, deliveryRequested });
-    console.log('[BookingConfirm] Auth state before createBooking:');
-    console.log('[BookingConfirm] - Token:', localStorage.getItem('token') ? 'Có' : 'Không có');
-    console.log('[BookingConfirm] - Username:', localStorage.getItem('username'));
-    console.log('[BookingConfirm] - Role:', localStorage.getItem('role'));
-    console.log('[BookingConfirm] - ExpiresAt:', localStorage.getItem('expiresAt'));
-    
     if (!validateContactInfo()) {
       toast.error("Vui lòng điền đầy đủ thông tin liên hệ")
       return
@@ -441,112 +363,22 @@ const BookingConfirmationPage = () => {
     }
     try {
       setIsLoading(true)
-      // Save form data for next time
-      saveFormData({
-        fullName: contactInfo.fullName,
-        phone: contactInfo.phone,
-        email: contactInfo.email,
-        pickupAddress: contactInfo.pickupAddress,
-        dropoffAddress: contactInfo.dropoffAddress,
-        withDriver: withDriver,
-        deliveryRequested: deliveryRequested
-      })
-      
-      const bookingPayload = {
+      const response = await post("/api/bookings/confirm", {
         carId: bookingData.carId,
-        pickupLocation: contactInfo.pickupAddress,
-        dropoffLocation: contactInfo.dropoffAddress,
-        pickupDateTime: bookingData.pickupDateTime,
-        dropoffDateTime: bookingData.dropoffDateTime,
-        withDriver: withDriver,
-        deliveryRequested: deliveryRequested,
-      };
-      
-      console.log('[BookingConfirm] Gọi createBooking với:', bookingPayload);
-      console.log('[BookingConfirm] Token:', localStorage.getItem('token') ? 'Có' : 'Không có');
-      console.log('[BookingConfirm] Base URL:', import.meta.env.VITE_API_URL || 'http://localhost:8080');
-      
-      const bookingResponse = await createBooking(bookingPayload)
-      console.log('[BookingConfirm] bookingResponse:', bookingResponse);
-      
-      console.log('[BookingConfirm] Auth state after createBooking:');
-      console.log('[BookingConfirm] - Token:', localStorage.getItem('token') ? 'Có' : 'Không có');
-      console.log('[BookingConfirm] - Username:', localStorage.getItem('username'));
-      console.log('[BookingConfirm] - Role:', localStorage.getItem('role'));
-      console.log('[BookingConfirm] - ExpiresAt:', localStorage.getItem('expiresAt'));
-      
-      if (!bookingResponse || !bookingResponse.bookingId) {
-        throw new Error("Không nhận được ID đặt xe từ server")
-      }
-      
-      console.log('[BookingConfirm] Gọi ensureBookingFinancials với bookingId:', bookingResponse.bookingId);
-      // Tạm thời comment out để test
-      // ensureBookingFinancials(bookingResponse.bookingId)
-      //   .then(res => console.log('[BookingConfirm] ensureBookingFinancials thành công:', res))
-      //   .catch(err => console.warn('[BookingConfirm] ensureBookingFinancials lỗi:', err));
-      
-      localStorage.setItem('lastBookingId', bookingResponse.bookingId);
-      localStorage.setItem('lastPriceBreakdown', JSON.stringify(priceBreakdown));
-      toast.success("Xác nhận đặt xe thành công!");
-      
-      const navigationData = {
-        bookingId: bookingResponse.bookingId, 
+        startDate: bookingData.startDate,
+        endDate: bookingData.endDate,
+        pickupLocation: bookingData.pickupLocation,
+        dropoffLocation: bookingData.dropoffLocation,
+        promoCode,
+        agreeTerms,
+        contactInfo,
+        paymentMethod,
         priceBreakdown,
-        depositAmount: priceBreakdown.deposit,
-        collateralAmount: 5000000,
-        withDriver,
-        deliveryRequested,
-        customerInfo: { ...contactInfo }
-      };
-      
-      console.log('[BookingConfirm] Chuyển sang /payment với:', navigationData);
-      console.log('[BookingConfirm] Auth state before navigate:');
-      console.log('[BookingConfirm] - Token:', localStorage.getItem('token') ? 'Có' : 'Không có');
-      console.log('[BookingConfirm] - Username:', localStorage.getItem('username'));
-      console.log('[BookingConfirm] - Role:', localStorage.getItem('role'));
-      console.log('[BookingConfirm] - ExpiresAt:', localStorage.getItem('expiresAt'));
-      
-      navigate("/payment", { state: navigationData });
-      console.log('[BookingConfirm] Đã gọi navigate sang /payment');
+      })
+      toast.success("Xác nhận đặt xe thành công!")
+      navigate("/payments", { state: { bookingId: response.bookingId, priceBreakdown } })
     } catch (err) {
-      console.error('[BookingConfirm] Lỗi trong handleConfirm:', err);
-      console.error('[BookingConfirm] Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        statusText: err.response?.statusText
-      });
-      
-      console.log('[BookingConfirm] Auth state after error:');
-      console.log('[BookingConfirm] - Token:', localStorage.getItem('token') ? 'Có' : 'Không có');
-      console.log('[BookingConfirm] - Username:', localStorage.getItem('username'));
-      console.log('[BookingConfirm] - Role:', localStorage.getItem('role'));
-      console.log('[BookingConfirm] - ExpiresAt:', localStorage.getItem('expiresAt'));
-      
-      if (err.response?.status === 400) {
-        const message = err.response?.data?.message || "Dữ liệu không hợp lệ"
-        toast.error(message)
-        return
-      }
-      if (err.response?.status === 401) {
-        toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
-        navigate('/login')
-        return
-      }
-      if (err.response?.status === 403) {
-        toast.error("Bạn không có quyền thực hiện hành động này. Vui lòng đăng nhập lại.")
-        navigate('/login')
-        return
-      }
-      if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
-        toast.error("Kết nối đến server bị timeout. Vui lòng kiểm tra kết nối mạng và thử lại.")
-        return
-      }
-      if (!err.response) {
-        toast.error("Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.")
-        return
-      }
-      toast.error(err.message || "Không thể đặt xe. Vui lòng thử lại.")
+      toast.error(err.message || "Không thể xác nhận đặt xe. Vui lòng thử lại.")
     } finally {
       setIsLoading(false)
     }
@@ -601,8 +433,8 @@ const BookingConfirmationPage = () => {
   }
 
   // Calculate rental duration
-  const startDate = new Date(bookingData.pickupDateTime)
-  const endDate = new Date(bookingData.dropoffDateTime)
+  const startDate = new Date(bookingData.startDate)
+  const endDate = new Date(bookingData.endDate)
   const rentalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) || 1
 
   return (
@@ -615,7 +447,7 @@ const BookingConfirmationPage = () => {
               <div className="w-10 h-10 flex items-center justify-center mr-3 bg-gray-100 rounded-full group-hover:bg-blue-100 transition-colors">
                 <FaArrowLeft />
               </div>
-              <span className="font-medium">Quay lại trang xe</span>
+              <span className="font-medium">Quay lại chi tiết xe</span>
             </Link>
             <div className="font-bold text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               RentCar
@@ -653,7 +485,7 @@ const BookingConfirmationPage = () => {
                       />
                       <div className="absolute top-3 right-3">
                         <div className="bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-medium text-gray-800">
-                          {(car.rentalCount ?? car.rental_count ?? 0)} lượt thuê
+                          {car.rentalCount || 15} lượt thuê
                         </div>
                       </div>
                     </div>
@@ -673,7 +505,7 @@ const BookingConfirmationPage = () => {
                         <span className="ml-2">{car.averageRating || 5.0}/5.0</span>
                       </div>
                       <span className="mx-2">•</span>
-                      <span>{(car.rentalCount ?? car.rental_count ?? 0)} lượt thuê</span>
+                      <span>{car.rentalCount || 10} lượt thuê</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -684,7 +516,7 @@ const BookingConfirmationPage = () => {
                         <div>
                           <div className="text-sm text-gray-600">Nhận xe</div>
                           <div className="font-semibold text-gray-800">
-                            {new Date(bookingData.pickupDateTime).toLocaleString("vi-VN", {
+                            {new Date(bookingData.startDate).toLocaleString("vi-VN", {
                               day: "2-digit",
                               month: "2-digit",
                               year: "numeric",
@@ -701,7 +533,7 @@ const BookingConfirmationPage = () => {
                         <div>
                           <div className="text-sm text-gray-600">Trả xe</div>
                           <div className="font-semibold text-gray-800">
-                            {new Date(bookingData.dropoffDateTime).toLocaleString("vi-VN", {
+                            {new Date(bookingData.endDate).toLocaleString("vi-VN", {
                               day: "2-digit",
                               month: "2-digit",
                               year: "numeric",
@@ -767,82 +599,53 @@ const BookingConfirmationPage = () => {
                 placeholder="Nhập email"
                 error={contactErrors.email}
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormInput
-                  label="Địa chỉ nhận xe"
-                  icon={FaMapMarkerAlt}
-                  required
-                  type="text"
-                  name="pickupAddress"
-                  value={contactInfo.pickupAddress}
-                  onChange={handleContactInfoChange}
-                  placeholder="Nhập địa chỉ nhận xe"
-                  error={contactErrors.pickupAddress}
-                />
-                <FormInput
-                  label="Địa chỉ trả xe"
-                  icon={FaMapMarkerAlt}
-                  required
-                  type="text"
-                  name="dropoffAddress"
-                  value={contactInfo.dropoffAddress}
-                  onChange={handleContactInfoChange}
-                  placeholder="Nhập địa chỉ trả xe"
-                  error={contactErrors.dropoffAddress}
-                />
-              </div>
+              <FormInput
+                label="Địa chỉ giao/nhận xe"
+                icon={FaMapMarkerAlt}
+                required
+                type="text"
+                name="address"
+                value={contactInfo.address}
+                onChange={handleContactInfoChange}
+                placeholder="Nhập địa chỉ giao/nhận xe"
+                error={contactErrors.address}
+              />
             </div>
 
-            {/* Service Options */}
+            {/* Payment Method */}
             <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl mb-8 border border-gray-100">
               <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
-                Tùy chọn dịch vụ
+                Phương thức thanh toán
               </h2>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-blue-300 transition-colors">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mr-3">
-                      <FaUser />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-800">Thuê tài xế</div>
-                      <div className="text-sm text-gray-600">300,000 VND/ngày - Tài xế chuyên nghiệp</div>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={withDriver}
-                      onChange={(e) => setWithDriver(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-blue-300 transition-colors">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 mr-3">
-                      <FaMapMarkerAlt />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-gray-800">Giao xe tận nơi</div>
-                      <div className="text-sm text-gray-600">100,000 VND - Giao xe đến địa chỉ của bạn</div>
-                    </div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={deliveryRequested}
-                      onChange={(e) => setDeliveryRequested(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
+                <PaymentMethodCard
+                  method="bank-transfer"
+                  selected={paymentMethod === "bank-transfer"}
+                  onSelect={setPaymentMethod}
+                  icon={FaUniversity}
+                  title="Chuyển khoản ngân hàng"
+                  description="Chuyển khoản đến tài khoản của chủ xe"
+                  badge="Phổ biến"
+                />
+                <PaymentMethodCard
+                  method="cash"
+                  selected={paymentMethod === "cash"}
+                  onSelect={setPaymentMethod}
+                  icon={FaHandHoldingUsd}
+                  title="Thanh toán tiền mặt"
+                  description="Thanh toán khi nhận xe"
+                />
+                <PaymentMethodCard
+                  method="card"
+                  selected={paymentMethod === "card"}
+                  onSelect={setPaymentMethod}
+                  icon={FaCreditCard}
+                  title="Thẻ tín dụng/ghi nợ"
+                  description="Thanh toán an toàn qua cổng thanh toán"
+                  badge="Bảo mật"
+                />
               </div>
             </div>
-
 
             {/* Terms and Conditions */}
             <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl mb-8 border border-gray-100">
@@ -976,12 +779,10 @@ const BookingConfirmationPage = () => {
                     <span className="text-gray-700">Giá thuê ({rentalDays} ngày)</span>
                     <span className="font-semibold">{priceBreakdown.basePrice.toLocaleString("vi-VN")}đ</span>
                   </div>
-                  {priceBreakdown.extraFee > 0 && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-700">Phí dịch vụ</span>
-                      <span className="font-semibold">{priceBreakdown.extraFee.toLocaleString("vi-VN")}đ</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-700">Phí giao xe</span>
+                    <span className="font-semibold">{priceBreakdown.extraFee.toLocaleString("vi-VN")}đ</span>
+                  </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-700">Phí dịch vụ (10%)</span>
                     <span className="font-semibold">{priceBreakdown.serviceFee.toLocaleString("vi-VN")}đ</span>
@@ -1075,8 +876,8 @@ const BookingConfirmationPage = () => {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center">
-                    <FaCheck className="mr-2" />
-                    Xác nhận đặt xe - Chuyển đến thanh toán
+                    <FaLock className="mr-2" />
+                    Xác nhận đặt xe - {priceBreakdown.total.toLocaleString("vi-VN")}đ
                   </div>
                 )}
               </button>
@@ -1084,25 +885,6 @@ const BookingConfirmationPage = () => {
               <div className="text-center text-xs text-gray-500 mt-4">
                 Bằng cách nhấn "Xác nhận đặt xe", bạn đồng ý với các điều khoản và điều kiện của dịch vụ
               </div>
-
-              {/* Test Connection Button */}
-              <button
-                onClick={async () => {
-                  try {
-                    console.log('Testing connection...');
-                    const response = await fetch('http://localhost:8080/api/bookings/test');
-                    const data = await response.text();
-                    console.log('Test response:', data);
-                    alert(`Connection test: ${data}`);
-                  } catch (error) {
-                    console.error('Test failed:', error);
-                    alert(`Test failed: ${error.message}`);
-                  }
-                }}
-                className="w-full mt-4 py-2 bg-gray-500 text-white rounded-xl font-medium"
-              >
-                Test Connection
-              </button>
             </div>
           </div>
         </div>

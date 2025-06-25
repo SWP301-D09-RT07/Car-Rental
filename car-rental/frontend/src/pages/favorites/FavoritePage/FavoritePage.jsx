@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { getFavorites, removeFavorite } from "../../../services/api"
-import FavoriteButton from '@/components/ui/FavoriteButton/FavoriteButton'
 
 const FavoritePage = () => {
   const [favorites, setFavorites] = useState([])
@@ -225,7 +224,17 @@ const FavoritePage = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
                     {/* Favorite Button */}
-                    <FavoriteButton carId={favorite.carId} />
+                    <button
+                      onClick={() => handleRemoveFavorite(favorite.carId)}
+                      disabled={removingId === favorite.carId}
+                      className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white hover:scale-110 transition-all duration-300 group/btn"
+                    >
+                      {removingId === favorite.carId ? (
+                        <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <i className="ri-heart-fill text-red-500 group-hover/btn:scale-110 transition-transform duration-300"></i>
+                      )}
+                    </button>
 
                     {/* Quick Actions */}
                     <div className="absolute bottom-4 left-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">

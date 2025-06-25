@@ -1,26 +1,43 @@
-﻿
--- 1. Tạo bảng CountryCode
-CREATE TABLE CountryCode (
-    country_code VARCHAR(4) PRIMARY KEY CHECK (country_code LIKE '+[0-9]%'),
-    country_name NVARCHAR(50) NOT NULL
-);
-GO
-EXEC sys.sp_addextendedproperty 
-    @name=N'MS_Description', 
-    @value=N'Lưu trữ mã quốc gia cho số điện thoại', 
-    @level0type=N'SCHEMA', @level0name=N'dbo', 
-    @level1type=N'TABLE', @level1name=N'CountryCode';
+﻿create database CarRentalDB
+USE CarRentalDB;
 GO
 
--- 2. Tạo bảng Language
-CREATE TABLE Language (
-    language_code VARCHAR(2) PRIMARY KEY,
-    language_name NVARCHAR(50) NOT NULL,
-    is_deleted BIT DEFAULT 0
-);
+-- Xóa các bảng hiện có để bắt đầu từ đầu
+IF OBJECT_ID('ChatMessage') IS NOT NULL DROP TABLE ChatMessage;
+IF OBJECT_ID('Contract') IS NOT NULL DROP TABLE Contract;
+IF OBJECT_ID('UserActionLog') IS NOT NULL DROP TABLE UserActionLog;
+IF OBJECT_ID('SupplierRevenue') IS NOT NULL DROP TABLE SupplierRevenue;
+IF OBJECT_ID('Notification') IS NOT NULL DROP TABLE Notification;
+IF OBJECT_ID('Cancellation') IS NOT NULL DROP TABLE Cancellation;
+IF OBJECT_ID('Insurance') IS NOT NULL DROP TABLE Insurance;
+IF OBJECT_ID('Maintenance') IS NOT NULL DROP TABLE Maintenance;
+IF OBJECT_ID('Payment') IS NOT NULL DROP TABLE Payment;
+IF OBJECT_ID('Rating') IS NOT NULL DROP TABLE Rating;
+IF OBJECT_ID('Deposit') IS NOT NULL DROP TABLE Deposit;
+IF OBJECT_ID('BookingTax') IS NOT NULL DROP TABLE BookingTax;
+IF OBJECT_ID('BookingFinancials') IS NOT NULL DROP TABLE BookingFinancials;
+IF OBJECT_ID('Booking') IS NOT NULL DROP TABLE Booking;
+IF OBJECT_ID('Promotion') IS NOT NULL DROP TABLE Promotion;
+IF OBJECT_ID('Driver') IS NOT NULL DROP TABLE Driver;
+IF OBJECT_ID('Image') IS NOT NULL DROP TABLE [Image];
+IF OBJECT_ID('Car') IS NOT NULL DROP TABLE Car;
+IF OBJECT_ID('CarBrand') IS NOT NULL DROP TABLE CarBrand;
+IF OBJECT_ID('FuelType') IS NOT NULL DROP TABLE FuelType;
+IF OBJECT_ID('SignUpToProvide') IS NOT NULL DROP TABLE SignUpToProvide;
+IF OBJECT_ID('ServiceType') IS NOT NULL DROP TABLE ServiceType;
+IF OBJECT_ID('FeeLevel') IS NOT NULL DROP TABLE FeeLevel;
+IF OBJECT_ID('UserDetail') IS NOT NULL DROP TABLE UserDetail;
+IF OBJECT_ID('User') IS NOT NULL DROP TABLE [User];
+IF OBJECT_ID('Tax') IS NOT NULL DROP TABLE Tax;
+IF OBJECT_ID('Language') IS NOT NULL DROP TABLE Language;
+IF OBJECT_ID('Status') IS NOT NULL DROP TABLE Status;
+IF OBJECT_ID('CountryCode') IS NOT NULL DROP TABLE CountryCode;
+IF OBJECT_ID('Region') IS NOT NULL DROP TABLE Region;
+IF OBJECT_ID('Role') IS NOT NULL DROP TABLE Role;
+IF OBJECT_ID('SystemConfiguration') IS NOT NULL DROP TABLE SystemConfiguration;
 GO
-
--- 3. Tạo bảng Role
+ 
+-- 1. Tạo bảng Role
 CREATE TABLE Role (
     role_id INT IDENTITY(1,1) PRIMARY KEY,
     role_name VARCHAR(20) NOT NULL UNIQUE CHECK (role_name IN ('customer', 'supplier', 'admin')),
@@ -35,7 +52,38 @@ EXEC sys.sp_addextendedproperty
     @level1type=N'TABLE', @level1name=N'Role';
 GO
 
--- 4. Tạo bảng Status
+-- 5. Tạo bảng CountryCode (MỚI)
+CREATE TABLE CountryCode (
+    country_code VARCHAR(4) PRIMARY KEY CHECK (country_code LIKE '+[0-9]%'),
+    country_name NVARCHAR(50) NOT NULL
+);
+GO
+EXEC sys.sp_addextendedproperty 
+    @name=N'MS_Description', 
+    @value=N'Lưu trữ mã quốc gia cho số điện thoại', 
+    @level0type=N'SCHEMA', @level0name=N'dbo', 
+    @level1type=N'TABLE', @level1name=N'CountryCode';
+GO
+
+-- 2. Tạo bảng Region
+CREATE TABLE Region (
+    region_id INT IDENTITY(1,1) PRIMARY KEY,
+    region_name NVARCHAR(100) NOT NULL,
+    currency VARCHAR(3) NOT NULL,
+    is_deleted BIT DEFAULT 0,
+	country_code VARCHAR(4) NOT NULL,
+	FOREIGN KEY (country_code) REFERENCES CountryCode(country_code)
+);
+
+GO
+EXEC sys.sp_addextendedproperty 
+    @name=N'MS_Description', 
+    @value=N'Lưu trữ thông tin khu vực và tiền tệ', 
+    @level0type=N'SCHEMA', @level0name=N'dbo', 
+    @level1type=N'TABLE', @level1name=N'Region';
+GO
+
+-- 3. Tạo bảng Status
 CREATE TABLE Status (
     status_id INT IDENTITY(1,1) PRIMARY KEY,
     status_name NVARCHAR(20) NOT NULL UNIQUE,
@@ -50,22 +98,14 @@ EXEC sys.sp_addextendedproperty
     @level1type=N'TABLE', @level1name=N'Status';
 GO
 
--- 5. Tạo bảng Region
-CREATE TABLE Region (
-    region_id INT IDENTITY(1,1) PRIMARY KEY,
-    region_name NVARCHAR(100) NOT NULL,
-    currency VARCHAR(3) NOT NULL,
-    is_deleted BIT DEFAULT 0,
-    country_code VARCHAR(4) NOT NULL,
-    FOREIGN KEY (country_code) REFERENCES CountryCode(country_code)
+-- 4. Tạo bảng Language
+CREATE TABLE Language (
+    language_code VARCHAR(2) PRIMARY KEY,
+    language_name NVARCHAR(50) NOT NULL,
+    is_deleted BIT DEFAULT 0
 );
 GO
-EXEC sys.sp_addextendedproperty 
-    @name=N'MS_Description', 
-    @value=N'Lưu trữ thông tin khu vực và tiền tệ', 
-    @level0type=N'SCHEMA', @level0name=N'dbo', 
-    @level1type=N'TABLE', @level1name=N'Region';
-GO
+
 
 -- 6. Tạo bảng Tax
 CREATE TABLE Tax (
@@ -89,8 +129,6 @@ CREATE TABLE SystemConfiguration (
     is_deleted BIT DEFAULT 0
 );
 GO
-
--- 8. Tạo bảng [User]
 CREATE TABLE [User] (
     user_id INT IDENTITY(1,1) PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
@@ -111,6 +149,18 @@ CREATE TABLE [User] (
     FOREIGN KEY (country_code) REFERENCES CountryCode(country_code) ON DELETE NO ACTION
 );
 GO
+UPDATE [User]
+SET status_id = 8
+WHERE status_id = 1;
+
+
+EXEC sys.sp_addextendedproperty 
+    @name=N'MS_Description', 
+    @value=N'Lưu trữ thông tin tài khoản người dùng', 
+    @level0type=N'SCHEMA', @level0name=N'dbo', 
+    @level1type=N'TABLE', @level1name=N'[User]';
+GO
+
 CREATE TRIGGER UpdateUserTimestamp
 ON [User]
 AFTER UPDATE
@@ -122,7 +172,7 @@ BEGIN
     INNER JOIN inserted i ON u.user_id = i.user_id;
 END;
 GO
-
+SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'User';
 -- 9. Tạo bảng UserDetail
 CREATE TABLE UserDetail (
     user_id INT PRIMARY KEY,
@@ -187,7 +237,7 @@ CREATE TABLE CarBrand (
 );
 GO
 
--- Tạo bảng Car với thêm 2 cột transmission và describe
+-- 15. Tạo bảng Car
 CREATE TABLE Car (
     car_id INT IDENTITY(1,1) PRIMARY KEY,
     supplier_id INT NOT NULL,
@@ -201,9 +251,7 @@ CREATE TABLE Car (
     region_id INT NOT NULL,
     brand_id INT NOT NULL,
     fuel_type_id INT NOT NULL,
-    transmission NVARCHAR(20), -- Thêm cột transmission
     features NVARCHAR(500),
-    describe NVARCHAR(500),    -- Thêm cột describe
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE(),
     is_deleted BIT DEFAULT 0,
@@ -217,6 +265,8 @@ CREATE INDEX idx_car_license_plate ON Car(license_plate);
 CREATE INDEX idx_car_supplier_id ON Car(supplier_id);
 CREATE INDEX idx_car_region_id ON Car(region_id);
 GO
+
+
 CREATE TRIGGER UpdateCarTimestamp
 ON Car
 AFTER UPDATE
@@ -241,7 +291,7 @@ CREATE TABLE [Image] (
 );
 GO
 
--- 17. Tạo bảng Driver
+-- 17. Tạo bảng Driver (SỬA: Thêm country_code, sửa ràng buộc phone)
 CREATE TABLE Driver (
     driver_id INT IDENTITY(1,1) PRIMARY KEY,
     supplier_id INT NOT NULL,
@@ -275,8 +325,7 @@ CREATE TABLE Booking (
     booking_id INT IDENTITY(1,1) PRIMARY KEY,
     customer_id INT NOT NULL,
     car_id INT NOT NULL,
-    driver_id INT,
-	with_driver BIT DEFAULT 0 NOT NULL,
+    driver_id INT NOT NULL,
     region_id INT NOT NULL,
     booking_date DATETIME NOT NULL DEFAULT GETDATE(),
     start_date DATE NOT NULL,
@@ -371,15 +420,14 @@ CREATE TABLE Rating (
     rating_score TINYINT NOT NULL CHECK (rating_score BETWEEN 1 AND 5),
     comment NVARCHAR(500),
     rating_date DATETIME NOT NULL DEFAULT GETDATE(),
-    car_id INT NOT NULL,
+	car_id INT NOT NULL,
     is_deleted BIT DEFAULT 0,
     FOREIGN KEY (booking_id) REFERENCES Booking(booking_id) ON DELETE CASCADE,
     FOREIGN KEY (customer_id) REFERENCES [User](user_id) ON DELETE NO ACTION,
-    FOREIGN KEY (car_id) REFERENCES Car(car_id) ON DELETE NO ACTION,
+	FOREIGN KEY (car_id) REFERENCES Car(car_id) ON DELETE NO ACTION,
     CONSTRAINT UQ_Booking_Rating UNIQUE (booking_id)
 );
 GO
-
 
 -- 24. Tạo bảng Payment
 CREATE TABLE Payment (
@@ -388,11 +436,10 @@ CREATE TABLE Payment (
     amount DECIMAL(10, 2) NOT NULL CHECK (amount >= 0),
     region_id INT NOT NULL,
     transaction_id VARCHAR(100),
-    payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('vnpay', 'cash')),
+    payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('credit_card', 'paypal', 'bank_transfer', 'cash')),
     payment_status_id INT NOT NULL,
     payment_date DATETIME NOT NULL DEFAULT GETDATE(),
     is_deleted BIT DEFAULT 0,
-    payment_type VARCHAR(20) NOT NULL DEFAULT 'deposit' CHECK (payment_type IN ('deposit', 'full_payment', 'refund')),
     FOREIGN KEY (booking_id) REFERENCES Booking(booking_id) ON DELETE CASCADE,
     FOREIGN KEY (payment_status_id) REFERENCES Status(status_id) ON DELETE NO ACTION,
     FOREIGN KEY (region_id) REFERENCES Region(region_id) ON DELETE NO ACTION,
@@ -448,7 +495,7 @@ CREATE TABLE Cancellation (
 );
 GO
 
--- 28. Tạo bảng Notification
+-- 28. Tạo bảng Notification (SỬA: Thêm type 'chatbox')
 CREATE TABLE Notification (
     notification_id INT IDENTITY(1,1) PRIMARY KEY,
     user_id INT NOT NULL,
@@ -489,7 +536,7 @@ CREATE TABLE UserActionLog (
 );
 GO
 
--- 31. Tạo bảng ChatMessage
+-- 31. Tạo bảng ChatMessage (MỚI)
 CREATE TABLE ChatMessage (
     message_id INT IDENTITY(1,1) PRIMARY KEY,
     sender_id INT NOT NULL,
@@ -543,23 +590,20 @@ CREATE TABLE Contract (
 );
 CREATE INDEX idx_contract_booking_id ON Contract(booking_id);
 CREATE INDEX idx_contract_customer_id ON Contract(customer_id);
-GO
 
--- 33. Tạo bảng Favorite
 CREATE TABLE Favorite (
     favorite_id INT PRIMARY KEY IDENTITY(1,1),
     user_id INT NOT NULL,
     car_id INT NULL,
     supplier_id INT NULL,
     created_at DATETIME DEFAULT GETDATE(),
-    updated_at DATETIME DEFAULT GETDATE(),
     is_deleted BIT DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES [User](user_id),
     FOREIGN KEY (car_id) REFERENCES Car(car_id),
     FOREIGN KEY (supplier_id) REFERENCES [User](user_id)
 );
-GO
-
+ALTER TABLE Favorite
+ADD updated_at DATETIME DEFAULT GETDATE();
 
 
 -- INSERT dữ liệu
@@ -626,13 +670,13 @@ VALUES
     ('+961', N'Lebanon'),
     ('+964', N'Iraq')
 GO
-		
+
 
 -- 2. Bảng Region
 INSERT INTO Region (region_name, currency, country_code, is_deleted)
 VALUES
     (N'Hà Nội', 'VND', '+84', 0),
-    (N'Hồ Chí Minh', 'VND', '+84', 0),
+    (N'TP. Hồ Chí Minh', 'VND', '+84', 0),
     (N'Đà Nẵng', 'VND', '+84', 0),
     (N'Hải Phòng', 'VND', '+84', 0),
     (N'Cần Thơ', 'VND', '+84', 0),
@@ -1072,430 +1116,153 @@ VALUES
     (N'Honda', N'Nhật Bản');
 GO
 
-INSERT INTO [Car] 
-(supplier_id, license_plate, model, year, color, status_id, num_of_seats, daily_rate, region_id, brand_id, fuel_type_id, transmission, features, describe, created_at, updated_at, is_deleted)
-VALUES
-		-- 1. VinFast VF8
-		(6, N'30A-00001', N'VinFast VF8', 2022, N'Đen', 11, 5, 1200000.00, 1, 1, 2, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Màn hình cảm ứng, Camera 360, Điều hòa tự động, Cảm biến áp suất lốp, Đèn LED',
-		N'VinFast VF8 2022 - SUV điện 5 chỗ, kiểu dáng hiện đại, trang bị an toàn và tiện nghi cao cấp.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 2. VinFast Lux SA 2.0
-		(12, N'30A-00002', N'VinFast Lux SA 2.0', 2021, N'Đỏ', 11, 7, 1500000.00, 1, 1, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Màn hình DVD, Camera lùi, Ghế da, Đèn LED, Cửa sổ trời, Điều hòa tự động',
-		N'SUV 7 chỗ, động cơ mạnh mẽ, tiện nghi hiện đại, phù hợp gia đình và du lịch.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 3. VinFast Lux A 2.0
-		(17, N'30A-00003', N'VinFast Lux A 2.0', 2021, N'Trắng', 11, 5, 1300000.00, 1, 1, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Ghế chỉnh điện, Điều hòa tự động',
-		N'Sedan 5 chỗ sang trọng, vận hành êm ái, trang bị tiện nghi cao cấp.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 4. Hyundai Venue
-		(23, N'30A-00004', N'Hyundai Venue', 2024, N'Đỏ', 11, 5, 800000.00, 1, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Đèn chiếu sáng tự động, Cruise Control',
-		N'Hyundai Venue 2024 gầm cao nhỏ gọn, nhiều tính năng an toàn, phù hợp đô thị.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 5. Toyota Wigo
-		(28, N'30A-00005', N'Toyota Wigo', 2023, N'Trắng', 11, 5, 500000.00, 1, 9, 1, N'Số sàn',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Chống bó cứng phanh (ABS)',
-		N'Hatchback nhỏ gọn, bền bỉ, tiết kiệm, phù hợp đi phố.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 6. Toyota Vios
-		(34, N'30A-00006', N'Toyota Vios', 2018, N'Bạc', 11, 5, 450000.00, 1, 9, 1, N'Số sàn',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình DVD, Điều hòa tự động',
-		N'Sedan quốc dân, vận hành ổn định, tiết kiệm, bảo trì dễ dàng.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 7. Toyota Veloz
-		(39, N'30A-00007', N'Toyota Veloz', 2022, N'Đỏ', 11, 7, 800000.00, 1, 9, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Điều hòa tự động, Ghế da',
-		N'MPV 7 chỗ rộng rãi, hiện đại, phù hợp gia đình đông người.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 8. Toyota Corolla Cross
-		(45, N'30A-00008', N'Toyota Corolla Cross', 2022, N'Xanh', 11, 5, 900000.00, 1, 9, 4, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera 360, Màn hình cảm ứng, Cửa sổ trời, Điều hòa tự động',
-		N'SUV 5 chỗ, động cơ hybrid tiết kiệm nhiên liệu, công nghệ mới.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 9. Toyota Avanza
-		(50, N'30A-00009', N'Toyota Avanza', 2023, N'Đen', 11, 7, 700000.00, 1, 9, 1, N'Số sàn',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình DVD, Điều hòa tự động',
-		N'MPV 7 chỗ, rộng rãi, tiết kiệm, phù hợp gia đình và dịch vụ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 10. Suzuki XL7
-		(55, N'30A-00010', N'Suzuki XL7', 2022, N'Trắng', 11, 7, 750000.00, 1, 3, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Điều hòa tự động, Ghế da',
-		N'SUV đa dụng 7 chỗ, thiết kế thể thao, nhiều tiện nghi hiện đại.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 11. Suzuki Ertiga
-		(60, N'30A-00011', N'Suzuki Ertiga', 2022, N'Xám', 11, 7, 700000.00, 2, 3, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Điều hòa tự động, Ghế da',
-		N'MPV 7 chỗ, tiết kiệm, vận hành êm ái, phù hợp gia đình.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 12. Suzuki Ertiga
-		(6, N'30A-00012', N'Suzuki Ertiga', 2017, N'Xanh', 11, 7, 550000.00, 2, 3, 1, N'Số sàn',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Điều hòa tự động',
-		N'MPV 7 chỗ, tiết kiệm, vận hành ổn định, phù hợp gia đình nhỏ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 13. Mitsubishi Xpander Cross
-		(12, N'30A-00013', N'Mitsubishi Xpander Cross', 2023, N'Bạc', 11, 7, 800000.00, 2, 4, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Điều hòa tự động, Ghế da',
-		N'MPV gầm cao 7 chỗ, kiểu dáng thể thao, nhiều trang bị tiện nghi.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 14. Mitsubishi Xpander Cross
-		(17, N'30A-00014', N'Mitsubishi Xpander Cross', 2022, N'Trắng', 11, 7, 750000.00, 2, 4, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Ghế da',
-		N'MPV 7 chỗ, vận hành ổn định, thiết kế mạnh mẽ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 15. Mitsubishi Xpander
-		(23, N'30A-00015', N'Mitsubishi Xpander', 2024, N'Đen', 11, 7, 850000.00, 2, 4, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Điều hòa tự động',
-		N'MPV 7 chỗ thế hệ mới, thiết kế hiện đại, tiết kiệm nhiên liệu.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 16. Mitsubishi Xpander
-		(28, N'30A-00016', N'Mitsubishi Xpander', 2022, N'Đỏ', 11, 7, 700000.00, 2, 4, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng',
-		N'MPV 7 chỗ, tiết kiệm nhiên liệu, phù hợp gia đình, dịch vụ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 17. Mitsubishi Xpander
-		(34, N'30A-00017', N'Mitsubishi Xpander', 2019, N'Bạc', 11, 7, 600000.00, 2, 4, 1, N'Số sàn',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình DVD',
-		N'MPV 7 chỗ, tiết kiệm, vận hành ổn định, phù hợp gia đình nhỏ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 18. Mitsubishi Xforce
-		(39, N'30A-00018', N'Mitsubishi Xforce', 2024, N'Trắng', 11, 5, 850000.00, 3, 4, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED, Điều hòa tự động',
-		N'SUV 5 chỗ, thiết kế thể thao, nhiều tiện nghi hiện đại.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 19. Mitsubishi Triton
-		(45, N'30A-00019', N'Mitsubishi Triton', 2017, N'Xanh', 11, 5, 700000.00, 3, 4, 3, N'Số sàn',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình DVD, Gài cầu điện tử',
-		N'Bán tải 5 chỗ, động cơ mạnh mẽ, phù hợp địa hình phức tạp.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 20. Mitsubishi Outlander
-		(50, N'30A-00020', N'Mitsubishi Outlander', 2018, N'Đen', 11, 7, 800000.00, 3, 4, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình DVD, Cửa sổ trời, Điều hòa tự động',
-		N'SUV 7 chỗ, thiết kế sang trọng, nhiều trang bị tiện nghi.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-		   -- 21. MG5
-		(55, N'30A-00021', N'MG5', 2024, N'Trắng', 11, 5, 700000.00, 3, 5, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Màn hình cảm ứng, Camera lùi, Cửa sổ trời, Điều hòa tự động',
-		N'MG5 2024 - Sedan trẻ trung, tiện nghi, phù hợp khách hàng trẻ năng động.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 22. MG5
-		(7, N'51D-00022', N'MG5', 2022, N'Đen', 11, 5, 650000.00, 2, 5, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED, Điều hòa tự động',
-		N'Sedan 5 chỗ, thiết kế hiện đại, trang bị nhiều tiện ích an toàn.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 23. MG ZS
-		(13, N'51D-00023', N'MG ZS', 2022, N'Đen', 11, 5, 700000.00, 2, 5, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Đèn LED, Ghế da',
-		N'SUV đô thị MG ZS, thiết kế khỏe khoắn, nhiều trang bị an toàn hiện đại.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 24. MG ZS 1.5L
-		(18, N'51D-00024', N'MG ZS 1.5L', 2024, N'Trắng', 11, 5, 750000.00, 2, 5, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Cảm biến áp suất lốp, Đèn LED',
-		N'SUV nhỏ, tiết kiệm nhiên liệu, phù hợp di chuyển đô thị và gia đình nhỏ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 25. MG RX5
-		(24, N'51D-00025', N'MG RX5', 2023, N'Trắng', 11, 5, 800000.00, 2, 5, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa tự động',
-		N'SUV 5 chỗ, thiết kế sang trọng, vận hành ổn định, trang bị tiện nghi.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 26. Mercedes-Benz E200
-		(9, N'43A-00026', N'Mercedes-Benz E200', 2023, N'Đen', 11, 5, 2500000.00, 3, 6, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera 360, Màn hình cảm ứng, Ghế chỉnh điện, Điều hòa tự động, Cửa sổ trời',
-		N'Sedan hạng sang, trang bị cao cấp, trải nghiệm đẳng cấp và an toàn.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 27. Mazda CX-8
-		(18, N'43A-00027', N'Mazda CX-8', 2020, N'Trắng', 11, 7, 900000.00, 3, 7, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa 3 vùng',
-		N'SUV 7 chỗ, thiết kế sang, nội thất rộng rãi, trang bị tiện nghi.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 28. Mazda CX-3
-		(24, N'43A-00028', N'Mazda CX-3', 2021, N'Đỏ', 11, 5, 750000.00, 3, 7, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED',
-		N'SUV 5 chỗ nhỏ gọn, trẻ trung, nhiều tính năng an toàn hiện đại.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 29. Mazda 6
-		(29, N'43A-00029', N'Mazda 6', 2017, N'Trắng', 11, 5, 600000.00, 3, 7, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình DVD, Ghế chỉnh điện',
-		N'Sedan cỡ trung, vận hành êm ái, trang bị đầy đủ tiện nghi cơ bản.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 30. Mazda 3
-		(35, N'43A-00030', N'Mazda 3', 2021, N'Trắng', 11, 5, 700000.00, 3, 7, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED',
-		N'Sedan 5 chỗ, thiết kế trẻ trung hiện đại, vận hành ổn định.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-		-- 31. KIA Sorento
-		(40, N'43A-00031', N'KIA Sorento', 2021, N'Trắng', 11, 7, 1000000.00, 3, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera 360, Màn hình cảm ứng, Ghế chỉnh điện, Điều hòa tự động, Cửa sổ trời',
-		N'SUV 7 chỗ cao cấp, nội thất rộng rãi, nhiều trang bị tiện nghi hiện đại.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 32. KIA Sedona
-		(46, N'43A-00032', N'KIA Sedona', 2021, N'Trắng', 11, 7, 1100000.00, 3, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa tự động, Cửa sổ trời',
-		N'MPV 7 chỗ cao cấp, không gian rộng, phù hợp gia đình đông người.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 33. KIA Cerato
-		(51, N'43A-00033', N'KIA Cerato', 2021, N'Đen', 11, 5, 650000.00, 3, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Điều hòa tự động',
-		N'Sedan 5 chỗ, trẻ trung, vận hành êm ái, phù hợp gia đình nhỏ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 34. KIA Carnival
-		(56, N'43A-00034', N'KIA Carnival', 2024, N'Đen', 11, 7, 1200000.00, 3, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera 360, Màn hình cảm ứng, Ghế chỉnh điện, Điều hòa tự động, Cửa sổ trời',
-		N'MPV 7 chỗ hạng sang, rộng rãi, tiện nghi, phù hợp gia đình hoặc doanh nghiệp.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 35. KIA Carnival
-		(8, N'43A-00035', N'KIA Carnival', 2023, N'Đen', 11, 7, 1100000.00, 3, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa tự động',
-		N'MPV 7 chỗ cao cấp, thiết kế sang trọng, phù hợp du lịch và dịch vụ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 36. KIA Carnival
-		(14, N'43A-00036', N'KIA Carnival', 2022, N'Xanh', 11, 7, 1000000.00, 3, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa tự động',
-		N'MPV 7 chỗ thế hệ mới, hiện đại, nội thất rộng rãi.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 37. KIA Carens
-		(19, N'43A-00037', N'KIA Carens', 2024, N'Trắng', 11, 7, 800000.00, 3, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Điều hòa tự động, Ghế da',
-		N'MPV 7 chỗ, thiết kế hiện đại, tiết kiệm, phù hợp gia đình.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 38. KIA Carens
-		(25, N'43A-00038', N'KIA Carens', 2023, N'Đỏ', 12, 7, 750000.00, 3, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Điều hòa tự động',
-		N'MPV 7 chỗ, nhỏ gọn, tiết kiệm nhiên liệu, phù hợp gia đình nhỏ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 39. Hyundai Stargazer
-		(30, N'43A-00039', N'Hyundai Stargazer', 2025, N'Đỏ', 12, 7, 900000.00, 3, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Điều hòa tự động',
-		N'MPV 7 chỗ thế hệ mới, thiết kế hiện đại, nhiều tính năng an toàn.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 40. Hyundai Stargazer
-		(36, N'43A-00040', N'Hyundai Stargazer', 2024, N'Bạc', 12, 7, 850000.00, 3, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Ghế da',
-		N'MPV 7 chỗ, nội thất rộng rãi, tiết kiệm nhiên liệu.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-			-- 41. Hyundai Grand i10
-		(41, N'47A-00041', N'Hyundai Grand i10', 2022, N'Trắng', 11, 5, 500000.00, 3, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED, Điều hòa tự động',
-		N'Hatchback nhỏ gọn, tiết kiệm nhiên liệu, phù hợp di chuyển đô thị.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 42. Hyundai Custin
-		(47, N'50A-00042', N'Hyundai Custin', 2024, N'Trắng', 11, 7, 950000.00, 3, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa tự động, Cửa sổ trời',
-		N'MPV 7 chỗ mới, thiết kế sang trọng, trang bị tiện nghi cao cấp.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 43. Hyundai Accent
-		(52, N'43A-00043', N'Hyundai Accent', 2024, N'Trắng', 11, 5, 600000.00, 3, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Đèn LED, Điều hòa tự động',
-		N'Sedan hạng B, thiết kế hiện đại, tiết kiệm nhiên liệu.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 44. Hyundai Accent
-		(57, N'43A-00044', N'Hyundai Accent', 2020, N'Trắng', 11, 5, 550000.00, 3, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED',
-		N'Sedan 5 chỗ, vận hành ổn định, tiết kiệm nhiên liệu, phù hợp gia đình nhỏ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 45. Hyundai Elantra
-		(66, N'15A-00045', N'Hyundai Elantra', 2021, N'Trắng', 11, 5, 700000.00, 4, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Ghế chỉnh điện',
-		N'Sedan hạng C, thiết kế thể thao, vận hành êm ái.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 46. Honda Civic
-		(26, N'15A-00046', N'Honda Civic', 2020, N'Bạc', 11, 5, 750000.00, 3, 11, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa tự động',
-		N'Sedan hạng C, phong cách thể thao, nhiều trang bị tiện nghi.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 47. Honda City
-		(57, N'15A-00047', N'Honda City', 2018, N'Trắng', 11, 5, 600000.00, 3, 11, 1, N'Số sàn',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình DVD, Điều hòa tự động',
-		N'Sedan hạng B, tiết kiệm, vận hành ổn định, phù hợp đi phố.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 48. Honda BR-V
-		(41, N'43A-00048', N'Honda BR-V', 2024, N'Đen', 11, 7, 850000.00, 3, 11, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Điều hòa tự động',
-		N'MPV 7 chỗ, mới ra mắt, thiết kế thể thao, nội thất rộng rãi.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 49. Honda BR-V G
-		(59, N'43A-00049', N'Honda BR-V G', 2024, N'Xanh', 11, 7, 800000.00, 3, 11, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Điều hòa tự động',
-		N'MPV 7 chỗ, hiện đại, nhiều tính năng an toàn, tiết kiệm nhiên liệu.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 50. Ford Everest
-		(10, N'43A-00050', N'Ford Everest', 2022, N'Trắng', 11, 7, 1200000.00, 4, 10, 3, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera 360, Màn hình cảm ứng, Ghế chỉnh điện, Điều hòa tự động, Cửa sổ trời',
-		N'SUV 7 chỗ, động cơ diesel mạnh mẽ, nhiều công nghệ an toàn hỗ trợ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-			-- 51. Hyundai Accent
-		(57, N'43A-00051', N'Hyundai Accent', 2020, N'Xám', 11, 5, 550000.00, 4, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED, Điều hòa tự động',
-		N'Sedan hạng B, vận hành ổn định, trang bị tiện nghi cơ bản, tiết kiệm nhiên liệu.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 52. Hyundai Grand i10
-		(15, N'15A-00052', N'Hyundai Grand i10', 2022, N'Đen', 11, 5, 500000.00, 4, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED',
-		N'Hatchback nhỏ gọn, dễ lái, tiết kiệm xăng, phù hợp đi phố.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 53. KIA Carnival
-		(56, N'65A-00053', N'KIA Carnival', 2023, N'Xanh', 1, 7, 1100000.00, 5, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera 360, Màn hình cảm ứng, Ghế da, Điều hòa tự động, Cửa sổ trời',
-		N'MPV 7 chỗ hạng sang, không gian rộng rãi, tiện nghi hiện đại.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 54. KIA Carnival
-		(27, N'65A-00054', N'KIA Carnival', 2022, N'Bạc', 11, 7, 1000000.00, 5, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa tự động',
-		N'MPV 7 chỗ, thiết kế hiện đại, phù hợp gia đình đông người hoặc dịch vụ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 55. Mazda 2
-		(22, N'65A-00055', N'Mazda 2', 2021, N'Đen', 11, 5, 600000.00, 5, 7, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED',
-		N'Sedan nhỏ gọn, trẻ trung, nhiều tiện nghi, tiết kiệm nhiên liệu.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 56. Mitsubishi Xpander Cross
-		(9, N'75A-00056', N'Mitsubishi Xpander Cross', 2023, N'Đen', 11, 7, 800000.00, 6, 4, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa tự động',
-		N'MPV 7 chỗ, gầm cao, thiết kế thể thao, trang bị an toàn hiện đại.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 57. Suzuki Ertiga
-		(20, N'75A-00057', N'Suzuki Ertiga', 2022, N'Trắng', 11, 7, 750000.00, 6, 3, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Điều hòa tự động, Ghế da',
-		N'MPV 7 chỗ, nội thất rộng, vận hành ổn định, tiết kiệm nhiên liệu.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 58. Toyota Corolla Cross
-		(10, N'79A-00058', N'Toyota Corolla Cross', 2022, N'Bạc', 11, 5, 900000.00, 7, 9, 4, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera 360, Màn hình cảm ứng, Cửa sổ trời, Điều hòa tự động',
-		N'SUV 5 chỗ, động cơ hybrid, tiết kiệm xăng, trang bị an toàn cao cấp.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 59. VinFast Lux AB 2.0
-		(21, N'79A-00059', N'VinFast Lux AB 2.0', 2021, N'Đen', 11, 5, 1300000.00, 7, 1, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Ghế chỉnh điện, Điều hòa tự động',
-		N'Sedan 5 chỗ, thiết kế sang trọng, máy mạnh mẽ, nhiều tiện nghi hiện đại.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 60. VinFast VF8
-		(11, N'72A-00060', N'VinFast VF8', 2022, N'Xanh', 11, 8, 1200000.00, 8, 1, 2, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera 360, Màn hình cảm ứng, Đèn LED, Điều hòa tự động',
-		N'SUV điện 8 chỗ, nội thất rộng, vận hành êm ái, thiết kế hiện đại.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-		-- 61. Honda BR-V G
-		(22, N'72A-00061', N'Honda BR-V G', 2024, N'Trắng', 11, 7, 800000.00, 8, 11, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Điều hòa tự động, Ghế da',
-		N'MPV 7 chỗ, thiết kế thể thao, nhiều tính năng an toàn, vận hành ổn định.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 62. Toyota Corolla Cross
-		(66, N'30A-00062', N'Toyota Corolla Cross', 2022, N'Đen', 11, 5, 900000.00, 1, 9, 4, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera 360, Màn hình cảm ứng, Cửa sổ trời, Điều hòa tự động',
-		N'SUV 5 chỗ, động cơ hybrid, tiết kiệm nhiên liệu, trang bị an toàn cao cấp.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 63. Toyota Corolla Cross
-		(12, N'30A-00063', N'Toyota Corolla Cross', 2022, N'Xanh', 11, 5, 900000.00, 1, 9, 4, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera 360, Màn hình cảm ứng, Đèn LED, Điều hòa tự động',
-		N'SUV 5 chỗ, thiết kế hiện đại, nhiều tính năng an toàn, tiết kiệm nhiên liệu.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 64. Mazda 3
-		(42, N'30A-00064', N'Mazda 3', 2021, N'Xanh', 11, 5, 700000.00, 1, 7, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED, Điều hòa tự động',
-		N'Sedan 5 chỗ, thiết kế trẻ trung, vận hành ổn định, trang bị tiện nghi hiện đại.',
-		'2025-05-31 20:40:20', '2025-05-31 20:08:20', 0),
-
-		-- 65. KIA Sedona
-		(56, N'30A-00065', N'KIA Sedona', 2021, N'Đỏ', 11, 7, 1100000.00, 1, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa tự động, Cửa sổ trời',
-		N'MPV 7 chỗ, không gian rộng rãi, nội thất sang trọng, phù hợp gia đình đông người.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 66. KIA Sedona
-		(28, N'30A-00066', N'KIA Sedona', 2021, N'Bạc', 11, 7, 1100000.00, 1, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Điều hòa tự động, Ghế da',
-		N'MPV 7 chỗ, nội thất tiện nghi, vận hành êm ái, phù hợp gia đình.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 67. KIA Cerato
-		(29, N'39-00000', N'KIA Cerato', 2021, N'Trắng', 11, 5, 650000.00, 1, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Điều hòa tự động',
-		N'Sedan 5 chỗ, vận hành ổn định, tiết kiệm nhiên liệu, phù hợp gia đình nhỏ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 68. KIA Carnival
-		(70, N'39-00040', N'KIA Carnival', 2022, N'Bạc', 11, 7, 1000000.00, 1, 8, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera lùi, Màn hình cảm ứng, Ghế da, Điều hòa tự động, Cửa sổ trời',
-		N'MPV 7 chỗ cao cấp, nhiều tiện nghi, không gian rộng rãi cho gia đình.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 69. Hyundai Grand i10
-		(45, N'30A-00069', N'Hyundai Grand i10', 2022, N'Bạc', 11, 5, 500000.00, 1, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Điều hòa tự động',
-		N'Hatchback nhỏ gọn, tiết kiệm xăng, phù hợp di chuyển nội đô.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 70. Hyundai Accent
-		(50, N'30A-00070', N'Hyundai Accent', 2020, N'Đen', 11, 5, 550000.00, 1, 2, 1, N'Số tự động',
-		N'Lốp dự phòng, Túi khí, Camera lùi, Màn hình cảm ứng, Đèn LED',
-		N'Sedan 5 chỗ, vận hành ổn định, tiết kiệm nhiên liệu, phù hợp gia đình nhỏ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
-
-		-- 71. Ford Everest
-		(55, N'30A-00071', N'Ford Everest', 2022, N'Trắng', 11, 7, 1200000.00, 1, 10, 3, N'Số tự động',
-		N'Lốp dự phòng, Túi khí an toàn, Camera 360, Màn hình cảm ứng, Ghế chỉnh điện, Điều hòa tự động, Cửa sổ trời',
-		N'SUV 7 chỗ cao cấp, động cơ diesel mạnh mẽ, nhiều công nghệ an toàn hỗ trợ.',
-		'2025-05-31 20:08:00', '2025-05-31 20:08:00', 0);
-GO
+SELECT car_id, COUNT(*) FROM image WHERE is_deleted = 0 GROUP BY car_id;
+-- 15 Bảng Car
+-- Chèn dữ liệu vào bảng Car
+INSERT INTO [Car] (supplier_id, license_plate, model, year, color, status_id, num_of_seats, daily_rate, region_id, brand_id, fuel_type_id, features, created_at, updated_at, is_deleted)
+VALUES 
+    -- VinFast VF8 2022 (car_id = 1)
+    (6, N'30A-00001', N'VinFast VF8 2022', 2022, N'Đen', 11, 5, 1200000.00, 1, 1, 2, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- VinFast Lux SA 2.0 2021 (car_id = 2)
+    (12, N'30A-00002', N'VinFast Lux SA 2.0 2021', 2021, N'Đỏ', 11, 7, 1500000.00, 1, 1, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- VinFast Lux A 2.0 2021 (car_id = 3)
+    (17, N'30A-00003', N'VinFast Lux A 2.0 2021', 2021, N'Trắng', 11, 5, 1300000.00, 1, 1, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Venue 2024 (car_id = 4)
+    (23, N'30A-00004', N'Hyundai Venue 2024', 2024, N'Đỏ', 11, 5, 800000.00, 1, 2, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Toyota Wigo 2023 (car_id = 5)
+    (28, N'30A-00005', N'Toyota Wigo 2023', 2023, N'Trắng', 11, 5, 500000.00, 1, 9, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Toyota Vios 2018 (car_id = 6)
+    (34, N'30A-00006', N'Toyota Vios 2018', 2018, N'Bạc', 11, 5, 450000.00, 1, 9, 1, N'{"GPS": true, "Camera": false}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Toyota Veloz 2022 (car_id = 7)
+    (39, N'30A-00007', N'Toyota Veloz 2022', 2022, N'Đỏ', 11, 7, 800000.00, 1, 9, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Toyota Corolla Cross 2022 (car_id = 8)
+    (45, N'30A-00008', N'Toyota Corolla Cross 2022', 2022, N'Xanh', 11, 5, 900000.00, 1, 9, 4, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Toyota Avanza 2023 (car_id = 9)
+    (50, N'30A-00009', N'Toyota Avanza 2023', 2023, N'Đen', 11, 7, 700000.00, 1, 9, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Suzuki XL7 2022 (car_id = 10)
+    (55, N'30A-00010', N'Suzuki XL7 2022', 2022, N'Trắng', 11, 7, 750000.00, 1, 3, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Suzuki Ertiga 2022 (car_id = 11)
+    (60, N'30A-00011', N'Suzuki Ertiga 2022', 2022, N'Xám', 11, 7, 700000.00, 2, 3, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Suzuki Ertiga 2017 (car_id = 12)
+    (6, N'30A-00012', N'Suzuki Ertiga 2017', 2017, N'Xanh', 11, 7, 550000.00, 2, 3, 1, N'{"GPS": true, "Camera": false}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mitsubishi Xpander Cross 2023 (car_id = 13)
+    (12, N'30A-00013', N'Mitsubishi Xpander Cross 2023', 2023, N'Bạc', 11, 7, 800000.00, 2, 4, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mitsubishi Xpander Cross 2022 (car_id = 14)
+    (17, N'30A-00014', N'Mitsubishi Xpander Cross 2022', 2022, N'Trắng', 11, 7, 750000.00, 2, 4, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mitsubishi Xpander 2024 (car_id = 15)
+    (23, N'30A-00015', N'Mitsubishi Xpander 2024', 2024, N'Đen', 11, 7, 850000.00, 2, 4, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mitsubishi Xpander 2022 (car_id = 16)
+    (28, N'30A-00016', N'Mitsubishi Xpander 2022', 2022, N'Đỏ', 11, 7, 700000.00, 2, 4, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mitsubishi Xpander 2019 (car_id = 17)
+    (34, N'30A-00017', N'Mitsubishi Xpander 2019', 2019, N'Bạc', 11, 7, 600000.00, 2, 4, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mitsubishi Xforce 2024 (car_id = 18)
+    (39, N'30A-00018', N'Mitsubishi Xforce 2024', 2024, N'Trắng', 11, 5, 850000.00, 3, 4, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mitsubishi Triton 2017 (car_id = 19)
+    (45, N'30A-00019', N'Mitsubishi Triton 2017', 2017, N'Xanh', 11, 5, 700000.00, 3, 4, 3, N'{"GPS": true, "Camera": false}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mitsubishi Outlander 2018 (car_id = 20)
+    (50, N'30A-00020', N'Mitsubishi Outlander 2018', 2018, N'Đen', 11, 7, 800000.00, 3, 4, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- MG5 2024 (car_id = 21)
+    (55, N'30A-00021', N'MG5 2024', 2024, N'Trắng', 11, 5, 700000.00, 3, 5, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- MG5 2022 (car_id = 22)
+    (7, N'51D-00022', N'MG5 2022', 2022, N'Đen', 11, 5, 650000.00, 2, 5, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- MG ZS 2022 (car_id = 23)
+    (13, N'51D-00023', N'MG ZS 2022', 2022, N'Đen', 11, 5, 700000.00, 2, 5, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- MG ZS 1.5L 2024 (car_id = 24)
+    (18, N'51D-00024', N'MG ZS 1.5L 2024', 2024, N'Trắng', 11, 5, 750000.00, 2, 5, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- MG RX5 2023 (car_id = 25)
+    (24, N'51D-00025', N'MG RX5 2023', 2023, N'Trắng', 11, 5, 800000.00, 2, 5, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mercedes-Benz E200 2023 (car_id = 26)
+    (9, N'43A-00026', N'Mercedes-Benz E200 2023', 2023, N'Đen', 11, 5, 2500000.00, 3, 6, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mazda CX-8 2020 (car_id = 27)
+    (18, N'43A-00027', N'Mazda CX-8 2020', 2020, N'Trắng', 11, 7, 900000.00, 3, 7, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mazda CX-3 2021 (car_id = 28)
+    (24, N'43A-00028', N'Mazda CX-3 2021', 2021, N'Đỏ', 11, 5, 750000.00, 3, 7, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mazda 6 2017 (car_id = 29)
+    (29, N'43A-00029', N'Mazda 6 2017', 2017, N'Trắng', 11, 5, 600000.00, 3, 7, 1, N'{"GPS": true, "Camera": false}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mazda 3 2021 (car_id = 30)
+    (35, N'43A-00030', N'Mazda 3 2021', 2021, N'Trắng', 11, 5, 700000.00, 3, 7, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Sorento 2021 (car_id = 31)
+    (40, N'43A-00031', N'KIA Sorento 2021', 2021, N'Trắng', 11, 7, 1000000.00, 3, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Sedona 2021 (car_id = 32)
+    (46, N'43A-00032', N'KIA Sedona 2021', 2021, N'Trắng', 11, 7, 1100000.00, 3, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Cerato 2021 (car_id = 33)
+    (51, N'43A-00033', N'KIA Cerato 2021', 2021, N'Đen', 11, 5, 650000.00, 3, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Carnival 2024 (car_id = 34)
+    (56, N'43A-00034', N'KIA Carnival 2024', 2024, N'Đen', 11, 7, 1200000.00, 3, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Carnival 2023 (car_id = 35)
+    (8, N'43A-00035', N'KIA Carnival 2023', 2023, N'Đen', 11, 7, 1100000.00, 3, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Carnival 2022 (car_id = 36)
+    (14, N'43A-00036', N'KIA Carnival 2022', 2022, N'Xanh', 11, 7, 1000000.00, 3, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Carens 2024 (car_id = 37)
+    (19, N'43A-00037', N'KIA Carens 2024', 2024, N'Trắng', 11, 7, 800000.00, 3, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Carens 2023 (car_id = 38)
+    (25, N'43A-00038', N'KIA Carens 2023', 2023, N'Đỏ', 11, 7, 750000.00, 3, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Stargazer 2025 (car_id = 39)
+    (30, N'43A-00039', N'Hyundai Stargazer 2025', 2025, N'Đỏ', 11, 7, 900000.00, 3, 2, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Stargazer 2024 (car_id = 40)
+    (36, N'43A-00040', N'Hyundai Stargazer 2024', 2024, N'Bạc', 11, 7, 850000.00, 3, 2, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Grand i10 2022 (car_id = 41)
+    (41, N'47A-00041', N'Hyundai Grand i10 2022', 2022, N'Trắng', 11, 5, 500000.00, 3, 2, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Custin 2024 (car_id = 42)
+    (47, N'50A-00042', N'Hyundai Custin 2024', 2024, N'Trắng', 11, 7, 950000.00, 3, 2, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Accent 2024 (car_id = 43)
+    (52, N'43A-00043', N'Hyundai Accent 2024', 2024, N'Trắng', 11, 5, 600000.00, 3, 2, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Accent 2020 (car_id = 44)
+    (57, N'43A-00044', N'Hyundai Accent 2020', 2020, N'Trắng', 11, 5, 550000.00, 3, 2, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Elantra 2021 (car_id = 45)
+    (66, N'15A-00045', N'Hyundai Elantra 2021', 2021, N'Trắng', 11, 5, 700000.00, 4, 2, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Honda Civic 2020 (car_id = 46)
+    (26, N'15A-00046', N'Honda Civic 2020', 2020, N'Bạc', 11, 5, 750000.00, 3, 11, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Honda City 2018 (car_id = 47)
+    (57, N'15A-00047', N'Honda City 2018', 2018, N'Trắng', 11, 5, 600000.00, 3, 11, 1, N'{"GPS": true, "Camera": false}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Honda BR-V 2024 (car_id = 48)
+    (41, N'43A-00048', N'Honda BR-V 2024', 2024, N'Đen', 11, 7, 850000.00, 3, 11, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Honda BR-V G 2024 (car_id = 49)
+    (59, N'43A-00049', N'Honda BR-V G 2024', 2024, N'Xanh', 11, 7, 800000.00, 3, 11, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Ford Everest 2022 (car_id = 50)
+    (10, N'43A-00050', N'Ford Everest 2022', 2022, N'Trắng', 11, 7, 1200000.00, 4, 10, 3, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Accent 2020 (car_id = 51)
+    (57, N'43A-00051', N'Hyundai Accent 2020', 2020, N'Xám', 11, 5, 550000.00, 4, 2, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Grand i10 2022 (car_id = 52)
+    (15, N'15A-00052', N'Hyundai Grand i10 2022', 2022, N'Đen', 11, 5, 500000.00, 4, 2, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Carnival 2023 (car_id = 53)
+    (56, N'65A-00053', N'KIA Carnival 2023', 2023, N'Xanh', 1, 7, 1100000.00, 5, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Carnival 2022 (car_id = 54)
+    (27, N'65A-00054', N'KIA Carnival', 2022, N'Bạc', 11, 7, 1000000.00, 5, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mazda 2 2021 (car_id = 55)
+    (22, N'65A-00055', N'Mazda 2 2021', 2021, N'Đen', 11, 5, 600000.00, 5, 7, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mitsubishi Xpander Cross 2023 (car_id = 56)
+    (9, N'75A-00056', N'Mitsubishi Xpander Cross 2023', 2023, N'Đen', 11, 7, 800000.00, 6, 4, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Suzuki Ertiga 2022 (car_id = 57)
+    (20, N'75A-00057', N'Suzuki Ertiga 2022', 2022, N'Trắng', 11, 7, 750000.00, 6, 3, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Toyota Corolla Cross 2022 (car_id = 58)
+    (10, N'79A-00058', N'Toyota Corolla Cross 2022', 2022, N'Bạc', 11, 5, 900000.00, 7, 9, 4, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- VinFast Lux A 2.0 2021 (car_id = 59)
+    (21, N'79A-00059', N'VinFast Lux A 2.0 2021', 2021, N'Đen', 11, 5, 1300000.00, 7, 1, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- VinFast VF8 2022 (car_id = 60)
+    (11, N'72A-00060', N'VinFast VF8 2022', 2022, N'Xanh', 11, 8, 1200000.00, 8, 1, 2, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Honda BR-V G 2024 (car_id = 61)
+    (22, N'72A-00061', N'Honda BR-V G 2024', 2024, N'Trắng', 11, 7, 800000.00, 8, 11, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Toyota Corolla Cross 2022 (car_id = 62)
+    (66, N'30A-00062', N'Toyota Corolla Cross 2022', 2022, N'Đen', 11, 5, 900000.00, 1, 9, 4, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Toyota Corolla Cross 2022 (car_id = 63)
+    (12, N'30A-00063', N'Toyota Corolla Cross 2022', 2022, N'Xanh', 11, 5, 900000.00, 1, 9, 4, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Mazda 3 2021 (car_id = 64)
+    (42, N'30A-00064', N'Mazda 3 2021', 2021, N'Xanh', 11, 5, 700000.00, 1, 7, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:40:20', '2025-05-31 20:08:20', 0),
+    -- KIA Sedona 2023 (car_id = 65)
+    (56, N'30A-00065', N'KIA Sedona 2023', 2021, N'Đỏ', 11, 7, 1100000.00, 1, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Sedona (car_id = 66)
+    (28, N'30A-00066', N'KIA Sedona', 2021, N'Bạc', 11, 7, 1100000.00, 1, 8, 1, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Cerato (car_id = 67)
+    (29, N'39-00000', N'KIA Cerato', 2021, N'Trắng', 11, 5, 650000.00, 1, 8, 1, N'{"GPS": false, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- KIA Carnival 2022 (car_id = 68)
+    (70, N'39-00040', N'KIA Carnival 2022', 2022, N'Bạc', 11, 7, 1000000.00, 1, 8, 1, N'{"GPS": false, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Grand i10 2022 (car_id = 69)
+    (45, N'30A-00069', N'Hyundai Grand i10 2022', 2022, N'Bạc', 11, 5, 500000.00, 1, 2, 1, N'{"GPS": false, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Hyundai Accent 2020 (car_id = 70)
+    (50, N'30A-00070', N'Hyundai Accent 2020', 2020, N'Đen', 11, 5, 550000.00, 1, 2, 1, N'{"GPS": false, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0),
+    -- Ford Everest 2022 (car_id = 71)
+    (55, N'30A-00071', N'Ford Everest 2022', 2022, N'Trắng', 11, 7, 1200000.00, 1, 10, 3, N'{"GPS": true, "Camera": true}', '2025-05-31 20:08:00', '2025-05-31 20:08:00', 0);
 
 -- 17. Bảng Driver (SỬA: Thêm country_code)
 INSERT INTO Driver (supplier_id, driver_name, dob, address, phone, country_code, license_number)
@@ -1516,25 +1283,9 @@ GO
 -- 19. Bảng Booking
 INSERT INTO Booking (customer_id, car_id, driver_id, region_id, start_date, end_date, pickup_location, dropoff_location, status_id, seat_number, deposit_amount, promo_id)
 VALUES 
-    (3, 5, 1, 2, '2025-06-25', '2025-06-27', N'Hà Nội', N'Hải Phòng', 2, 5, 600000.00, 1),
-    (1, 6, 1, 1, '2025-07-01', '2025-07-03', N'Đà Nẵng', N'Hội An', 1, 7, 500000.00, 2),
-    (4, 7, 1, 3, '2025-07-05', '2025-07-08', N'Nha Trang', N'Cam Ranh', 2, 6, 450000.00, NULL),
-    (2, 8, 1, 1, '2025-07-10', '2025-07-12', N'Cần Thơ', N'Vĩnh Long', 1, 5, 350000.00, 3);
-GO
-INSERT INTO Booking (customer_id, car_id, driver_id, region_id, start_date, end_date, pickup_location, dropoff_location, status_id, seat_number, deposit_amount, promo_id)
-VALUES 
-    (5, 9, 1, 2, '2025-06-25', '2025-06-28', N'Huế', N'Phong Điền', 1, 4, 400000.00, 1),
-    (3, 10, 1, 1, '2025-07-15', '2025-07-17', N'TP.HCM', N'Vũng Tàu', 2, 5, 550000.00, NULL),
-    (2, 11, 1, 3, '2025-07-20', '2025-07-23', N'Đà Lạt', N'Bảo Lộc', 1, 6, 450000.00, 2),
-    (1, 12, 1, 1, '2025-07-25', '2025-07-27', N'Hà Nội', N'Ninh Bình', 2, 7, 500000.00, 3),
-    (4, 13, 1, 2, '2025-08-01', '2025-08-03', N'Quảng Ninh', N'Hạ Long', 1, 5, 600000.00, NULL);
-GO
-INSERT INTO Booking (customer_id, car_id, driver_id, region_id, start_date, end_date, pickup_location, dropoff_location, status_id, seat_number, deposit_amount, promo_id)
-VALUES 
-    (3, 10, 2, 2, '2025-06-25', '2025-06-27', N'Hà Nội', N'Hải Dương', 2, 5, 450000.00, 1),
-    (4, 10, 3, 1, '2025-07-01', '2025-07-03', N'Đà Nẵng', N'Hội An', 1, 4, 500000.00, 2),
-    (5, 10, 2, 3, '2025-07-05', '2025-07-07', N'Nha Trang', N'Cam Ranh', 2, 5, 550000.00, NULL),
-    (1, 10, 2, 1, '2025-07-10', '2025-07-12', N'Cần Thơ', N'Rạch Giá', 1, 4, 400000.00, 3);
+    (1, 1, 1, 1, '2025-06-07', '2025-06-09', N'TP.HCM', N'TP.HCM', 2, 5, 500000.00, 1),
+    (1, 2, 2, 1, '2025-06-07', '2025-06-09', N'Hà Nội', N'Hà Nội', 1, 7, 350000.00, null),
+    (1, 3, 3, 1, '2025-06-07', '2025-07-04', N'Đà Nẵng', N'Đà Nẵng', 2, 5, 450000.00, 2);
 GO
 
 -- 20. Bảng BookingFinancials
@@ -1543,7 +1294,7 @@ VALUES
     (1, 2000000.00, 200000.00),
     (2, 1400000.00, 0.00),
     (3, 1800000.00, 270000.00);
-GO 
+GO
 
 -- 21. Bảng BookingTax
 INSERT INTO BookingTax (booking_id, tax_id, tax_amount)
@@ -1567,21 +1318,13 @@ VALUES
     (1, 1, 1, 5, N'Dịch vụ tốt'),
     (2, 1, 2, 4, N'Xe sạch sẽ'),
     (3, 1, 3, 5, N'Tài xế thân thiện');
-INSERT INTO Rating (booking_id, customer_id, car_id, rating_score, comment)
-VALUES 
-    (10, 2, 4, 4, N'Chuyến đi thoải mái, xe mới'),
-    (11, 3, 5, 5, N'Tài xế đúng giờ, dịch vụ tuyệt vời'),
-    (12, 1, 6, 3, N'Xe ổn nhưng điều hòa hơi yếu'),
-    (9, 4, 7, 5, N'Rất hài lòng, sẽ đặt lại lần sau'),
-    (8, 2, 8, 4, N'Chuyến đi tốt, nhưng giá hơi cao');
-GO
 
 -- 24. Bảng Payment
-INSERT INTO Payment (booking_id, amount, region_id, transaction_id, payment_method, payment_status_id, payment_type)
+INSERT INTO Payment (booking_id, amount, region_id, transaction_id, payment_method, payment_status_id)
 VALUES 
-    (1, 2000000.00, 1, N'TXN001', 'cash', 15, 'deposit'), -- region_id = 1 cho VND
-    (2, 1400000.00, 1, N'TXN002', 'cash', 15, 'deposit'),      -- region_id = 1 cho VND
-    (3, 1800000.00, 1, N'TXN003', 'cash', 15, 'deposit');        -- region_id = 1 cho VND
+    (1, 2000000.00, 1, N'TXN001', 'credit_card', 15), -- region_id = 1 cho VND
+    (2, 1400000.00, 1, N'TXN002', 'paypal', 15),      -- region_id = 1 cho VND
+    (3, 1800000.00, 1, N'TXN003', 'cash', 15);        -- region_id = 1 cho VND
 GO
 
 -- 25. Bảng Maintenance
@@ -1594,80 +1337,9 @@ GO
 -- 26. Bảng Insurance
 INSERT INTO Insurance (car_id, policy_number, provider, start_date, end_date, coverage_details)
 VALUES 
-    (1, 'INS-2025-0001', N'Bảo Việt', '2025-07-01', '2026-06-30', N'Bảo hiểm toàn diện cho xe, bao gồm tai nạn và hư hỏng'),
-    (4, 'INS-2025-0002', N'PVI Care', '2025-06-20', '2026-06-19', N'Bảo hiểm thân xe và trách nhiệm dân sự'),
-    (5, 'INS-2025-0003', N'Liberty Insurance', '2025-08-01', '2026-07-31', N'Bảo hiểm tai nạn và thiệt hại tài sản'),
-    (6, 'INS-2025-0004', N'Bảo Minh', '2025-07-15', '2026-07-14', N'Bảo hiểm xe và hành khách, hỗ trợ cứu hộ 24/7'),
-    (7, 'INS-2025-0005', N'PJICO', '2025-09-01', '2026-08-31', N'Bảo hiểm toàn diện, bao gồm mất cắp và thiên tai');
-GO
-INSERT INTO Insurance (car_id, policy_number, provider, start_date, end_date, coverage_details)
-VALUES 
-    (2, 'INS-2025-0006', N'Bảo Việt', '2025-06-25', '2026-06-24', N'Bảo hiểm toàn diện, bao gồm tai nạn và hư hỏng'),
-    (3, 'INS-2025-0007', N'PVI Care', '2025-07-01', '2026-06-30', N'Bảo hiểm thân xe và trách nhiệm dân sự'),
-    (8, 'INS-2025-0008', N'Liberty Insurance', '2025-07-15', '2026-07-14', N'Bảo hiểm tai nạn, thiệt hại tài sản và cứu hộ'),
-    (9, 'INS-2025-0009', N'Bảo Minh', '2025-08-01', '2026-07-31', N'Bảo hiểm xe, hành khách và mất cắp'),
-    (10, 'INS-2025-0010', N'PJICO', '2025-08-15', '2026-08-14', N'Bảo hiểm toàn diện, bao gồm thiên tai'),
-    (11, 'INS-2025-0011', N'Bảo Việt', '2025-09-01', '2026-08-31', N'Bảo hiểm trách nhiệm dân sự và cứu hộ 24/7'),
-    (12, 'INS-2025-0012', N'PVI Care', '2025-09-15', '2026-09-14', N'Bảo hiểm tai nạn và thiệt hại tài sản'),
-    (13, 'INS-2025-0013', N'Liberty Insurance', '2025-10-01', '2026-09-30', N'Bảo hiểm toàn diện, bao gồm mất cắp'),
-    (14, 'INS-2025-0014', N'Bảo Minh', '2025-10-15', '2026-10-14', N'Bảo hiểm xe và hành khách'),
-    (15, 'INS-2025-0015', N'PJICO', '2025-11-01', '2026-10-31', N'Bảo hiểm toàn diện và cứu hộ'),
-    (16, 'INS-2025-0016', N'Bảo Việt', '2025-11-15', '2026-11-14', N'Bảo hiểm tai nạn và trách nhiệm dân sự'),
-    (17, 'INS-2025-0017', N'PVI Care', '2025-12-01', '2026-11-30', N'Bảo hiểm xe, mất cắp và thiên tai'),
-    (18, 'INS-2025-0018', N'Liberty Insurance', '2025-12-15', '2026-12-14', N'Bảo hiểm toàn diện và cứu hộ 24/7'),
-    (19, 'INS-2025-0019', N'Bảo Minh', '2026-01-01', '2027-01-01', N'Bảo hiểm tai nạn và thiệt hại tài sản'),
-    (20, 'INS-2025-0020', N'PJICO', '2026-01-15', '2027-01-14', N'Bảo hiểm xe và hành khách'),
-    (21, 'INS-2025-0021', N'Bảo Việt', '2025-06-25', '2026-06-24', N'Bảo hiểm toàn diện, bao gồm tai nạn'),
-    (22, 'INS-2025-0022', N'PVI Care', '2025-07-01', '2026-06-30', N'Bảo hiểm trách nhiệm dân sự'),
-    (23, 'INS-2025-0023', N'Liberty Insurance', '2025-07-15', '2026-07-14', N'Bảo hiểm xe và cứu hộ'),
-    (24, 'INS-2025-0024', N'Bảo Minh', '2025-08-01', '2026-07-31', N'Bảo hiểm mất cắp và thiên tai'),
-    (25, 'INS-2025-0025', N'PJICO', '2025-08-15', '2026-08-14', N'Bảo hiểm toàn diện và hành khách'),
-    (26, 'INS-2025-0026', N'Bảo Việt', '2025-09-01', '2026-08-31', N'Bảo hiểm tai nạn và thiệt hại'),
-    (27, 'INS-2025-0027', N'PVI Care', '2025-09-15', '2026-09-14', N'Bảo hiểm xe và cứu hộ 24/7'),
-    (28, 'INS-2025-0028', N'Liberty Insurance', '2025-10-01', '2026-09-30', N'Bảo hiểm toàn diện và mất cắp'),
-    (29, 'INS-2025-0029', N'Bảo Minh', '2025-10-15', '2026-10-14', N'Bảo hiểm trách nhiệm dân sự'),
-    (30, 'INS-2025-0030', N'PJICO', '2025-11-01', '2026-10-31', N'Bảo hiểm xe và hành khách'),
-    (31, 'INS-2025-0031', N'Bảo Việt', '2025-11-15', '2026-11-14', N'Bảo hiểm tai nạn và thiên tai'),
-    (32, 'INS-2025-0032', N'PVI Care', '2025-12-01', '2026-11-30', N'Bảo hiểm toàn diện và cứu hộ'),
-    (33, 'INS-2025-0033', N'Liberty Insurance', '2025-12-15', '2026-12-14', N'Bảo hiểm mất cắp và thiệt hại'),
-    (34, 'INS-2025-0034', N'Bảo Minh', '2026-01-01', '2027-01-01', N'Bảo hiểm xe và hành khách'),
-    (35, 'INS-2025-0035', N'PJICO', '2026-01-15', '2027-01-14', N'Bảo hiểm toàn diện và cứu hộ'),
-    (36, 'INS-2025-0036', N'Bảo Việt', '2025-06-25', '2026-06-24', N'Bảo hiểm tai nạn và trách nhiệm dân sự'),
-    (37, 'INS-2025-0037', N'PVI Care', '2025-07-01', '2026-06-30', N'Bảo hiểm xe và mất cắp'),
-    (38, 'INS-2025-0038', N'Liberty Insurance', '2025-07-15', '2026-07-14', N'Bảo hiểm toàn diện và thiên tai'),
-    (39, 'INS-2025-0039', N'Bảo Minh', '2025-08-01', '2026-07-31', N'Bảo hiểm hành khách và cứu hộ'),
-    (40, 'INS-2025-0040', N'PJICO', '2025-08-15', '2026-08-14', N'Bảo hiểm tai nạn và thiệt hại'),
-    (41, 'INS-2025-0041', N'Bảo Việt', '2025-09-01', '2026-08-31', N'Bảo hiểm toàn diện và mất cắp'),
-    (42, 'INS-2025-0042', N'PVI Care', '2025-09-15', '2026-09-14', N'Bảo hiểm trách nhiệm dân sự'),
-    (43, 'INS-2025-0043', N'Liberty Insurance', '2025-10-01', '2026-09-30', N'Bảo hiểm xe và cứu hộ 24/7'),
-    (44, 'INS-2025-0044', N'Bảo Minh', '2025-10-15', '2026-10-14', N'Bảo hiểm tai nạn và thiên tai'),
-    (45, 'INS-2025-0045', N'PJICO', '2025-11-01', '2026-10-31', N'Bảo hiểm toàn diện và hành khách'),
-    (46, 'INS-2025-0046', N'Bảo Việt', '2025-11-15', '2026-11-14', N'Bảo hiểm mất cắp và thiệt hại'),
-    (47, 'INS-2025-0047', N'PVI Care', '2025-12-01', '2026-11-30', N'Bảo hiểm xe và cứu hộ'),
-    (48, 'INS-2025-0048', N'Liberty Insurance', '2025-12-15', '2026-12-14', N'Bảo hiểm toàn diện và thiên tai'),
-    (49, 'INS-2025-0049', N'Bảo Minh', '2026-01-01', '2027-01-01', N'Bảo hiểm hành khách và tai nạn'),
-    (50, 'INS-2025-0050', N'PJICO', '2026-01-15', '2027-01-14', N'Bảo hiểm trách nhiệm dân sự'),
-    (51, 'INS-2025-0051', N'Bảo Việt', '2025-06-25', '2026-06-24', N'Bảo hiểm xe và mất cắp'),
-    (52, 'INS-2025-0052', N'PVI Care', '2025-07-01', '2026-06-30', N'Bảo hiểm toàn diện và cứu hộ'),
-    (53, 'INS-2025-0053', N'Liberty Insurance', '2025-07-15', '2026-07-14', N'Bảo hiểm tai nạn và thiệt hại'),
-    (54, 'INS-2025-0054', N'Bảo Minh', '2025-08-01', '2026-07-31', N'Bảo hiểm hành khách và thiên tai'),
-    (55, 'INS-2025-0055', N'PJICO', '2025-08-15', '2026-08-14', N'Bảo hiểm toàn diện và mất cắp'),
-    (56, 'INS-2025-0056', N'Bảo Việt', '2025-09-01', '2026-08-31', N'Bảo hiểm xe và cứu hộ 24/7'),
-    (57, 'INS-2025-0057', N'PVI Care', '2025-09-15', '2026-09-14', N'Bảo hiểm tai nạn và trách nhiệm dân sự'),
-    (58, 'INS-2025-0058', N'Liberty Insurance', '2025-10-01', '2026-09-30', N'Bảo hiểm toàn diện và hành khách'),
-    (59, 'INS-2025-0059', N'Bảo Minh', '2025-10-15', '2026-10-14', N'Bảo hiểm mất cắp và thiên tai'),
-    (60, 'INS-2025-0060', N'PJICO', '2025-11-01', '2026-10-31', N'Bảo hiểm xe và cứu hộ'),
-    (61, 'INS-2025-0061', N'Bảo Việt', '2025-11-15', '2026-11-14', N'Bảo hiểm toàn diện và tai nạn'),
-    (62, 'INS-2025-0062', N'PVI Care', '2025-12-01', '2026-11-30', N'Bảo hiểm trách nhiệm dân sự'),
-    (63, 'INS-2025-0063', N'Liberty Insurance', '2025-12-15', '2026-12-14', N'Bảo hiểm hành khách và mất cắp'),
-    (64, 'INS-2025-0064', N'Bảo Minh', '2026-01-01', '2027-01-01', N'Bảo hiểm xe và thiên tai'),
-    (65, 'INS-2025-0065', N'PJICO', '2026-01-15', '2027-01-14', N'Bảo hiểm toàn diện và cứu hộ'),
-    (66, 'INS-2025-0066', N'Bảo Việt', '2025-06-25', '2026-06-24', N'Bảo hiểm tai nạn và thiệt hại'),
-    (67, 'INS-2025-0067', N'PVI Care', '2025-07-01', '2026-06-30', N'Bảo hiểm hành khách và cứu hộ'),
-    (68, 'INS-2025-0068', N'  Liberty Insurance', '2025-07-15', '2026-07-14', N'Bảo hiểm toàn diện và mất cắp'),
-    (69, 'INS-2025-0069', N'Bảo Minh', '2025-08-01', '2026-07-31', N'Bảo hiểm xe và trách nhiệm dân sự'),
-    (70, 'INS-2025-0070', N'PJICO', '2025-08-15', '2026-08-14', N'Bảo hiểm tai nạn và thiên tai'),
-    (71, 'INS-2025-0071', N'Bảo Việt', '2025-09-01', '2026-08-31', N'Bảo hiểm toàn diện và cứu hộ 24/7');
+    (1, 'INS001', N'Bảo hiểm ABC', '2025-05-16', '2026-05-15', N'Bảo hiểm toàn diện'),
+    (2, 'INS002', N'Bảo hiểm XYZ', '2025-05-16', '2026-05-15', N'Bảo hiểm tai nạn'),
+    (3, 'INS003', N'Bảo hiểm DEF', '2025-05-16', '2026-05-15', N'Bảo hiểm trách nhiệm');
 GO
 
 -- 27. Bảng Cancellation
@@ -1725,16 +1397,14 @@ GO
 INSERT INTO [Image] (car_id, image_url, description, is_main)
 VALUES 
     -- VinFast VF8 2022 (car_id = 1)
-    (1, N'/images/Vinfast_VF8_2022_7.jpg', N'Hình chính VinFast VF8 2022', 1),
+    (1, N'/images/Vinfast_VF8_2022_9.jpg', N'Hình chính VinFast VF8 2022', 1),
     (1, N'/images/Vinfast_VF8_2022_8.jpg', N'Hình phụ VinFast VF8 2022', 0),
     (1, N'/images/Vinfast_VF8_2022_6.jpg', N'Hình phụ VinFast VF8 2022', 0),
-	(1, N'/images/Vinfast_VF8_2022_9.jpg', N'Hình phụ VinFast VF8 2022', 0),
-	(1, N'/images/Vinfast_VF8_2022_5.jpg', N'Hình phụ VinFast VF8 2022', 0),
     -- VinFast Lux SA 2.0 2021 (car_id = 2)
-    (2, N'/images/Vinfast_Lux_SA_20_2021_5.jpg', N'Hình chính VinFast Lux SA 2.0 2021', 1),
+    (2, N'/images/Vinfast_Lux_SA_20_2021_14.jpg', N'Hình chính VinFast Lux SA 2.0 2021', 1),
     (2, N'/images/Vinfast_Lux_SA_20_2021_9.jpg', N'Hình phụ VinFast Lux SA 2.0 2021', 0),
     (2, N'/images/Vinfast_Lux_SA_20_2021_7.jpg', N'Hình phụ VinFast Lux SA 2.0 2021', 0),
-    (2, N'/images/Vinfast_Lux_SA_20_2021_14.jpg', N'Hình phụ VinFast Lux SA 2.0 2021', 0),
+    (2, N'/images/Vinfast_Lux_SA_20_2021_5.jpg', N'Hình phụ VinFast Lux SA 2.0 2021', 0),
     -- VinFast Lux A 2.0 2021 (car_id = 3)
     (3, N'/images/VinFast_Lux_A_20_2021_15.jpg', N'Hình chính VinFast Lux A 2.0 2021', 1),
     (3, N'/images/VinFast_Lux_A_20_2021_14.jpg', N'Hình phụ VinFast Lux A 2.0 2021', 0),
@@ -1742,10 +1412,10 @@ VALUES
     (3, N'/images/VinFast_Lux_A_20_2021_7.jpg', N'Hình phụ VinFast Lux A 2.0 2021', 0),
     (3, N'/images/VinFast_Lux_A_20_2021_6.jpg', N'Hình phụ VinFast Lux A 2.0 2021', 0),
     -- Hyundai Venue 2024 (car_id = 4)
-    (4, N'/images/VENUE_2024_6.jpg', N'Hình chính Hyundai Venue 2024', 1),
+    (4, N'/images/VENUE_2024_9.jpg', N'Hình chính Hyundai Venue 2024', 1),
     (4, N'/images/VENUE_2024_8.jpg', N'Hình phụ Hyundai Venue 2024', 0),
     (4, N'/images/VENUE_2024_7.jpg', N'Hình phụ Hyundai Venue 2024', 0),
-    (4, N'/images/VENUE_2024_9.jpg', N'Hình phụ Hyundai Venue 2024', 0),
+    (4, N'/images/VENUE_2024_6.jpg', N'Hình phụ Hyundai Venue 2024', 0),
     (4, N'/images/VENUE_2024_5.jpg', N'Hình phụ Hyundai Venue 2024', 0),
     -- Toyota Wigo 2023 (car_id = 5)
     (5, N'/images/Toyota_Wigo_2023_13.jpg', N'Hình chính Toyota Wigo 2023', 1),
@@ -1766,9 +1436,9 @@ VALUES
     (7, N'/images/Toyota_Veloz_2022_3.jpg', N'Hình phụ Toyota Veloz 2022', 0),
     (7, N'/images/Toyota_Veloz_2022_2.jpg', N'Hình phụ Toyota Veloz 2022', 0),
     -- Toyota Corolla Cross 2022 (car_id = 8)
-    (8, N'/images/Toyota_Corolla_Cross_2022_7.jpg', N'Hình chính Toyota Corolla Cross 2022', 1),
+    (8, N'/images/Toyota_Corolla_Cross_2022_14.jpg', N'Hình chính Toyota Corolla Cross 2022', 1),
     (8, N'/images/Toyota_Corolla_Cross_2022_12.jpg', N'Hình phụ Toyota Corolla Cross 2022', 0),
-    (8, N'/images/Toyota_Corolla_Cross_2022_14.jpg', N'Hình phụ Toyota Corolla Cross 2022', 0),
+    (8, N'/images/Toyota_Corolla_Cross_2022_7.jpg', N'Hình phụ Toyota Corolla Cross 2022', 0),
     (8, N'/images/Toyota_Corolla_Cross_2022_6.jpg', N'Hình phụ Toyota Corolla Cross 2022', 0),
     -- Toyota Avanza 2023 (car_id = 9)
     (9, N'/images/Toyota_Avanza_2023_13.jpg', N'Hình chính Toyota Avanza 2023', 1),
@@ -1777,8 +1447,8 @@ VALUES
     (9, N'/images/Toyota_Avanza_2023_6.jpg', N'Hình phụ Toyota Avanza 2023', 0),
     (9, N'/images/Toyota_Avanza_2023_5.jpg', N'Hình phụ Toyota Avanza 2023', 0),
     -- Suzuki XL7 2022 (car_id = 10)
-    (10, N'/images/Suzuki_XL7_2022_7.jpg', N'Hình chính Suzuki XL7 2022', 1),
-    (10, N'/images/Suzuki_XL7_2022_10.jpg', N'Hình phụ Suzuki XL7 2022', 0),
+    (10, N'/images/Suzuki_XL7_2022_10.jpg', N'Hình chính Suzuki XL7 2022', 1),
+    (10, N'/images/Suzuki_XL7_2022_7.jpg', N'Hình phụ Suzuki XL7 2022', 0),
     (10, N'/images/Suzuki_XL7_2022_6.jpg', N'Hình phụ Suzuki XL7 2022', 0),
     (10, N'/images/Suzuki_XL7_2022_5.jpg', N'Hình phụ Suzuki XL7 2022', 0),
     -- Suzuki Ertiga 2022 (car_id = 11)
@@ -1800,23 +1470,23 @@ VALUES
     (13, N'/images/Mitsubishi_Xpander_Cross_2023_6.jpg', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
     (13, N'/images/Mitsubishi_Xpander_Cross_2023_13.jpg', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
     -- Mitsubishi Xpander Cross 2022 (car_id = 14)
-    (14, N'/images/Mitsubishi_Xpander_Cross_2022_10.jpg', N'Hình chính Mitsubishi Xpander Cross 2022', 1),
-    (14, N'/images/Mitsubishi_Xpander_Cross_2022_14.jpg', N'Hình phụ Mitsubishi Xpander Cross 2022', 0),
+    (14, N'/images/Mitsubishi_Xpander_Cross_2022_14.jpg', N'Hình chính Mitsubishi Xpander Cross 2022', 1),
+    (14, N'/images/Mitsubishi_Xpander_Cross_2022_10.jpg', N'Hình phụ Mitsubishi Xpander Cross 2022', 0),
     (14, N'/images/Mitsubishi_Xpander_Cross_2022_8.jpg', N'Hình phụ Mitsubishi Xpander Cross 2022', 0),
     (14, N'/images/Mitsubishi_Xpander_Cross_2022_7.jpg', N'Hình phụ Mitsubishi Xpander Cross 2022', 0),
     (14, N'/images/Mitsubishi_Xpander_Cross_2022_6.jpg', N'Hình phụ Mitsubishi Xpander Cross 2022', 0),
     -- Mitsubishi Xpander 2024 (car_id = 15)
-    (15, N'/images/Mitsubishi_Xpander_2024_10.jpg', N'Hình chính Mitsubishi Xpander 2024', 1),
+    (15, N'/images/Mitsubishi_Xpander_2024_15.jpg', N'Hình chính Mitsubishi Xpander 2024', 1),
     (15, N'/images/Mitsubishi_Xpander_2024_14.jpg', N'Hình phụ Mitsubishi Xpander 2024', 0),
-    (15, N'/images/Mitsubishi_Xpander_2024_15.jpg', N'Hình phụ Mitsubishi Xpander 2024', 0),
+    (15, N'/images/Mitsubishi_Xpander_2024_10.jpg', N'Hình phụ Mitsubishi Xpander 2024', 0),
     (15, N'/images/Mitsubishi_Xpander_2024_6.jpg', N'Hình phụ Mitsubishi Xpander 2024', 0),
     (15, N'/images/Mitsubishi_Xpander_2024_5.jpg', N'Hình phụ Mitsubishi Xpander 2024', 0),
     -- Mitsubishi Xpander 2022 (car_id = 16)
-    (16, N'/images/Mitsubishi_Xpander_2022_5.jpg', N'Hình chính Mitsubishi Xpander 2022', 1),
+    (16, N'/images/Mitsubishi_Xpander_2022_13.jpg', N'Hình chính Mitsubishi Xpander 2022', 1),
     (16, N'/images/Mitsubishi_Xpander_2022_8.jpg', N'Hình phụ Mitsubishi Xpander 2022', 0),
     (16, N'/images/Mitsubishi_Xpander_2022_7.jpg', N'Hình phụ Mitsubishi Xpander 2022', 0),
     (16, N'/images/Mitsubishi_Xpander_2022_6.jpg', N'Hình phụ Mitsubishi Xpander 2022', 0),
-    (16, N'/images/Mitsubishi_Xpander_2022_13.jpg', N'Hình phụ Mitsubishi Xpander 2022', 0),
+    (16, N'/images/Mitsubishi_Xpander_2022_5.jpg', N'Hình phụ Mitsubishi Xpander 2022', 0),
     -- Mitsubishi Xpander 2019 (car_id = 17)
     (17, N'/images/Mitsubishi_Xpander_2019_15.jpg', N'Hình chính Mitsubishi Xpander 2019', 1),
     (17, N'/images/Mitsubishi_Xpander_2019_14.jpg', N'Hình phụ Mitsubishi Xpander 2019', 0),
@@ -1836,9 +1506,9 @@ VALUES
     (19, N'/images/Mitsubishi_Triton_2017_7.jpg', N'Hình phụ Mitsubishi Triton 2017', 0),
     (19, N'/images/Mitsubishi_Triton_2017_13.jpg', N'Hình phụ Mitsubishi Triton 2017', 0),
     -- Mitsubishi Outlander 2018 (car_id = 20)
-    (20, N'/images/Mitsubishi_Outlander_2018_6.jpg', N'Hình chính Mitsubishi Outlander 2018', 1),
+    (20, N'/images/Mitsubishi_Outlander_2018_14.jpg', N'Hình chính Mitsubishi Outlander 2018', 1),
     (20, N'/images/Mitsubishi_Outlander_2018_7.jpg', N'Hình phụ Mitsubishi Outlander 2018', 0),
-    (20, N'/images/Mitsubishi_Outlander_2018_14.jpg', N'Hình phụ Mitsubishi Outlander 2018', 0),
+    (20, N'/images/Mitsubishi_Outlander_2018_6.jpg', N'Hình phụ Mitsubishi Outlander 2018', 0),
     (20, N'/images/Mitsubishi_Outlander_2018_5.jpg', N'Hình phụ Mitsubishi Outlander 2018', 0),
     -- MG5 2024 (car_id = 21)
     (21, N'/images/MG5_2024_7.jpg', N'Hình chính MG5 2024', 1),
@@ -1846,15 +1516,15 @@ VALUES
     (21, N'/images/MG5_2024_6.jpg', N'Hình phụ MG5 2024', 0),
     (21, N'/images/MG5_2024_4.jpg', N'Hình phụ MG5 2024', 0),
     -- MG5 2022 (car_id = 22)
-    (22, N'/images/MG5_2022_5.jpg', N'Hình chính MG5 2022', 1),
+    (22, N'/images/MG5_2022_11.jpg', N'Hình chính MG5 2022', 1),
     (22, N'/images/MG5_2022_8.jpg', N'Hình phụ MG5 2022', 0),
     (22, N'/images/MG5_2022_7.jpg', N'Hình phụ MG5 2022', 0),
     (22, N'/images/MG5_2022_6.jpg', N'Hình phụ MG5 2022', 0),
-    (22, N'/images/MG5_2022_11.jpg', N'Hình phụ MG5 2022', 0),
+    (22, N'/images/MG5_2022_5.jpg', N'Hình phụ MG5 2022', 0),
     -- MG ZS 2022 (car_id = 23)
-    (23, N'/images/MG_ZS_2022_7.jpg', N'Hình chính MG ZS 2022', 1),
+    (23, N'/images/MG_ZS_2022_9.jpg', N'Hình chính MG ZS 2022', 1),
     (23, N'/images/MG_ZS_2022_8.jpg', N'Hình phụ MG ZS 2022', 0),
-    (23, N'/images/MG_ZS_2022_9.jpg', N'Hình phụ MG ZS 2022', 0),
+    (23, N'/images/MG_ZS_2022_7.jpg', N'Hình phụ MG ZS 2022', 0),
     (23, N'/images/MG_ZS_2022_6.jpg', N'Hình phụ MG ZS 2022', 0),
     (23, N'/images/MG_ZS_2022_2.jpg', N'Hình phụ MG ZS 2022', 0),
     -- MG ZS 1.5L 2024 (car_id = 24)
@@ -1863,9 +1533,9 @@ VALUES
     (24, N'/images/MG_ZS_15L_2024_6.jpg', N'Hình phụ MG ZS 1.5L 2024', 0),
     (24, N'/images/MG_ZS_15L_2024_3.jpg', N'Hình phụ MG ZS 1.5L 2024', 0),
     -- MG RX5 2023 (car_id = 25)
-    (25, N'/images/MG_RX5_2023_17.jpg', N'Hình chính MG RX5 2023', 1),
+    (25, N'/images/MG_RX5_2023_10.jpg', N'Hình chính MG RX5 2023', 1),
     (25, N'/images/MG_RX5_2023_8.jpg', N'Hình phụ MG RX5 2023', 0),
-    (25, N'/images/MG_RX5_2023_10.jpg', N'Hình phụ MG RX5 2023', 0),
+    (25, N'/images/MG_RX5_2023_7.jpg', N'Hình phụ MG RX5 2023', 0),
     (25, N'/images/MG_RX5_2023_6.jpg', N'Hình phụ MG RX5 2023', 0),
     (25, N'/images/MG_RX5_2023_4.jpg', N'Hình phụ MG RX5 2023', 0),
     -- Mercedes E200 2023 (car_id = 26)
@@ -1879,14 +1549,14 @@ VALUES
     (27, N'/images/Mazda_CX8_2020_7.jpg', N'Hình phụ Mazda CX-8 2020', 0),
     (27, N'/images/Mazda_CX8_2020_6.jpg', N'Hình phụ Mazda CX-8 2020', 0),
     -- Mazda CX-3 2021 (car_id = 28)
-    (28, N'/images/Mazda_CX3_2021_8.jpg', N'Hình chính Mazda CX-3 2021', 1),
+    (28, N'/images/Mazda_CX3_2021_13.jpg', N'Hình chính Mazda CX-3 2021', 1),
     (28, N'/images/Mazda_CX3_2021_12.jpg', N'Hình phụ Mazda CX-3 2021', 0),
-    (28, N'/images/Mazda_CX3_2021_13.jpg', N'Hình phụ Mazda CX-3 2021', 0),
+    (28, N'/images/Mazda_CX3_2021_8.jpg', N'Hình phụ Mazda CX-3 2021', 0),
     (28, N'/images/Mazda_CX3_2021_7.jpg', N'Hình phụ Mazda CX-3 2021', 0),
     (28, N'/images/Mazda_CX3_2021_6.jpg', N'Hình phụ Mazda CX-3 2021', 0),
     -- Mazda 6 2017 (car_id = 29)
-    (29, N'/images/Mazda_6_2017_8.jpg', N'Hình chính Mazda 6 2017', 1),
-    (29, N'/images/Mazda_6_2017_9.jpg', N'Hình phụ Mazda 6 2017', 0),
+    (29, N'/images/Mazda_6_2017_9.jpg', N'Hình chính Mazda 6 2017', 1),
+    (29, N'/images/Mazda_6_2017_8.jpg', N'Hình phụ Mazda 6 2017', 0),
     (29, N'/images/Mazda_6_2017_7.jpg', N'Hình phụ Mazda 6 2017', 0),
     (29, N'/images/Mazda_6_2017_6.jpg', N'Hình phụ Mazda 6 2017', 0),
     (29, N'/images/Mazda_6_2017_5.jpg', N'Hình phụ Mazda 6 2017', 0),
@@ -1897,40 +1567,39 @@ VALUES
     (30, N'/images/Mazda_3_2021_6.jpg', N'Hình phụ Mazda 3 2021', 0),
     (30, N'/images/Mazda_3_2021_5.jpg', N'Hình phụ Mazda 3 2021', 0),
     -- KIA Sorento 2021 (car_id = 31)
-    (31, N'/images/KIA_Sorento_2021_5.jpg', N'Hình chính KIA Sorento 2021', 1),
+    (31, N'/images/KIA_Sorento_2021_11.jpg', N'Hình chính KIA Sorento 2021', 1),
     (31, N'/images/KIA_Sorento_2021_8.jpg', N'Hình phụ KIA Sorento 2021', 0),
     (31, N'/images/KIA_Sorento_2021_7.jpg', N'Hình phụ KIA Sorento 2021', 0),
     (31, N'/images/KIA_Sorento_2021_6.jpg', N'Hình phụ KIA Sorento 2021', 0),
-    (31, N'/images/KIA_Sorento_2021_11.jpg', N'Hình phụ KIA Sorento 2021', 0),
+    (31, N'/images/KIA_Sorento_2021_5.jpg', N'Hình phụ KIA Sorento 2021', 0),
     -- KIA Sedona 2021 (car_id = 32)
     (32, N'/images/KIA_SEDONA_3.jpg', N'Hình chính KIA Sedona 2021', 1),
     -- KIA Cerato 2021 (car_id = 33)
     (33, N'/images/KIA_CERATO_3.jpg', N'Hình chính KIA Cerato 2021', 1),
     -- KIA Carnival 2024 (car_id = 34)
-    (34, N'/images/KIA_Carnival_2024_6.jpg', N'Hình chính KIA Carnival 2024', 1),
+    (34, N'/images/KIA_Carnival_2024_11.jpg', N'Hình chính KIA Carnival 2024', 1),
     (34, N'/images/KIA_Carnival_2024_8.jpg', N'Hình phụ KIA Carnival 2024', 0),
     (34, N'/images/KIA_Carnival_2024_7.jpg', N'Hình phụ KIA Carnival 2024', 0),
-    (34, N'/images/KIA_Carnival_2024_11.jpg', N'Hình phụ KIA Carnival 2024', 0),
+    (34, N'/images/KIA_Carnival_2024_6.jpg', N'Hình phụ KIA Carnival 2024', 0),
     (34, N'/images/KIA_Carnival_2024_2.jpg', N'Hình phụ KIA Carnival 2024', 0),
     -- KIA Carnival 2023 (car_id = 35)
     (35, N'/images/KIA_Carnival_2023_10.jpg', N'Hình chính KIA Carnival 2023', 1),
     (35, N'/images/KIA_Carnival_2023_7.jpg', N'Hình phụ KIA Carnival 2023', 0),
     (35, N'/images/KIA_Carnival_2023_6.jpg', N'Hình phụ KIA Carnival 2023', 0),
-	(35, N'/images/KIA_Carnival_2023_5.jpg', N'Hình phụ KIA Carnival 2023', 0),
     -- KIA Carnival 2022 (car_id = 36)
-    (36, N'/images/KIA_Carnival_2022_6.jpg', N'Hình chính KIA Carnival 2022', 1),
+    (36, N'/images/KIA_Carnival_2022_13.jpg', N'Hình chính KIA Carnival 2022', 1),
     (36, N'/images/KIA_Carnival_2022_12.jpg', N'Hình phụ KIA Carnival 2022', 0),
     (36, N'/images/KIA_Carnival_2022_7.jpg', N'Hình phụ KIA Carnival 2022', 0),
-    (36, N'/images/KIA_Carnival_2022_13.jpg', N'Hình phụ KIA Carnival 2022', 0),
+    (36, N'/images/KIA_Carnival_2022_6.jpg', N'Hình phụ KIA Carnival 2022', 0),
     -- KIA Carens 2024 (car_id = 37)
-    (37, N'/images/KIA_Carens_2024_8.jpg', N'Hình chính KIA Carens 2024', 1),
+    (37, N'/images/KIA_Carens_2024_15.jpg', N'Hình chính KIA Carens 2024', 1),
     (37, N'/images/KIA_Carens_2024_14.jpg', N'Hình phụ KIA Carens 2024', 0),
     (37, N'/images/KIA_Carens_2024_10.jpg', N'Hình phụ KIA Carens 2024', 0),
-    (37, N'/images/KIA_Carens_2024_15.jpg', N'Hình phụ KIA Carens 2024', 0),
+    (37, N'/images/KIA_Carens_2024_8.jpg', N'Hình phụ KIA Carens 2024', 0),
     (37, N'/images/KIA_Carens_2024_2.jpg', N'Hình phụ KIA Carens 2024', 0),
     -- KIA Carens 2023 (car_id = 38)
-    (38, N'/images/KIA_Carens_2023_8.jpg', N'Hình chính KIA Carens 2023', 1),
-    (38, N'/images/KIA_Carens_2023_10.jpg', N'Hình phụ KIA Carens 2023', 0),
+    (38, N'/images/KIA_Carens_2023_10.jpg', N'Hình chính KIA Carens 2023', 1),
+    (38, N'/images/KIA_Carens_2023_8.jpg', N'Hình phụ KIA Carens 2023', 0),
     (38, N'/images/KIA_Carens_2023_7.jpg', N'Hình phụ KIA Carens 2023', 0),
     (38, N'/images/KIA_Carens_2023_6.jpg', N'Hình phụ KIA Carens 2023', 0),
     (38, N'/images/KIA_Carens_2023_5.jpg', N'Hình phụ KIA Carens 2023', 0),
@@ -1941,18 +1610,18 @@ VALUES
     (39, N'/images/Hyundai_Stargazer_2025_6.jpg', N'Hình phụ Hyundai Stargazer 2025', 0),
     (39, N'/images/Hyundai_Stargazer_2025_5.jpg', N'Hình phụ Hyundai Stargazer 2025', 0),
     -- Hyundai Stargazer 2024 (car_id = 40)
-    (40, N'/images/Hyundai_Stargazer_2024_7.jpg', N'Hình chính Hyundai Stargazer 2024', 1),
-    (40, N'/images/Hyundai_Stargazer_2024_8.jpg', N'Hình phụ Hyundai Stargazer 2024', 0),
+    (40, N'/images/Hyundai_Stargazer_2024_8.jpg', N'Hình chính Hyundai Stargazer 2024', 1),
+    (40, N'/images/Hyundai_Stargazer_2024_7.jpg', N'Hình phụ Hyundai Stargazer 2024', 0),
     (40, N'/images/Hyundai_Stargazer_2024_6.jpg', N'Hình phụ Hyundai Stargazer 2024', 0),
     (40, N'/images/Hyundai_Stargazer_2024_2.jpg', N'Hình phụ Hyundai Stargazer 2024', 0),
     -- Hyundai Grand i10 2022 (car_id = 41)
-    (41, N'/images/Hyundai_Grand_I10_2022_5.jpg', N'Hình chính Hyundai Grand i10 2022', 1),
+    (41, N'/images/Hyundai_Grand_I10_2022_14.jpg', N'Hình chính Hyundai Grand i10 2022', 1),
     (41, N'/images/Hyundai_Grand_I10_2022_9.jpg', N'Hình phụ Hyundai Grand i10 2022', 0),
     (41, N'/images/Hyundai_Grand_I10_2022_6.jpg', N'Hình phụ Hyundai Grand i10 2022', 0),
-    (41, N'/images/Hyundai_Grand_I10_2022_14.jpg', N'Hình phụ Hyundai Grand i10 2022', 0),
+    (41, N'/images/Hyundai_Grand_I10_2022_5.jpg', N'Hình phụ Hyundai Grand i10 2022', 0),
     -- Hyundai Custin 2024 (car_id = 42)
-    (42, N'/images/Hyundai_Custin_2024_8.jpg', N'Hình chính Hyundai Custin 2024', 1),
-    (42, N'/images/Hyundai_Custin_2024_9.jpg', N'Hình phụ Hyundai Custin 2024', 0),
+    (42, N'/images/Hyundai_Custin_2024_9.jpg', N'Hình chính Hyundai Custin 2024', 1),
+    (42, N'/images/Hyundai_Custin_2024_8.jpg', N'Hình phụ Hyundai Custin 2024', 0),
     (42, N'/images/Hyundai_Custin_2024_7.jpg', N'Hình phụ Hyundai Custin 2024', 0),
     (42, N'/images/Hyundai_Custin_2024_6.jpg', N'Hình phụ Hyundai Custin 2024', 0),
     (42, N'/images/Hyundai_Custin_2024_5.jpg', N'Hình phụ Hyundai Custin 2024', 0),
@@ -1963,87 +1632,78 @@ VALUES
     (43, N'/images/Hyundai_Accent_2024_6.jpg', N'Hình phụ Hyundai Accent 2024', 0),
     (43, N'/images/Hyundai_Accent_2024_5.jpg', N'Hình phụ Hyundai Accent 2024', 0),
     -- Hyundai Accent 2020 (car_id = 44)
-    (44, N'/images/Hyundai_Accent_2020_7.jpg', N'Hình chính Hyundai Accent 2020', 1),
+    (44, N'/images/Hyundai_Accent_2020_10.jpg', N'Hình chính Hyundai Accent 2020', 1),
     (44, N'/images/Hyundai_Accent_2020_9.jpg', N'Hình phụ Hyundai Accent 2020', 0),
     (44, N'/images/Hyundai_Accent_2020_8.jpg', N'Hình phụ Hyundai Accent 2020', 0),
-    (44, N'/images/Hyundai_Accent_2020_10.jpg', N'Hình phụ Hyundai Accent 2020', 0),
+    (44, N'/images/Hyundai_Accent_2020_7.jpg', N'Hình phụ Hyundai Accent 2020', 0),
     (44, N'/images/Hyundai_Accent_2020_6.jpg', N'Hình phụ Hyundai Accent 2020', 0),
     -- Hyundai Elantra 2021 (car_id = 45)
-    (45, N'/images/HUYNDAI_ELANTRA_3.jpg', N'Hình chính Hyundai Elantra 2021', 1),
+    (45, N'/images/HYUNDAI_ELANTRA_3.jpg', N'Hình chính Hyundai Elantra 2021', 1),
+    (45, N'/images/HYUNDAI_ELANTRA_2.jpg', N'Hình phụ Hyundai Elantra 2021', 0),
+    (45, N'/images/HYUNDAI_ELANTRA_1.jpg', N'Hình phụ Hyundai Elantra 2021', 0),
     -- Honda Civic 2020 (car_id = 46)
-    (46, N'/images/Honda_Civic_2020_6.jpg', N'Hình chính Honda Civic 2020', 1),
+    (46, N'/images/Honda_Civic_2020_12.jpg', N'Hình chính Honda Civic 2020', 1),
     (46, N'/images/Honda_Civic_2020_9.jpg', N'Hình phụ Honda Civic 2020', 0),
-    (46, N'/images/Honda_Civic_2020_12.jpg', N'Hình phụ Honda Civic 2020', 0),
+    (46, N'/images/Honda_Civic_2020_6.jpg', N'Hình phụ Honda Civic 2020', 0),
     (46, N'/images/Honda_Civic_2020_5.jpg', N'Hình phụ Honda Civic 2020', 0),
     -- Honda City 2018 (car_id = 47)
-    (47, N'/images/Honda_City_2018_2.jpg', N'Hình chính Honda City 2018', 1),
+    (47, N'/images/Honda_City_2018_13.jpg', N'Hình chính Honda City 2018', 1),
     (47, N'/images/Honda_City_2018_8.jpg', N'Hình phụ Honda City 2018', 0),
     (47, N'/images/Honda_City_2018_7.jpg', N'Hình phụ Honda City 2018', 0),
     (47, N'/images/Honda_City_2018_4.jpg', N'Hình phụ Honda City 2018', 0),
-    (47, N'/images/Honda_City_2018_13.jpg', N'Hình phụ Honda City 2018', 0),
+    (47, N'/images/Honda_City_2018_2.jpg', N'Hình phụ Honda City 2018', 0),
     -- Honda BR-V L 2024 (car_id = 48)
-    (48, N'/images/Honda_BRV_L_2024_8.jpg', N'Hình chính Honda BR-V L 2024', 1),
-    (48, N'/images/Honda_BRV_L_2024_11.jpg', N'Hình phụ Honda BR-V L 2024', 0),
+    (48, N'/images/Honda_BRV_L_2024_11.jpg', N'Hình chính Honda BR-V L 2024', 1),
+    (48, N'/images/Honda_BRV_L_2024_8.jpg', N'Hình phụ Honda BR-V L 2024', 0),
     (48, N'/images/Honda_BRV_L_2024_7.jpg', N'Hình phụ Honda BR-V L 2024', 0),
     (48, N'/images/Honda_BRV_L_2024_6.jpg', N'Hình phụ Honda BR-V L 2024', 0),
     (48, N'/images/Honda_BRV_L_2024_2.jpg', N'Hình phụ Honda BR-V L 2024', 0),
     -- Honda BR-V G 2024 (car_id = 49)
-    (49, N'/images/Honda_BRV_G_2024_7.jpg', N'Hình chính Honda BR-V G 2024', 1),
-    (49, N'/images/Honda_BRV_G_2024_4.jpg', N'Hình phụ Honda BR-V G 2024', 0),
-	(49, N'/images/Honda_BRV_G_2024_15.jpg', N'Hình phụ Honda BR-V G 2024', 0),
-	(49, N'/images/Honda_BRV_G_2024_4.jpg', N'Hình phụ Honda BR-V G 2024', 0),
-	(49, N'/images/Honda_BRV_G_2024_12.jpg', N'Hình phụ Honda BR-V G 2024', 0),
+    (49, N'/images/Honda_BRV_G_2024_15.jpg', N'Hình chính Honda BR-V G 2024', 1),
+    (49, N'/images/Honda_BRV_G_2024_7.jpg', N'Hình phụ Honda BR-V G 2024', 0),
     -- Ford Everest (car_id = 50)
     (50, N'/images/FORD_EVEREST_2.jpg', N'Hình chính Ford Everest', 1),
     -- Hyundai Accent 2020 (car_id = 51)
-    (51, N'/images/HUYNDAI_ACCENT_1.png', N'Hình chính Hyundai Accent 2020', 1),
-    (51, N'/images/HUYNDAI_ACCENT_2.png', N'Hình phụ Hyundai Accent 2020', 0),
-    (51, N'/images/HUYNDAI_ACCENT_3.png', N'Hình phụ Hyundai Accent 2020', 0),
-    (51, N'/images/HUYNDAI_ACCENT_4.png', N'Hình phụ Hyundai Accent 2020', 0),
-	(51, N'/images/HUYNDAI_ACCENT_5.png', N'Hình phụ Hyundai Accent 2020', 0),
+    (51, N'/images/HYUNDAI_ACCENT_1.PNG', N'Hình chính Hyundai Accent 2020', 1),
+    (51, N'/images/HYUNDAI_ACCENT_2.PNG', N'Hình phụ Hyundai Accent 2020', 0),
+    (51, N'/images/HYUNDAI_ACCENT_3.PNG', N'Hình phụ Hyundai Accent 2020', 0),
+    (51, N'/images/HYUNDAI_ACCENT_4.PNG', N'Hình phụ Hyundai Accent 2020', 0),
     -- Hyundai Grand i10 2022 (car_id = 52)
-    (52, N'/images/HUYNDAI_GRAND_i10_2.png', N'Hình chính Hyundai Grand i10 2022', 1),
+    (52, N'/images/HYUNDAI_GRAND_i10_2.PNG', N'Hình chính Hyundai Grand i10 2022', 1),
     -- KIA Carnival 2023 (car_id = 53)
-    (53, N'/images/KIA_CARNIVAL_1.PNG', N'Hình chính KIA Carnival 2023', 1),
+    (53, N'/images/KIA_Carnival_2023-5.PNG', N'Hình chính KIA Carnival 2023', 1),
     -- KIA Carnival 2022 (car_id = 54)
-    (54, N'/images/KIA_CARNIVAL_2.png', N'Hình chính KIA Carnival 2022', 1),
-    (54, N'/images/KIA_CARNIVAL_5.png', N'Hình phụ KIA Carnival 2022', 0),
-    (54, N'/images/KIA_CARNIVAL_3.png', N'Hình phụ KIA Carnival 2022', 0),
-    (54, N'/images/KIA_CARNIVAL_4.png', N'Hình phụ KIA Carnival 2022', 0),
+    (54, N'/images/KIA_CARNIVAL_1.PNG', N'Hình chính KIA Carnival 2022', 1),
+    (54, N'/images/KIA_CARNIVAL_2.PNG', N'Hình phụ KIA Carnival 2022', 0),
+    (54, N'/images/KIA_CARNIVAL_3.PNG', N'Hình phụ KIA Carnival 2022', 0),
+    (54, N'/images/KIA_CARNIVAL_4.PNG', N'Hình phụ KIA Carnival 2022', 0),
     -- Mazda 2 2021 (car_id = 55)
-    (55, N'/images/MAZDA_2_1.png', N'Hình chính Mazda 2 2021', 1),
-    (55, N'/images/MAZDA_2_2.png', N'Hình phụ Mazda 2 2021', 0),
-    (55, N'/images/MAZDA_2_3.png', N'Hình phụ Mazda 2 2021', 0),
-    (55, N'/images/MAZDA_2_4.png', N'Hình phụ Mazda 2 2021', 0),
+    (55, N'/images/MAZDA_2_1.PNG', N'Hình chính Mazda 2 2021', 1),
+    (55, N'/images/MAZDA_2_2.PNG', N'Hình phụ Mazda 2 2021', 0),
+    (55, N'/images/MAZDA_2_3.PNG', N'Hình phụ Mazda 2 2021', 0),
+    (55, N'/images/MAZDA_2_4.PNG', N'Hình phụ Mazda 2 2021', 0),
     -- Mitsubishi Xpander Cross 2023 (car_id = 56)
-    (56, N'/images/Mitsubishi_Xpander_Cross_2023_14.png', N'Hình chính Mitsubishi Xpander Cross 2023', 1),
-    (56, N'/images/Mitsubishi_Xpander_Cross_2023_7.png', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
-    (56, N'/images/Mitsubishi_Xpander_Cross_2023_6.png', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
-    (56, N'/images/Mitsubishi_Xpander_Cross_2023_4.png', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
+    (56, N'/images/Mitsubishi_Xpander_Cross_2023_14.PNG', N'Hình chính Mitsubishi Xpander Cross 2023', 1),
+    (56, N'/images/Mitsubishi_Xpander_Cross_2023_7.PNG', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
+    (56, N'/images/Mitsubishi_Xpander_Cross_2023_6.PNG', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
+    (56, N'/images/Mitsubishi_Xpander_Cross_2023_4.PNG', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
     -- Suzuki Ertiga 2022 (car_id = 57)
-    (57, N'/images/Suzuki_Ertiga_2022_1.png', N'Hình chính Suzuki Ertiga 2022', 1),
-	(57, N'/images/Suzuki_Ertiga_2022_11.png', N'Hình chính Suzuki Ertiga 2022', 0),
-	(57, N'/images/Suzuki_Ertiga_2022_12.png', N'Hình chính Suzuki Ertiga 2022', 0),
-	(57, N'/images/Suzuki_Ertiga_2022_13.png', N'Hình chính Suzuki Ertiga 2022', 0),
+    (57, N'/images/Suzuki_Ertiga_2022-6.PNG', N'Hình chính Suzuki Ertiga 2022', 1),
     -- Toyota Corolla Cross 2022 (car_id = 58)
-    (58, N'/images/TOYOTA_CROSS_1.png', N'Hình chính Toyota Corolla Cross 2022', 1),
+    (58, N'/images/TOYOTA_CROSS_1.PNG', N'Hình chính Toyota Corolla Cross 2022', 1),
     -- VinFast Lux A 2.0 2021 (car_id = 59)
-    (59, N'/images/VinFast_Lux_AB_20_2021_2.png', N'Hình chính VinFast Lux AB 2.0 2021', 1),
-    (59, N'/images/VinFast_Lux_AB_20_2021_14.png', N'Hình phụ VinFast Lux AB 2.0 2021', 0),
-    (59, N'/images/VinFast_Lux_AB_20_2021_17.png', N'Hình phụ VinFast Lux AB 2.0 2021', 0),
+    (59, N'/images/VinFast_Lux_AB_20_2021_2.PNG', N'Hình chính VinFast Lux A 2.0 2021', 1),
+    (59, N'/images/VinFast_Lux_AB_20_2021_14.PNG', N'Hình phụ VinFast Lux A 2.0 2021', 0),
+    (59, N'/images/VinFast_Lux_AB_20_2021_17.PNG', N'Hình phụ VinFast Lux A 2.0 2021', 0),
     -- VinFast VF8 2022 (car_id = 60)
-    (60, N'/images/VinFast_VF8_2022_1.webp', N'Hình chính VinFast VF8 2022', 1),
-    (60, N'/images/VinFast_VF8_2022_2.webp', N'Hình phụ VinFast VF8 2022', 0),
-	(60, N'/images/VinFast_VF8_2022_3.webp', N'Hình phụ VinFast VF8 2022', 0),
-	(60, N'/images/VinFast_VF8_2022_4.webp', N'Hình phụ VinFast VF8 2022', 0),
+    (60, N'/images/VinFast_VF8_2022-5.PNG', N'Hình chính VinFast VF8 2022', 1),
+    (60, N'/images/VinFast_VF8_2022-7.PNG', N'Hình phụ VinFast VF8 2022', 0),
     -- Honda BR-V G 2024 (car_id = 61)
-    (61, N'/images/Honda_BRV_G_2024_7.jpeg', N'Hình chính Honda BR-V G 2024', 1),
-    (61, N'/images/Honda_BRV_G_2024_4.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
-	(61, N'/images/Honda_BRV_G_2024_2.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
-	(61, N'/images/Honda_BRV_G_2024_15.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
-    (61, N'/images/Honda_BRV_G_2024_12.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
+    (61, N'/images/Honda_BRV_G_2024_2.JPEG', N'Hình chính Honda BR-V G 2024', 1),
+    (61, N'/images/Honda_BRV_G_2024_4.JPEG', N'Hình phụ Honda BR-V G 2024', 0),
+    (61, N'/images/Honda_BRV_G_2024_12.JPEG', N'Hình phụ Honda BR-V G 2024', 0),
     -- Toyota Corolla Cross 2022 (car_id = 62)
-    (62, N'/images/TOYOTA_CROSS_2.jpeg', N'Hình chính Toyota Corolla Cross 2022', 1),
+    (62, N'/images/TOYOTA_CROSS_2.JPEG', N'Hình chính Toyota Corolla Cross 2022', 1),
     -- Toyota Corolla Cross 2022 (car_id = 63)
     (63, N'/images/TOYOTA_CROSS_3.jpg', N'Hình chính Toyota Corolla Cross 2022', 1),
     -- Mazda 3 2021 (car_id = 64)
@@ -2056,10 +1716,10 @@ VALUES
     -- KIA Cerato 2021 (car_id = 67)
     (67, N'/images/KIA_CERATO_2.jpg', N'Hình chính KIA Cerato 2021', 1),
     -- KIA Carnival 2022 (car_id = 68)
-    (68, N'/images/KIA_CARNIVAL_1.jpg', N'Hình chính KIA Carnival 2022', 1),
+    (68, N'/images/KIA_CARNIVAL_5.jpg', N'Hình chính KIA Carnival 2022', 1),
     -- Hyundai Grand i10 2022 (car_id = 69)
-    (69, N'/images/HUYNDAI_GRAND_i10_2.png', N'Hình chính Hyundai Grand i10 2022', 1),
-    (69, N'/images/HUYNDAI_GRAND_i10_1.png', N'Hình phụ Hyundai Grand i10 2022', 0),
+    (69, N'/images/HUYNDAI_GRAND_i10_2.jpg', N'Hình chính Hyundai Grand i10 2022', 1),
+    (69, N'/images/HUYNDAI_GRAND_i10_1.jpg', N'Hình phụ Hyundai Grand i10 2022', 0),
     -- Hyundai Accent 2020 (car_id = 70)
     (70, N'/images/HUYNDAI_ACCENT_5.jpg', N'Hình chính Hyundai Accent 2020', 1),
     (70, N'/images/HUYNDAI_ACCENT_4.jpg', N'Hình phụ Hyundai Accent 2020', 0),
@@ -2069,4 +1729,3 @@ VALUES
     -- Ford Everest (car_id = 71)
     (71, N'/images/FORD_EVEREST_1.jpg', N'Hình chính Ford Everest', 1);
 GO
-
