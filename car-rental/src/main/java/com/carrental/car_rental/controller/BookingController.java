@@ -4,8 +4,9 @@ import com.carrental.car_rental.dto.BookingConfirmationDTO;
 import com.carrental.car_rental.dto.BookingDTO;
 import com.carrental.car_rental.dto.BookingFinancialsDTO;
 import com.carrental.car_rental.dto.PriceBreakdownDTO;
-
 import com.carrental.car_rental.dto.UserDTO;
+import com.carrental.car_rental.dto.BookingCreateDTO;
+import com.carrental.car_rental.dto.BookingUpdateDTO;
 
 import com.carrental.car_rental.service.BookingService;
 import com.carrental.car_rental.service.BookingFinancialsService;
@@ -13,46 +14,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
 import org.springframework.data.domain.PageRequest;
-
+import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.validation.Valid;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Autowired;
-import com.carrental.car_rental.entity.Booking;
-import com.carrental.car_rental.entity.User;
-import com.carrental.car_rental.repository.BookingRepository;
-import com.carrental.car_rental.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/bookings")
 public class BookingController {
     private static final Logger logger = LoggerFactory.getLogger(BookingController.class);
-
+    private final BookingService bookingService;
     private final BookingFinancialsService financialsService;
-     
-    @Autowired
-    private BookingService bookingService;
-
-    @Autowired
-    private BookingRepository bookingRepository;
-
-    @Autowired
-    private UserRepository userRepository;
 
     public BookingController(BookingService bookingService, BookingFinancialsService financialsService) {
         this.bookingService = bookingService;
         this.financialsService = financialsService;
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<BookingDTO> getBooking(@PathVariable Integer id) {
+        logger.info("Request to get booking by ID: {}", id);
+        return ResponseEntity.ok(bookingService.findById(id));
     }
 
     @GetMapping
@@ -76,78 +60,20 @@ public class BookingController {
     @GetMapping("/{id}/financials")
     public ResponseEntity<BookingFinancialsDTO> getBookingFinancials(@PathVariable Integer id) {
         logger.info("Request to get financials for booking ID: {}", id);
-        BookingDTO booking = bookingService.findById(id);
-        return ResponseEntity.ok(financialsService.getOrCreateFinancials(booking));
-    }
-
-    @GetMapping("/{id}/price-breakdown")
-    public ResponseEntity<PriceBreakdownDTO> getPriceBreakdown(@PathVariable Integer id) {
-        logger.info("Request to get price breakdown for booking ID: {}", id);
-        BookingDTO booking = bookingService.findById(id);
-        return ResponseEntity.ok(financialsService.calculatePriceBreakdown(booking));
+        BookingFinancialsDTO dto = financialsService.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy tài chính booking"));
+        return ResponseEntity.ok(dto);
     }
 
     @PostMapping
-    public ResponseEntity<BookingDTO> createBooking(@Valid @RequestBody BookingDTO dto) {
+    public ResponseEntity<BookingDTO> createBooking(@Valid @RequestBody BookingCreateDTO dto) {
         logger.info("Request to create a new booking for car ID: {}", dto.getCarId());
-        logger.info("Request data: {}", dto);
-        
-        // Lấy userId từ authentication context
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            logger.error("User not authenticated");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        
-        String username = authentication.getName();
-        logger.info("Authenticated user: {}", username);
-        
-        // Lấy userId từ username (cần implement method này trong UserService)
-        try {
-            Integer userId = bookingService.getUserIdByUsername(username);
-            dto.setUserId(userId);
-            logger.info("Set userId: {} for username: {}", userId, username);
-        } catch (Exception e) {
-            logger.error("Error getting userId for username: {}", username, e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-        }
-        
-        try {
-            logger.info("Calling bookingService.save with DTO: {}", dto);
-            BookingDTO savedBooking = bookingService.save(dto);
-            logger.info("Booking saved successfully with ID: {}", savedBooking.getBookingId());
-            logger.info("Returning response: {}", savedBooking);
-            return ResponseEntity.status(HttpStatus.CREATED).body(savedBooking);
-        } catch (Exception e) {
-            logger.error("Error saving booking: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(bookingService.save(dto));
     }
 
     @PostMapping("/confirm")
-    public ResponseEntity<BookingConfirmationDTO> confirmBooking(@Valid @RequestBody BookingConfirmationDTO dto) {
+    public ResponseEntity<BookingConfirmationDTO> confirmBooking(@Valid @RequestBody BookingCreateDTO dto) {
         logger.info("Request to confirm booking for car ID: {}", dto.getCarId());
-        
-        // Lấy userId từ authentication context
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            logger.error("User not authenticated");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        
-        String username = authentication.getName();
-        logger.info("Authenticated user: {}", username);
-        
-        // Lấy userId từ username
-        try {
-            Integer userId = bookingService.getUserIdByUsername(username);
-            dto.setUserId(userId);
-            logger.info("Set userId: {} for username: {}", userId, username);
-        } catch (Exception e) {
-            logger.error("Error getting userId for username: {}", username, e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-        }
-        
         try {
             BookingConfirmationDTO confirmedBooking = bookingService.confirmBooking(dto);
             logger.info("Booking confirmed with ID: {}", confirmedBooking.getBookingId());
@@ -162,7 +88,7 @@ public class BookingController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<BookingDTO> updateBooking(@PathVariable Integer id, @Valid @RequestBody BookingDTO dto) {
+    public ResponseEntity<BookingDTO> updateBooking(@PathVariable Integer id, @Valid @RequestBody BookingUpdateDTO dto) {
         logger.info("Request to update booking with ID: {}", id);
         return ResponseEntity.ok(bookingService.update(id, dto));
     }
@@ -173,8 +99,6 @@ public class BookingController {
         bookingService.delete(id);
         return ResponseEntity.noContent().build();
     }
-    
-    
     
     // @GetMapping("/debug/role")
     // public ResponseEntity<?> debugRole(Authentication authentication) {

@@ -55,7 +55,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         logger.info("Request URI: {}", request.getRequestURI());
         logger.info("Request method: {}", request.getMethod());
         logger.info("Authorization header: {}", request.getHeader("Authorization"));
-        
+
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             logger.info("OPTIONS request, skipping authentication");
             filterChain.doFilter(request, response);
@@ -66,17 +66,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         logger.info("Request path: {}", path);
         String method = request.getMethod();
 
-        
+
         // Bỏ qua các endpoint không yêu cầu xác thực
         boolean isPublicEndpoint = PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
-        
+
         // Chỉ cho phép một số endpoint bookings specific là public (GET methods)
         boolean isGetBookingsPublic = path.startsWith("/api/bookings/") && "GET".equalsIgnoreCase(method) &&
-                (path.matches("/api/bookings/user/\\d+") || 
-                 path.matches("/api/bookings/car/\\d+") || 
-                 path.equals("/api/bookings") ||
-                 path.endsWith("/financials") ||
-                 path.contains("/debug/"));
+                (path.matches("/api/bookings/user/\\d+") ||
+                        path.matches("/api/bookings/car/\\d+") ||
+                        path.equals("/api/bookings") ||
+                        path.endsWith("/financials") ||
+                        path.contains("/debug/"));
 
         if (isPublicEndpoint || isGetBookingsPublic || path.startsWith("/login/oauth2/code/")) {
 
@@ -91,26 +91,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
-        
+
         // Tất cả các endpoint khác cần authentication
         String token = getJwtFromRequest(request);
         logger.debug("Processing request: {} {}, Token present: {}", method, path, token != null);
-        
+
         if (token != null && jwtTokenProvider.validateToken(token)) {
             logger.info("Valid JWT token found for request: {} {}", method, path);
             String username = jwtTokenProvider.getUsernameFromToken(token);
             String role = jwtTokenProvider.getRoleFromToken(token);
             logger.info("Token details - Username: {}, Role: {}", username, role);
-            
+
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
             logger.info("UserDetails authorities: {}", userDetails.getAuthorities());
-            
+
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities());
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            
+
             logger.info("Authentication set in SecurityContext: {}", authentication.getAuthorities());
         } else if (token != null) {
             logger.error("Invalid JWT token found for request: {}. Token: {}", path, token);

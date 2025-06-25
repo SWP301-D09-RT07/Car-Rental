@@ -1,8 +1,9 @@
 import React from "react"
+import Navbar from "@/components/layout/Header/Navbar";
 import { useState, useEffect, useCallback } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Swiper, SwiperSlide } from "swiper/react"
-import { Pagination, Autoplay, EffectFade, Navigation } from "swiper/modules"
+import { Pagination, Autoplay, EffectFade } from "swiper/modules"
 import {
     FaCarSide,
     FaSearch,
@@ -44,19 +45,14 @@ import {
     FaUsers,
     FaGasPump,
     FaCog,
-    FaChevronRight,
-    FaChevronLeft,
 } from "react-icons/fa"
 import "swiper/css"
 import "swiper/css/pagination"
 import "swiper/css/effect-fade"
 import { toast } from "react-toastify"
-import api, { getCarBrands, getRegions, loginWithGoogle, logout } from "../../../services/api"
+import api, { getCarBrands, createBooking, getRegions, loginWithGoogle, logout } from "../../../services/api"
 import { useAuth } from "@/hooks/useAuth"
-import CarCard from '@/components/features/cars/CarCard/CarCard';
-import BookingModal from '@/components/features/cars/BookingModal';
-import Header from '@/components/layout/Header/Header';
-import Footer from '@/components/layout/Footer/Footer';
+import SupplierCarDashboard from "@/components/Supplier/SupplierCarDashboard";
 
 // Images
 const bg1 = "/images/bg_1.jpg"
@@ -105,25 +101,11 @@ const getTomorrow = () => {
     return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`
 }
 
-const getDefaultPickupTime = () => {
-    const now = new Date();
-    let hour = now.getHours();
-    let minute = now.getMinutes();
-
-    // Nếu sau 22h (22:01 trở đi) thì trả về 07:00
-    if (hour >= 22) {
-        return "07:00";
-    }
-    // Nếu phút > 0 thì tăng lên 1 giờ
-    if (minute > 0) {
-        hour += 1;
-    }
-    // Nếu sau khi cộng phút mà vượt quá 22h thì cũng trả về 07:00
-    if (hour >= 22) {
-        return "07:00";
-    }
-    return `${String(hour).padStart(2, "0")}:00`;
-};
+const getCurrentTimePlusHours = (hours) => {
+    const now = new Date()
+    now.setHours(now.getHours() + hours)
+    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
+}
 
 const getTomorrowFromDate = (dateStr) => {
     const date = new Date(dateStr)
@@ -138,25 +120,6 @@ const getTimePlusHours = (timeStr, hours) => {
     return `${String(newHh).padStart(2, "0")}:${String(Number.parseInt(mm)).padStart(2, "0")}`
 }
 
-const brandLogoMap = {
-  'VinFast': '/images/logo-vinfast-1.png',
-  'Hyundai': '/images/logo-hyundai.jpg',
-  'Suzuki': '/images/logo-Suzuki.jpg',
-  'Mitsubishi': '/images/Mitsubishi_logo.svg',
-  'MG': '/images/logo-MG.jpg',
-  'Mercedes': '/images/logo-Mercedes.jpg',
-  'Mazda': '/images/logo-Mazda.webp',
-  'KIA': '/images/logo-KIA-1.jpg',
-  'Toyota': '/images/logo-Toyota.png',
-  'Ford': '/images/logo-ford.jpg',
-  'Honda': '/images/logo-honda.webp',
-  // Thêm các brand khác nếu có
-};
-
-function getBrandLogo(brandName) {
-  // Nếu không có thì trả về ảnh mặc định
-  return brandLogoMap[brandName] || '/images/default-brand-logo.jpg';
-}
 // Enhanced Loading Spinner Component
 const LoadingSpinner = ({ size = "medium", color = "blue" }) => {
     const sizeClasses = {
@@ -209,14 +172,11 @@ const ErrorMessage = ({ message, className = "" }) => {
 // HomePage component
 const HomePage = () => {
     const { isAuthenticated, user } = useAuth();
+    const navigate = useNavigate();
     const todayStr = getToday();
     const tomorrowStr = getTomorrow();
-    const currentTimePlus4 = getDefaultPickupTime();
-    const dropoffTime = getDefaultPickupTime(); // hoặc logic riêng cho giờ trả
-
-    const navigate = useNavigate()
-
-    // State
+    const currentTimePlus4 = getCurrentTimePlusHours(4);
+    const dropoffTime = getCurrentTimePlusHours(8);
     const [formData, setFormData] = useState({
         pickupLocation: "",
         dropoffLocation: "",
@@ -224,27 +184,20 @@ const HomePage = () => {
         dropoffDate: tomorrowStr,
         pickupTime: currentTimePlus4,
         dropoffTime: dropoffTime,
-    })
-    const [featuredCars, setFeaturedCars] = useState([])
-    const [popularCars, setPopularCars] = useState([])
-    const [brands, setBrands] = useState([])
-    const [locations, setLocations] = useState([])
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState("")
-    const [searchError, setSearchError] = useState("")
-    const [heroIdx, setHeroIdx] = useState(0)
-    const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
-    const [showScrollToTop, setShowScrollToTop] = useState(false)
-    const [showCookieConsent, setShowCookieConsent] = useState(true)
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+    });
+    const [featuredCars, setFeaturedCars] = useState([]);
+    const [popularCars, setPopularCars] = useState([]);
+    const [brands, setBrands] = useState([]);
+    const [locations, setLocations] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [searchError, setSearchError] = useState("");
+    const [heroIdx, setHeroIdx] = useState(0);
+    const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+    const [showScrollToTop, setShowScrollToTop] = useState(false);
+    const [showCookieConsent, setShowCookieConsent] = useState(true);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [userEmail, setUserEmail] = useState("");
-    const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-    const [selectedCar, setSelectedCar] = useState(null);
-
-    // Swiper refs for navigation
-    const brandSwiperRef = React.useRef(null);
-    const featuredSwiperRef = React.useRef(null);
-    const popularSwiperRef = React.useRef(null);
 
     useEffect(() => {
         const email = localStorage.getItem("userEmail");
@@ -328,9 +281,10 @@ const HomePage = () => {
 
             if (
                 !formData.pickupLocation ||
+                !formData.dropoffLocation ||
                 !formData.pickupDate ||
-                !formData.pickupTime ||
                 !formData.dropoffDate ||
+                !formData.pickupTime ||
                 !formData.dropoffTime
             ) {
                 setSearchError("Vui lòng điền đầy đủ các trường bắt buộc.")
@@ -350,15 +304,15 @@ const HomePage = () => {
             }
 
             try {
-                const params = {
-                    pickupLocation: formData.pickupLocation,
-                    pickupDateTime: `${formData.pickupDate}T${formData.pickupTime}:00`,
-                    dropoffDateTime: `${formData.dropoffDate}T${formData.dropoffTime}:00`,
-                    countryCode: "+84",
-                    regionId: "VN",
-                };
-                console.log("[HomePage] Navigate to SearchPage with params:", params);
-                navigate("/search", { state: { searchParams: params } });
+                const searchResults = await api.get("/api/cars/search", {
+                    params: {
+                        pickupLocation: formData.pickupLocation,
+                        dropoffLocation: formData.dropoffLocation,
+                        pickupDateTime: `${formData.pickupDate}T${formData.pickupTime}:00`,
+                        dropoffDateTime: `${formData.dropoffDate}T${formData.dropoffTime}:00`,
+                    },
+                })
+                navigate("/search", { state: { search: formData, results: searchResults.data } })
             } catch (err) {
                 setSearchError(err.response?.data?.message || "Tìm kiếm thất bại")
             }
@@ -385,31 +339,139 @@ const HomePage = () => {
         }
     }, [])
 
-    // Handler khi nhấn Đặt xe ở CarCard
-    const handleBookNow = (car) => {
-        setSelectedCar(car);
-        setIsBookingModalOpen(true);
-    };
+    // Định nghĩa CarCard ở đây
+    const CarCard = ({ car, type = "featured", isLoading: cardLoading }) => {
+        const [isHovered, setIsHovered] = useState(false);
+        const [imageLoaded, setImageLoaded] = useState(false);
 
-    // Handler khi đặt xe thành công
-    const handleSubmitBooking = async (bookingData) => {
-        try {
-            // Thay vì tạo booking ngay, chuyển đến trang confirmation với thông tin
-            setIsBookingModalOpen(false);
-            setSelectedCar(null);
-            
-            // Chuyển đến trang confirmation với booking data
-            navigate('/bookings/confirmation', { 
-                state: { 
-                    bookingData: {
-                        ...bookingData,
-                        car: selectedCar // Thêm thông tin xe
-                    }
-                } 
-            });
-        } catch (err) {
-            toast.error(err.message || 'Không thể tạo đặt chỗ');
-        }
+        const handleBookNow = async () => {
+            if (!formData.pickupLocation || !formData.dropoffLocation || !formData.pickupDate || !formData.pickupTime) {
+                toast.error("Vui lòng điền thông tin nhận xe trước khi đặt.");
+                return;
+            }
+            try {
+                const bookingData = {
+                    carId: car.carId,
+                    pickupLocation: formData.pickupLocation,
+                    dropoffLocation: formData.dropoffLocation,
+                    pickupDateTime: `${formData.pickupDate}T${formData.pickupTime}:00`,
+                    dropoffDateTime: `${formData.dropoffDate}T${formData.dropoffTime || "23:59"}:00`,
+                };
+                await createBooking(bookingData);
+                toast.success("Đặt xe thành công!");
+                navigate("/bookings");
+            } catch (err) {
+                toast.error(err.response?.data?.message || "Không thể tạo đặt chỗ");
+            }
+        };
+
+        return (
+            <div
+                className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden transform hover:-translate-y-2 border border-blue-100 hover:border-blue-300"
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
+                <div className="relative h-64 overflow-hidden cursor-pointer" onClick={() => navigate(`/cars/${car.carId}`)}>
+                    {!imageLoaded && (
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-200 to-sky-300 animate-pulse"></div>
+                    )}
+                    <img
+                        src={
+                            car.images && car.images.length > 0
+                                ? car.images.find((img) => img.isMain)?.imageUrl || car.images[0].imageUrl
+                                : "https://via.placeholder.com/400x250?text=Car+Image"
+                        }
+                        alt={car.model}
+                        className={`w-full h-full object-cover object-center transition-all duration-700 ${
+                            isHovered ? "scale-110" : "scale-100"
+                        } ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+                        loading="lazy"
+                        onLoad={() => setImageLoaded(true)}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
+                    <div className="absolute top-4 left-4 flex flex-col space-y-2">
+                        <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm ${
+                                type === "featured"
+                                    ? "bg-gradient-to-r from-blue-500 to-sky-500 text-white"
+                                    : "bg-gradient-to-r from-sky-500 to-cyan-500 text-white"
+                            }`}
+                        >
+                            {type === "featured" ? "🔥 Nổi bật" : "⭐ Phổ biến"}
+                        </span>
+                        <span className="bg-white/90 backdrop-blur-sm text-blue-600 px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                            📞 Hỗ trợ 24/7
+                        </span>
+                    </div>
+                    <div className="absolute top-4 right-4">
+                        <button className="bg-white/90 backdrop-blur-sm hover:bg-white text-red-500 hover:text-red-600 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl">
+                            <FaHeart className="text-sm" />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="p-6">
+                    <div className="flex items-start justify-between mb-3">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors cursor-pointer" onClick={() => navigate(`/cars/${car.carId}`)}>
+                                {car.model}
+                            </h3>
+                            <p className="text-gray-500 text-sm">{car.brand || "Luxury Car"}</p>
+                        </div>
+                        <div className="flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-lg">
+                            <FaStar className="text-yellow-400 text-sm" />
+                            <span className="text-sm font-semibold text-gray-700">4.8</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-sky-600 bg-clip-text text-transparent">
+                                {car.discountedPrice || car.dailyRate}K
+                            </span>
+                            <span className="text-gray-500 text-sm ml-1">/ngày</span>
+                        </div>
+                        {car.dailyRate && car.discountedPrice && (
+                            <div className="text-right">
+                                <span className="text-sm text-gray-500 line-through">{car.dailyRate}K</span>
+                                <span className="text-xs text-green-600 font-semibold ml-1">-15%</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 mb-6">
+                        <div className="flex items-center justify-center bg-blue-50 rounded-lg py-2 px-1">
+                            <FaUsers className="text-blue-500 mr-1 text-sm" />
+                            <span className="text-xs font-medium text-gray-700">{car.seats || 5} chỗ</span>
+                        </div>
+                        <div className="flex items-center justify-center bg-sky-50 rounded-lg py-2 px-1">
+                            <FaCog className="text-sky-500 mr-1 text-sm" />
+                            <span className="text-xs font-medium text-gray-700">{car.transmission || "Tự động"}</span>
+                        </div>
+                        <div className="flex items-center justify-center bg-cyan-50 rounded-lg py-2 px-1">
+                            <FaGasPump className="text-cyan-500 mr-1 text-sm" />
+                            <span className="text-xs font-medium text-gray-700">{car.fuelType || "Xăng"}</span>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handleBookNow}
+                        className="w-full bg-gradient-to-r from-blue-600 via-sky-600 to-cyan-600 hover:from-blue-700 hover:via-sky-700 hover:to-cyan-700 text-white py-3 rounded-xl font-semibold transition-all duration-300 flex justify-center items-center shadow-lg hover:shadow-xl transform hover:scale-105"
+                        disabled={cardLoading}
+                        aria-label={`Đặt xe ${car.model}`}
+                    >
+                        {cardLoading ? (
+                            <LoadingSpinner size="small" color="white" />
+                        ) : (
+                            <>
+                                <FaCar className="mr-2" />
+                                Đặt ngay
+                            </>
+                        )}
+                    </button>
+                </div>
+            </div>
+        );
     };
 
     if (isLoading) {
@@ -433,15 +495,9 @@ const HomePage = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-            <Header
-                isAuthenticated={isAuthenticated}
-                userEmail={userEmail}
-                isUserDropdownOpen={isUserDropdownOpen}
-                setIsUserDropdownOpen={setIsUserDropdownOpen}
-                handleLogout={handleLogout}
-                isMobileMenuOpen={isMobileMenuOpen}
-                setIsMobileMenuOpen={setIsMobileMenuOpen}
-            />
+            {/* Enhanced Header */}
+            <Navbar />
+
             <main className="pt-24">
                 {/* Enhanced Hero Section */}
                 <section className="relative h-screen overflow-hidden">
@@ -493,14 +549,10 @@ const HomePage = () => {
                                     </p>
 
                                     <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
-                                        <Link
-                                            to="/search"
-                                            state={{ filterType: "all" }}
-                                            className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 text-white py-4 px-10 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-3xl"
-                                        >
+                                        <button className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 text-white py-4 px-10 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-3xl">
                                             <FaRocket className="inline mr-3" />
                                             Khám phá ngay
-                                        </Link>
+                                        </button>
                                         <button className="bg-white/20 backdrop-blur-md hover:bg-white/30 text-white py-4 px-10 rounded-2xl font-semibold text-lg transition-all duration-300 border border-white/30 flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl">
                                             <FaPlay className="text-sm" />
                                             Xem video giới thiệu
@@ -537,7 +589,6 @@ const HomePage = () => {
                                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6"
                                 noValidate
                             >
-                                {/* Trường nhập Điểm nhận xe */}
                                 <div className="lg:col-span-2">
                                     <label
                                         htmlFor="pickupLocation"
@@ -565,8 +616,30 @@ const HomePage = () => {
                                         ))}
                                     </datalist>
                                 </div>
-                                {/* ĐÃ XÓA trường nhập Điểm trả xe */}
-                                {/* <div className="lg:col-span-2"> ... </div> */}
+
+                                <div className="lg:col-span-2">
+                                    <label
+                                        htmlFor="dropoffLocation"
+                                        className="block text-sm font-bold text-gray-700 mb-3 flex items-center"
+                                    >
+                                        <div className="bg-indigo-100 p-2 rounded-lg mr-3">
+                                            <FaMapMarkerAlt className="text-indigo-600" />
+                                        </div>
+                                        Điểm trả xe
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="dropoffLocation"
+                                        name="dropoffLocation"
+                                        value={formData.dropoffLocation}
+                                        onChange={handleInputChange}
+                                        placeholder="Nhập địa điểm trả xe"
+                                        className="w-full px-4 py-4 border-2 border-indigo-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-indigo-50/50 hover:bg-white transition-all duration-300 text-sm font-medium"
+                                        list="locations"
+                                        required
+                                    />
+                                </div>
+
                                 <div>
                                     <label htmlFor="pickupDate" className="block text-sm font-bold text-gray-700 mb-3 flex items-center">
                                         <div className="bg-emerald-100 p-2 rounded-lg mr-3">
@@ -586,31 +659,22 @@ const HomePage = () => {
                                     />
                                 </div>
 
-                                {/* Giờ nhận */}
                                 <div>
-                                  <label htmlFor="pickupTime" className="block text-sm font-bold text-gray-700 mb-3 flex items-center">
-                                    <div className="bg-amber-100 p-2 rounded-lg mr-3">
-                                      <FaClock className="text-amber-600" />
-                                    </div>
-                                    Giờ nhận
-                                  </label>
-                                  <select
-                                    id="pickupTime"
-                                    name="pickupTime"
-                                    value={formData.pickupTime}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="w-full px-4 py-4 border-2 border-amber-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-amber-50/50 hover:bg-white transition-all duration-300 text-sm font-medium"
-                                  >
-                                    {Array.from({ length: 16 }, (_, i) => {
-                                      const hour = (7 + i).toString().padStart(2, '0');
-                                      return (
-                                        <option key={hour} value={`${hour}:00`}>
-                                          {hour}:00
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
+                                    <label htmlFor="pickupTime" className="block text-sm font-bold text-gray-700 mb-3 flex items-center">
+                                        <div className="bg-amber-100 p-2 rounded-lg mr-3">
+                                            <FaClock className="text-amber-600" />
+                                        </div>
+                                        Giờ nhận
+                                    </label>
+                                    <input
+                                        type="time"
+                                        id="pickupTime"
+                                        name="pickupTime"
+                                        value={formData.pickupTime}
+                                        onChange={handleInputChange}
+                                        className="w-full px-4 py-4 border-2 border-amber-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-amber-50/50 hover:bg-white transition-all duration-300 text-sm font-medium"
+                                        required
+                                    />
                                 </div>
 
                                 <div>
@@ -632,31 +696,22 @@ const HomePage = () => {
                                     />
                                 </div>
 
-                                {/* Giờ trả */}
                                 <div>
-                                  <label htmlFor="dropoffTime" className="block text-sm font-bold text-gray-700 mb-3 flex items-center">
-                                    <div className="bg-purple-100 p-2 rounded-lg mr-3">
-                                      <FaClock className="text-purple-600" />
-                                    </div>
-                                    Giờ trả
-                                  </label>
-                                  <select
-                                    id="dropoffTime"
-                                    name="dropoffTime"
-                                    value={formData.dropoffTime}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="w-full px-4 py-4 border-2 border-purple-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-purple-50/50 hover:bg-white transition-all duration-300 text-sm font-medium"
-                                  >
-                                    {Array.from({ length: 16 }, (_, i) => {
-                                      const hour = (7 + i).toString().padStart(2, '0');
-                                      return (
-                                        <option key={hour} value={`${hour}:00`}>
-                                          {hour}:00
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
+                                    <label htmlFor="dropoffTime" className="block text-sm font-bold text-gray-700 mb-3 flex items-center">
+                                        <div className="bg-purple-100 p-2 rounded-lg mr-3">
+                                            <FaClock className="text-purple-600" />
+                                        </div>
+                                        Giờ trả
+                                    </label>
+                                    <input
+                                        type="time"
+                                        id="dropoffTime"
+                                        name="dropoffTime"
+                                        value={formData.dropoffTime}
+                                        onChange={handleInputChange}
+                                        className="w-full px-4 py-4 border-2 border-purple-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-purple-50/50 hover:bg-white transition-all duration-300 text-sm font-medium"
+                                        required
+                                    />
                                 </div>
 
                                 <div className="lg:col-span-6 flex justify-center mt-6">
@@ -690,61 +745,44 @@ const HomePage = () => {
                                 Chọn xe từ những thương hiệu uy tín và chất lượng nhất thế giới với dịch vụ chăm sóc khách hàng tận tâm
                             </p>
                         </div>
-                        <div className="relative">
-                            <button
-                                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-100 text-blue-600 rounded-full p-3 shadow-lg transition-all"
-                                onClick={() => brandSwiperRef.current?.slidePrev()}
-                                aria-label="Previous brands"
-                            >
-                                <FaChevronLeft size={24} />
-                            </button>
-                            <button
-                                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-100 text-blue-600 rounded-full p-3 shadow-lg transition-all"
-                                onClick={() => brandSwiperRef.current?.slideNext()}
-                                aria-label="Next brands"
-                            >
-                                <FaChevronRight size={24} />
-                            </button>
-                            <Swiper
-                                modules={[Autoplay, Navigation]}
-                                autoplay={{ delay: 3000, disableOnInteraction: false }}
-                                slidesPerView={6}
-                                spaceBetween={30}
-                                breakpoints={{
-                                    320: { slidesPerView: 2, spaceBetween: 15 },
-                                    640: { slidesPerView: 3, spaceBetween: 20 },
-                                    1024: { slidesPerView: 4, spaceBetween: 25 },
-                                    1280: { slidesPerView: 6, spaceBetween: 30 },
-                                }}
-                                className="pb-8"
-                                onSwiper={swiper => (brandSwiperRef.current = swiper)}
-                            >
-                                {brands.map((brand) => (
-                                    <SwiperSlide key={`brand-${brand.id}`}>
-                                        <div
-                                            className="group bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 cursor-pointer overflow-hidden hover:-translate-y-3 border border-blue-100 hover:border-indigo-300"
-                                            onClick={() => navigate("/search", { state: { filterType: "all", filters: { brand: brand.brandName } } })}
-                                        >
-                                            <div className="p-8 text-center">
-                                                <div className="w-24 h-24 mx-auto mb-6 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 p-3 group-hover:scale-110 transition-transform duration-500 shadow-lg">
+
+                        <Swiper
+                            modules={[Autoplay]}
+                            autoplay={{ delay: 3000, disableOnInteraction: false }}
+                            slidesPerView={6}
+                            spaceBetween={30}
+                            breakpoints={{
+                                320: { slidesPerView: 2, spaceBetween: 15 },
+                                640: { slidesPerView: 3, spaceBetween: 20 },
+                                1024: { slidesPerView: 4, spaceBetween: 25 },
+                                1280: { slidesPerView: 6, spaceBetween: 30 },
+                            }}
+                            className="pb-8"
+                        >
+                            {brands.map((brand, index) => (
+                                <SwiperSlide key={`brand-${brand.id || brand.name || index}`}>
+                                    <div
+                                        className="group bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 cursor-pointer overflow-hidden hover:-translate-y-3 border border-blue-100 hover:border-indigo-300"
+                                        onClick={() => navigate(`/cars?brand=${brand.id}`)}
+                                    >
+                                        <div className="p-8 text-center">
+                                            <div className="w-24 h-24 mx-auto mb-6 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 p-3 group-hover:scale-110 transition-transform duration-500 shadow-lg">
                                                 <img
-                                                    src={getBrandLogo(brand.brandName)}
-                                                    alt={brand.brandName}
+                                                    src={brand.logoUrl || "https://via.placeholder.com/96x96?text=Brand+Logo"}
+                                                    alt={brand.name}
                                                     className="w-full h-full object-contain"
                                                     loading="lazy"
-                                                    onError={e => { e.target.src = "/images/default-brand-logo.jpg" }}
                                                 />
-                                                </div>
-                                                <h3 className="font-bold text-lg text-gray-800 group-hover:text-indigo-600 transition-colors">
-                                                    {brand.brandName}
-                                                </h3>
-                                                <p className="text-sm text-gray-500 mt-1">Premium Quality</p>
                                             </div>
+                                            <h3 className="font-bold text-lg text-gray-800 group-hover:text-indigo-600 transition-colors">
+                                                {brand.name}
+                                            </h3>
+                                            <p className="text-sm text-gray-500 mt-1">Premium Quality</p>
                                         </div>
-                                    </SwiperSlide>
-                                ))}
-                            </Swiper>
-                        </div>
+                                    </div>
+                                </SwiperSlide>
+                            ))}
+                        </Swiper>
                     </div>
                 </section>
 
@@ -779,46 +817,30 @@ const HomePage = () => {
                             </div>
                         ) : (
                             <>
-                                <div className="relative">
-                                    <button
-                                        className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-100 text-blue-600 rounded-full p-3 shadow-lg transition-all"
-                                        onClick={() => featuredSwiperRef.current?.slidePrev()}
-                                        aria-label="Previous featured cars"
-                                    >
-                                        <FaChevronLeft size={24} />
-                                    </button>
-                                    <button
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-100 text-blue-600 rounded-full p-3 shadow-lg transition-all"
-                                        onClick={() => featuredSwiperRef.current?.slideNext()}
-                                        aria-label="Next featured cars"
-                                    >
-                                        <FaChevronRight size={24} />
-                                    </button>
-                                    <Swiper
-                                        modules={[Pagination, Autoplay, Navigation]}
-                                        pagination={{
-                                            clickable: true,
-                                            bulletClass: "swiper-pagination-bullet !bg-blue-600",
-                                            bulletActiveClass: "swiper-pagination-bullet-active !bg-indigo-600",
-                                        }}
-                                        autoplay={{ delay: 4000, disableOnInteraction: false }}
-                                        slidesPerView={3}
-                                        spaceBetween={30}
-                                        breakpoints={{
-                                            320: { slidesPerView: 1, spaceBetween: 20 },
-                                            768: { slidesPerView: 2, spaceBetween: 25 },
-                                            1024: { slidesPerView: 3, spaceBetween: 30 },
-                                        }}
-                                        className="pb-16"
-                                        onSwiper={swiper => (featuredSwiperRef.current = swiper)}
-                                    >
-                                        {featuredCars.map((car) => (
-                                            <SwiperSlide key={`featured-car-${car.id}`}>
-                                                <CarCard car={car} type="featured" isLoading={isLoading} onBookNow={handleBookNow} />
-                                            </SwiperSlide>
-                                        ))}
-                                    </Swiper>
-                                </div>
+                                <Swiper
+                                    modules={[Pagination, Autoplay]}
+                                    pagination={{
+                                        clickable: true,
+                                        bulletClass: "swiper-pagination-bullet !bg-blue-600",
+                                        bulletActiveClass: "swiper-pagination-bullet-active !bg-indigo-600",
+                                    }}
+                                    autoplay={{ delay: 4000, disableOnInteraction: false }}
+                                    slidesPerView={3}
+                                    spaceBetween={30}
+                                    breakpoints={{
+                                        320: { slidesPerView: 1, spaceBetween: 20 },
+                                        768: { slidesPerView: 2, spaceBetween: 25 },
+                                        1024: { slidesPerView: 3, spaceBetween: 30 },
+                                    }}
+                                    className="pb-16"
+                                >
+                                    {featuredCars.map((car, index) => (
+                                        <SwiperSlide key={`featured-car-${car.id || car.carId || index}`}>
+                                            <CarCard car={car} type="featured" isLoading={isLoading} />
+                                        </SwiperSlide>
+                                    ))}
+                                </Swiper>
+
                                 <div className="text-center mt-12">
                                     <Link
                                         to="/search"
@@ -866,46 +888,30 @@ const HomePage = () => {
                             </div>
                         ) : (
                             <>
-                                <div className="relative">
-                                    <button
-                                        className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-emerald-100 text-emerald-600 rounded-full p-3 shadow-lg transition-all"
-                                        onClick={() => popularSwiperRef.current?.slidePrev()}
-                                        aria-label="Previous popular cars"
-                                    >
-                                        <FaChevronLeft size={24} />
-                                    </button>
-                                    <button
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-emerald-100 text-emerald-600 rounded-full p-3 shadow-lg transition-all"
-                                        onClick={() => popularSwiperRef.current?.slideNext()}
-                                        aria-label="Next popular cars"
-                                    >
-                                        <FaChevronRight size={24} />
-                                    </button>
-                                    <Swiper
-                                        modules={[Pagination, Autoplay, Navigation]}
-                                        pagination={{
-                                            clickable: true,
-                                            bulletClass: "swiper-pagination-bullet !bg-emerald-600",
-                                            bulletActiveClass: "swiper-pagination-bullet-active !bg-teal-600",
-                                        }}
-                                        autoplay={{ delay: 4000, disableOnInteraction: false }}
-                                        slidesPerView={3}
-                                        spaceBetween={30}
-                                        breakpoints={{
-                                            320: { slidesPerView: 1, spaceBetween: 20 },
-                                            768: { slidesPerView: 2, spaceBetween: 25 },
-                                            1024: { slidesPerView: 3, spaceBetween: 30 },
-                                        }}
-                                        className="pb-16"
-                                        onSwiper={swiper => (popularSwiperRef.current = swiper)}
-                                    >
-                                        {popularCars.map((car) => (
-                                            <SwiperSlide key={`popular-car-${car.id}`}>
-                                                <CarCard car={car} type="popular" isLoading={isLoading} onBookNow={handleBookNow} />
-                                            </SwiperSlide>
-                                        ))}
-                                    </Swiper>
-                                </div>
+                                <Swiper
+                                    modules={[Pagination, Autoplay]}
+                                    pagination={{
+                                        clickable: true,
+                                        bulletClass: "swiper-pagination-bullet !bg-emerald-600",
+                                        bulletActiveClass: "swiper-pagination-bullet-active !bg-teal-600",
+                                    }}
+                                    autoplay={{ delay: 4000, disableOnInteraction: false }}
+                                    slidesPerView={3}
+                                    spaceBetween={30}
+                                    breakpoints={{
+                                        320: { slidesPerView: 1, spaceBetween: 20 },
+                                        768: { slidesPerView: 2, spaceBetween: 25 },
+                                        1024: { slidesPerView: 3, spaceBetween: 30 },
+                                    }}
+                                    className="pb-16"
+                                >
+                                    {popularCars.map((car, index) => (
+                                        <SwiperSlide key={`popular-car-${car.id || car.carId || index}`}>
+                                            <CarCard car={car} type="popular" isLoading={isLoading} />
+                                        </SwiperSlide>
+                                    ))}
+                                </Swiper>
+
                                 <div className="text-center mt-12">
                                     <Link
                                         to="/search"
@@ -939,8 +945,7 @@ const HomePage = () => {
                                 </p>
                                 <div className="flex flex-col sm:flex-row gap-4">
                                     <Link
-                                        to="/search"
-                                        state={{ filterType: "all" }}
+                                        to="/cars"
                                         className="bg-white text-blue-600 hover:bg-blue-50 font-bold py-4 px-8 rounded-2xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center"
                                     >
                                         <FaSearch className="mr-3" />
@@ -1126,7 +1131,7 @@ const HomePage = () => {
                     )}
                 </div>
 
-                {/* Enhanced Cookie Consent Banner
+                {/* Enhanced Cookie Consent Banner */}
                 {showCookieConsent && (
                     <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl shadow-2xl p-6 z-40 border-t border-gray-200">
                         <div className="container mx-auto px-4">
@@ -1155,18 +1160,198 @@ const HomePage = () => {
                             </div>
                         </div>
                     </div>
-                )} */}
+                )}
             </main>
-            <Footer />
-            {/* Booking Modal dùng chung */}
-            <BookingModal
-                isOpen={isBookingModalOpen}
-                onClose={() => { setIsBookingModalOpen(false); setSelectedCar(null); }}
-                car={selectedCar}
-                onSubmitBooking={handleSubmitBooking}
-            />
+
+            {/* Enhanced Footer với bảng màu đa dạng */}
+            <footer className="relative bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 text-white pt-20 pb-10 overflow-hidden">
+                {/* Decorative background elements */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.1),transparent_50%)]"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(14,165,233,0.1),transparent_50%)]"></div>
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 via-pink-500 via-orange-500 to-yellow-500"></div>
+
+                <div className="container mx-auto px-4 relative z-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+                        {/* Company Info */}
+                        <div className="lg:col-span-1">
+                            <div className="flex items-center mb-6">
+                                <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 p-3 rounded-2xl mr-4 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-110">
+                                    <FaCarSide className="text-2xl text-white" />
+                                </div>
+                                <div>
+                                    <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                                        DriveLuxe
+                                    </span>
+                                    <p className="text-xs text-gray-400">Premium Car Rental</p>
+                                </div>
+                            </div>
+                            <p className="text-gray-300 mb-8 leading-relaxed">
+                                Trải nghiệm sự sang trọng và hiệu suất với dịch vụ cho thuê xe tự lái cao cấp hàng đầu Việt Nam.
+                            </p>
+                            <div className="flex space-x-4">
+                                {[
+                                    { icon: FaFacebookF, href: "#", color: "from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400" },
+                                    { icon: FaTwitter, href: "#", color: "from-sky-500 to-blue-500 hover:from-sky-400 hover:to-blue-400" },
+                                    { icon: FaInstagram, href: "#", color: "from-pink-500 to-purple-500 hover:from-pink-400 hover:to-purple-400" },
+                                    { icon: FaLinkedinIn, href: "#", color: "from-blue-700 to-indigo-600 hover:from-blue-600 hover:to-indigo-500" },
+                                ].map((social, index) => (
+                                    <a
+                                        key={index}
+                                        href={social.href}
+                                        className={`bg-gradient-to-r ${social.color} w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-xl transform hover:-translate-y-1`}
+                                        aria-label={`Social media link ${index + 1}`}
+                                    >
+                                        <social.icon className="text-white" />
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Quick Links */}
+                        <div>
+                            <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent flex items-center">
+                                <div className="w-2 h-6 bg-gradient-to-b from-emerald-400 to-cyan-400 rounded-full mr-3"></div>
+                                Liên kết nhanh
+                            </h3>
+                            <ul className="space-y-4">
+                                {[
+                                    { name: "Trang chủ", path: "/" },
+                                    { name: "Giới thiệu", path: "/gioi-thieu" },
+                                    { name: "Xe cho thuê", path: "/xe-cho-thue" },
+                                    { name: "Địa điểm", path: "/dia-diem" },
+                                    { name: "Ưu đãi", path: "/uu-dai" },
+                                    { name: "Liên hệ", path: "/lien-he" }
+                                ].map((item, idx) => (
+                                    <li key={idx}>
+                                        <Link
+                                            to={item.path}
+                                            className="text-gray-300 hover:text-emerald-400 transition-all duration-300 hover:translate-x-2 inline-flex items-center group"
+                                        >
+                                            <div className="w-2 h-2 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                            {item.name}
+                                        </Link>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
+                        {/* Contact Info */}
+                        <div>
+                            <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent flex items-center">
+                                <div className="w-2 h-6 bg-gradient-to-b from-orange-400 to-red-400 rounded-full mr-3"></div>
+                                Thông tin liên hệ
+                            </h3>
+                            <ul className="space-y-4">
+                                <li className="flex items-start group">
+                                    <div className="bg-gradient-to-r from-orange-500 to-red-500 p-2 rounded-lg mr-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                                        <FaMapMarkerAlt className="text-white text-sm" />
+                                    </div>
+                                    <span className="text-gray-300 group-hover:text-orange-400 transition-colors duration-300">
+                                        123 Luxury Drive, Beverly Hills, CA 90210, USA
+                                    </span>
+                                </li>
+                                <li className="flex items-center group">
+                                    <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-2 rounded-lg mr-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                                        <FaPhone className="text-white text-sm" />
+                                    </div>
+                                    <span className="text-gray-300 group-hover:text-green-400 transition-colors duration-300">+1 (800) 123-4567</span>
+                                </li>
+                                <li className="flex items-center group">
+                                    <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-2 rounded-lg mr-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                                        <FaEnvelope className="text-white text-sm" />
+                                    </div>
+                                    <span className="text-gray-300 group-hover:text-purple-400 transition-colors duration-300">info@driveluxe.com</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        {/* Newsletter */}
+                        <div>
+                            <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent flex items-center">
+                                <div className="w-2 h-6 bg-gradient-to-b from-violet-400 to-purple-400 rounded-full mr-3"></div>
+                                Đăng ký nhận tin
+                            </h3>
+                            <p className="text-gray-300 mb-6 leading-relaxed">
+                                Nhận thông tin về ưu đãi độc quyền và xe mới nhất từ chúng tôi.
+                            </p>
+                            <div className="flex mb-8">
+                                <input
+                                    type="email"
+                                    placeholder="Email của bạn"
+                                    className="flex-grow py-3 px-4 bg-slate-800/50 border border-slate-600 rounded-l-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-white text-sm backdrop-blur-sm transition-all duration-300"
+                                    aria-label="Nhập email để đăng ký bản tin"
+                                />
+                                <button className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white px-6 rounded-r-xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-violet-500/25">
+                                    <FaEnvelope />
+                                </button>
+                            </div>
+                            
+                            {/* Payment Methods */}
+                            <div>
+                                <h4 className="text-sm font-bold mb-4 text-gray-300 flex items-center">
+                                    <div className="w-1 h-4 bg-gradient-to-b from-yellow-400 to-orange-400 rounded-full mr-2"></div>
+                                    Phương thức thanh toán
+                                </h4>
+                                <div className="flex space-x-3">
+                                    {[
+                                        { icon: FaCcVisa, color: "from-blue-600 to-blue-500" },
+                                        { icon: FaCcMastercard, color: "from-red-600 to-orange-500" },
+                                        { icon: FaCcAmex, color: "from-green-600 to-emerald-500" },
+                                        { icon: FaCcPaypal, color: "from-blue-500 to-cyan-500" }
+                                    ].map(({ icon: Icon, color }, index) => (
+                                        <div key={index} className={`bg-gradient-to-r ${color} p-2 rounded-lg hover:scale-110 transition-all duration-300 shadow-lg cursor-pointer`}>
+                                            <Icon className="text-2xl text-white" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="border-t border-gradient-to-r from-slate-700 via-slate-600 to-slate-700 pt-8">
+                        <div className="h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent mb-8"></div>
+                        
+                        {/* Footer Bottom */}
+                        <div className="flex flex-col lg:flex-row justify-between items-center">
+                            <div className="mb-4 lg:mb-0">
+                                <p className="text-gray-400 text-sm flex items-center">
+                                    <span>© {new Date().getFullYear()} DriveLuxe. All rights reserved.</span>
+                                    <span className="mx-2 text-red-400">❤️</span>
+                                    <span>Made with love in Vietnam</span>
+                                </p>
+                            </div>
+                            
+                            <div className="flex flex-wrap justify-center lg:justify-end space-x-6 text-sm text-gray-400">
+                                {[
+                                    { name: "Chính sách bảo mật", color: "hover:text-blue-400" },
+                                    { name: "Điều khoản dịch vụ", color: "hover:text-green-400" },
+                                    { name: "Chính sách cookie", color: "hover:text-purple-400" }
+                                ].map((item, index) => (
+                                    <Link
+                                        key={index}
+                                        to={`/${item.name.toLowerCase().replace(/\s+/g, "-")}`}
+                                        className={`${item.color} transition-colors duration-300 hover:underline relative group`}
+                                    >
+                                        {item.name}
+                                        <div className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 group-hover:w-full transition-all duration-300"></div>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Animated background particles */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-blue-400 rounded-full opacity-20 animate-ping"></div>
+                    <div className="absolute top-3/4 right-1/3 w-1 h-1 bg-purple-400 rounded-full opacity-30 animate-pulse"></div>
+                    <div className="absolute bottom-1/4 left-2/3 w-1.5 h-1.5 bg-pink-400 rounded-full opacity-25 animate-bounce"></div>
+                </div>
+            </footer>
         </div>
     )
 }
 
 export default HomePage
+            

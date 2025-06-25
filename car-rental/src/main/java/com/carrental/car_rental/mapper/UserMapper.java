@@ -27,8 +27,9 @@ public interface UserMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "lastLogin", ignore = true)
-    User toEntity(CreateUserDTO dto);    @Mapping(target = "passwordHash", ignore = true)
-    @Mapping(target = "id", ignore = true)  // Don't map id from DTO to entity
+    User toEntity(CreateUserDTO dto);
+
+    @Mapping(target = "passwordHash", ignore = true)
     @Mapping(source = "roleId", target = "role.id")
     @Mapping(source = "statusId", target = "status.id")
     @Mapping(source = "countryCode", target = "countryCode.countryCode")

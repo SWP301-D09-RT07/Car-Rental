@@ -4,9 +4,7 @@ import com.carrental.car_rental.dto.*;
 import com.carrental.car_rental.service.CarService;
 import com.carrental.car_rental.entity.FuelType;
 import com.carrental.car_rental.entity.Region;
-import com.carrental.car_rental.entity.CountryCode;
 import com.carrental.car_rental.repository.CarRepository;
-import com.carrental.car_rental.repository.CountryCodeRepository;
 import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,12 +22,10 @@ public class CarController {
     private static final Logger logger = LoggerFactory.getLogger(CarController.class);
     private final CarService service;
     private final CarRepository carRepository;
-    private final CountryCodeRepository countryCodeRepository;
 
-    public CarController(CarService service, CarRepository carRepository, CountryCodeRepository countryCodeRepository) {
+    public CarController(CarService service, CarRepository carRepository) {
         this.service = service;
         this.carRepository = carRepository;
-        this.countryCodeRepository = countryCodeRepository;
     }
 
     @GetMapping("/featured")
@@ -75,26 +71,16 @@ public class CarController {
     @GetMapping("/search")
     public ResponseEntity<List<CarDTO>> searchCars(
             @RequestParam(required = false) String pickupLocation,
-            @RequestParam(required = false) String country,
+            @RequestParam(required = false) String dropoffLocation,
             @RequestParam(required = false) String pickupDate,
             @RequestParam(required = false) String dropoffDate,
             @RequestParam(required = false) String pickupTime,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        logger.info("Yêu cầu tìm kiếm xe với pickupLocation: {}, country: {}, pickupDate: {}, dropoffDate: {}, pickupTime: {}, trang {}, kích thước {}",
-                pickupLocation, country, pickupDate, dropoffDate, pickupTime, page, size);
+        logger.info("Yêu cầu tìm kiếm xe với pickupLocation: {}, dropoffLocation: {}, pickupDate: {}, dropoffDate: {}, pickupTime: {}, trang {}, kích thước {}",
+                pickupLocation, dropoffLocation, pickupDate, dropoffDate, pickupTime, page, size);
         try {
-            // Convert String country code to CountryCode object
-            CountryCode countryCode = null;
-            if (country != null && !country.trim().isEmpty()) {
-                countryCode = countryCodeRepository.findById(country).orElse(null);
-                if (countryCode == null) {
-                    logger.warn("Không tìm thấy country code: {}", country);
-                    return ResponseEntity.ok(List.of()); // Return empty list if country code not found
-                }
-            }
-            
-            List<CarDTO> cars = service.searchCars(pickupLocation, countryCode, pickupDate, dropoffDate, pickupTime, page, size);
+            List<CarDTO> cars = service.searchCars(pickupLocation, dropoffLocation, pickupDate, dropoffDate, pickupTime, page, size);
             return ResponseEntity.ok(cars);
         } catch (Exception e) {
             logger.error("Lỗi khi tìm kiếm xe: {}", e.getMessage(), e);
@@ -345,58 +331,6 @@ public class CarController {
             return ResponseEntity.ok(similarCars);
         } catch (Exception e) {
             logger.error("Lỗi khi lấy xe tương tự nâng cao cho xe {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
-    }
-
-    @GetMapping("/filter")
-    public ResponseEntity<Page<CarDTO>> filterCars(
-        @RequestParam(required = false) String brand,
-        @RequestParam(required = false) String countryCode,
-        @RequestParam(required = false) Integer regionId,
-        @RequestParam(required = false) Short numOfSeats,
-        @RequestParam(required = false) String priceRange,
-        @RequestParam(required = false) Short year,
-        @RequestParam(required = false) String fuelType,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "9") int size,
-        @RequestParam(required = false) String sortBy
-    ) {
-        logger.info("Yêu cầu lọc xe với các tham số: brand={}, countryCode={}, regionId={}, numOfSeats={}, priceRange={}, year={}, fuelType={}, page={}, size={}, sortBy={}",
-                brand, countryCode, regionId, numOfSeats, priceRange, year, fuelType, page, size, sortBy);
-        try {
-            Page<CarDTO> cars = service.filterCars(brand, countryCode, regionId, numOfSeats, priceRange, year, fuelType, page, size, sortBy);
-            return ResponseEntity.ok(cars);
-        } catch (Exception e) {
-            logger.error("Lỗi khi lọc xe: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
-    }
-
-    @GetMapping("/search/keyword")
-    public ResponseEntity<Page<CarDTO>> searchCarsByKeyword(
-            @RequestParam(required = false) String searchQuery,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "9") int size) {
-        logger.info("Yêu cầu tìm kiếm xe theo từ khóa: {}, trang {}, kích thước {}", searchQuery, page, size);
-        try {
-            Page<CarDTO> cars = service.findCars(searchQuery, page, size);
-            return ResponseEntity.ok(cars);
-        } catch (Exception e) {
-            logger.error("Lỗi khi tìm kiếm xe theo từ khóa: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
-    }
-
-    @GetMapping("/{carId}/booked-dates")
-    public ResponseEntity<BookedDatesResponseDTO> getBookedDates(@PathVariable Integer carId) {
-        logger.info("Yêu cầu lấy ngày đã đặt cho xe với ID: {}", carId);
-        try {
-            List<String> bookedDates = service.getBookedDates(carId);
-            BookedDatesResponseDTO response = new BookedDatesResponseDTO(bookedDates);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            logger.error("Lỗi khi lấy ngày đã đặt cho xe {}: {}", carId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }

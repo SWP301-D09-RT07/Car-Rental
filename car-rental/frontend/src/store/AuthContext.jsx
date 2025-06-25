@@ -64,8 +64,8 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = (newToken, userData) => {
-        console.log('[AuthContext] Login called with:', { 
-            newToken: newToken ? 'Có' : 'Không có', 
+        console.log('[AuthContext] Login called with:', {
+            newToken: newToken ? 'Có' : 'Không có',
             userData,
             newTokenLength: newToken ? newToken.length : 0
         });
@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }) => {
                 role: userData.role,
                 username: userData.username
             });
-            
+
             // Verify what was actually saved
             console.log('[AuthContext] Verification after save:');
             console.log('[AuthContext] - token in localStorage:', localStorage.getItem('token') ? 'Có' : 'Không có');
@@ -128,7 +128,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const isAuthenticated = !!token && !isTokenExpired();
-    
+
     console.log('[AuthContext] Current state:', {
         token: token ? 'Có' : 'Không có',
         user: user,
@@ -138,10 +138,10 @@ export const AuthProvider = ({ children }) => {
 
     // Always render the provider, never return null
     return (
-        <AuthContext.Provider value={{ 
-            user, 
-            token, 
-            login, 
+        <AuthContext.Provider value={{
+            user,
+            token,
+            login,
             logout: logoutHandler,
             isAuthenticated: isAuthenticated,
             isLoading: isLoading

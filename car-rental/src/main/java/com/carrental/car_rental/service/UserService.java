@@ -97,8 +97,9 @@ public class UserService {
                             .ifPresent(ud -> dto.setUserDetail(userDetailMapper.toDTO(ud)));
                     return dto;
                 });
-    }  
-      public Optional<UserDTO> findByUsername(String username) {
+    }
+
+    public Optional<UserDTO> findByUsername(String username) {
         return userRepository.findByUsername(username)
                 .filter(user -> !user.getIsDeleted())
                 .map(user -> {
@@ -108,7 +109,6 @@ public class UserService {
                     return dto;
                 });
     }
-
 
     public UserDTO save(CreateUserDTO dto) {
         userRepository.findByEmailAndIsDeletedFalse(dto.getEmail())
@@ -168,24 +168,26 @@ public class UserService {
 
         log.info("Saving UserDetail: id={}, instance={}, hash={}", userDetail.getId(), System.identityHashCode(userDetail), userDetail);
         return userDetailRepository.save(userDetail);
-    }    public UserDTO update(Integer id, UpdateUserDTO dto) {
+    }
+
+    public UserDTO update(Integer id, UpdateUserDTO dto) {
         log.info("Updating user with ID: {}", id);
-        
+
         if (id == null) {
             log.error("Input ID is NULL");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The given id must not be null");
         }
-        
+
         User existingUser = userRepository.findById(id)
                 .filter(u -> !u.getIsDeleted())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + id));
-        
+
         userRepository.findByEmailAndIsDeletedFalse(dto.getEmail())
                 .filter(u -> !u.getId().equals(id))
                 .ifPresent(u -> {
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists: " + dto.getEmail());
                 });validateRelations(dto.getRoleId(), dto.getStatusId(), dto.getCountryCode(), dto.getPreferredLanguage());
-        
+
         // Use mapper to create updated entity, then set ID and other preserved fields
         User updatedUser = userMapper.toEntity(dto);
         updatedUser.setId(id);  // Ensure ID is set
@@ -196,7 +198,7 @@ public class UserService {
         updatedUser.setUpdatedAt(Instant.now());
         updatedUser.setLastLogin(existingUser.getLastLogin());
         updatedUser.setIsDeleted(false);
-        
+
         log.info("Before save: ID={}", updatedUser.getId());
         userRepository.save(updatedUser);
         log.info("After save: successful");        Optional<UserDetail> userDetailOptional = userDetailRepository.findByUserIdAndIsDeletedFalse(id);
@@ -214,13 +216,14 @@ public class UserService {
                 ? dto.getUserDetail().getFullName() : (userDetail.getName() != null ? userDetail.getName() : ""));
         userDetail.setAddress(dto.getUserDetail() != null && dto.getUserDetail().getAddress() != null
                 ? dto.getUserDetail().getAddress() : (userDetail.getAddress() != null ? userDetail.getAddress() : ""));        userDetail.setTaxcode(dto.getUserDetail() != null ? dto.getUserDetail().getTaxcode() : userDetail.getTaxcode());
-        
+
         userDetailRepository.save(userDetail);
 
         UserDTO result = userMapper.toDto(updatedUser);
         result.setUserDetail(userDetailMapper.toDTO(userDetail));
         return result;
     }
+
 
     public void delete(Integer id) {
         User user = userRepository.findById(id)
@@ -234,45 +237,24 @@ public class UserService {
                     userDetailRepository.save(ud);
                 });
     }
-    @Transactional
-    public void changePassword(String username, String currentPassword, String newPassword) {
-        try {
-            log.info("Changing password for user: {}", username);
-            
-            User user = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with username: " + username));
-            
-            if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mật khẩu hiện tại không đúng");
-            }
-            
-            user.setPasswordHash(passwordEncoder.encode(newPassword));
-            userRepository.save(user);
-            
-            log.info("Password changed successfully for user: {}", username);
-        } catch (Exception e) {
-            log.error("Error changing password for user {}: {}", username, e.getMessage());
-            throw e;
+
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        User user = userRepository.findByEmailAndIsDeletedFalse(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email: " + email));
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
         }
-    }private void validateRelations(Integer roleId, Integer statusId, String countryCode, String preferredLanguage) {
-        if (roleId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The given id must not be null - roleId is null");
-        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    private void validateRelations(Integer roleId, Integer statusId, String countryCode, String preferredLanguage) {
         roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid roleId: " + roleId));
-        
-        if (statusId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The given id must not be null - statusId is null");
-        }
         statusRepository.findById(statusId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid statusId: " + statusId));
-        
-        if (countryCode == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The given id must not be null - countryCode is null");
-        }
         countryCodeRepository.findById(countryCode)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid countryCode: " + countryCode));
-        
         if (preferredLanguage != null) {
             languageRepository.findById(preferredLanguage)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid preferredLanguage: " + preferredLanguage));

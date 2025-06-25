@@ -1,0 +1,57 @@
+.gallery-container {
+  position: relative;
+  overflow: hidden;
+}
+.price-tag {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+.gallery-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+  height: 400px;
+}
+.gallery-main {
+  grid-row: span 2;
+  background-color: #f9fafb;
+}
+.gallery-item {
+  background-color: #f9fafb;
+  overflow: hidden;
+}
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+input:focus {
+  outline: none;
+}
+.custom-checkbox {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d1d5db;
+  border-radius: 4px;
+  position: relative;
+}
+.custom-checkbox:checked {
+  background-color: #10b981;
+  border-color: #10b981;
+}
+.custom-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}

@@ -1,177 +1,415 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import { FaCarSide, FaFacebookF, FaTwitter, FaInstagram, FaLinkedinIn, FaMapMarkerAlt, FaPhone, FaEnvelope, FaCcVisa, FaCcMastercard, FaCcAmex, FaCcPaypal } from "react-icons/fa";
 
 const Footer = () => {
     return (
-        <footer className="relative bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 text-white pt-20 pb-10 overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.1),transparent_50%)]"></div>
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(14,165,233,0.1),transparent_50%)]"></div>
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 via-pink-500 via-orange-500 to-yellow-500"></div>
-            <div className="container mx-auto px-4 relative z-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
-                    <div className="lg:col-span-1">
-                        <div className="flex items-center mb-6">
-                            <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 p-3 rounded-2xl mr-4 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-110">
-                                <FaCarSide className="text-2xl text-white" />
-                            </div>
-                            <div>
-                                <span className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                                    DriveLuxe
-                                </span>
-                                <p className="text-xs text-gray-400">Premium Car Rental</p>
-                            </div>
+        <footer
+            style={{
+                background: "#ffffff",
+                color: "#374151",
+                padding: "60px 0 0 0",
+                borderTop: "4px solid #3B82F6",
+                fontFamily: "inherit",
+                position: "relative",
+                boxShadow: "0 -4px 20px rgba(59, 130, 246, 0.1)",
+            }}
+        >
+            {/* Background decoration */}
+            <div
+                style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"20\" cy=\"20\" r=\"1\" fill=\"%233B82F6\" opacity=\"0.06\"/><circle cx=\"80\" cy=\"80\" r=\"1\" fill=\"%233B82F6\" opacity=\"0.06\"/><circle cx=\"40\" cy=\"60\" r=\"1\" fill=\"%233B82F6\" opacity=\"0.06\"/><circle cx=\"60\" cy=\"40\" r=\"1\" fill=\"%233B82F6\" opacity=\"0.06\"/></svg>')",
+                    backgroundSize: "80px 80px",
+                    opacity: 0.5,
+                }}
+            />
+
+            <div
+                style={{
+                    maxWidth: 1200,
+                    margin: "0 auto",
+                    padding: "0 24px",
+                    position: "relative",
+                    zIndex: 1,
+                }}
+            >
+                <div
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                        gap: "50px",
+                        marginBottom: "50px",
+                    }}
+                >
+                    {/* LOGO & COMPANY INFO */}
+                    <div style={{ gridColumn: "span 1" }}>
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                marginBottom: "24px",
+                            }}
+                        >
+                            <a href="/">
+                                <img
+                                    src="/images/logo.png"
+                                    alt="Carbook Logo"
+                                    style={{
+                                        height: 48,
+                                        marginRight: 16,
+                                        background: "#3B82F6",
+                                        borderRadius: 12,
+                                        padding: "8px",
+                                        boxShadow: "0 4px 16px rgba(59, 130, 246, 0.2)",
+                                        transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                                    }}
+                                    onMouseOver={(e) => {
+                                        e.target.style.transform = "translateY(-2px)";
+                                        e.target.style.boxShadow = "0 8px 25px rgba(59, 130, 246, 0.3)";
+                                    }}
+                                    onMouseOut={(e) => {
+                                        e.target.style.transform = "translateY(0)";
+                                        e.target.style.boxShadow = "0 4px 16px rgba(59, 130, 246, 0.2)";
+                                    }}
+                                />
+                            </a>
+                            <span
+                                style={{
+                                    background: "linear-gradient(135deg, #3B82F6, #1D4ED8)",
+                                    WebkitBackgroundClip: "text",
+                                    WebkitTextFillColor: "transparent",
+                                    fontWeight: 800,
+                                    fontSize: 28,
+                                    letterSpacing: 1.2,
+                                }}
+                            >
+                                CAR RENTAL
+                            </span>
                         </div>
-                        <p className="text-gray-300 mb-8 leading-relaxed">
-                            Trải nghiệm sự sang trọng và hiệu suất với dịch vụ cho thuê xe tự lái cao cấp hàng đầu Việt Nam.
-                        </p>
-                        <div className="flex space-x-4">
-                            {[
-                                { icon: FaFacebookF, href: "#", color: "from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400" },
-                                { icon: FaTwitter, href: "#", color: "from-sky-500 to-blue-500 hover:from-sky-400 hover:to-blue-400" },
-                                { icon: FaInstagram, href: "#", color: "from-pink-500 to-purple-500 hover:from-pink-400 hover:to-purple-400" },
-                                { icon: FaLinkedinIn, href: "#", color: "from-blue-700 to-indigo-600 hover:from-blue-600 hover:to-indigo-500" },
-                            ].map((social, index) => (
-                                <a
-                                    key={index}
-                                    href={social.href}
-                                    className={`bg-gradient-to-r ${social.color} w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-xl transform hover:-translate-y-1`}
-                                    aria-label={`Social media link ${index + 1}`}
+                        
+                        <div style={{ fontSize: 16, lineHeight: 1.7, marginBottom: 28, color: "#6B7280" }}>
+                            <p style={{ margin: "0 0 16px 0", display: "flex", alignItems: "center" }}>
+                                <span style={{ marginRight: 8, fontSize: 20 }}>🚗</span>
+                                Dịch vụ cho thuê xe tự lái hàng đầu Việt Nam
+                            </p>
+                            <p style={{ margin: "0 0 16px 0", display: "flex", alignItems: "center" }}>
+                                <span style={{ marginRight: 8, fontSize: 20 }}>✨</span>
+                                Trải nghiệm lái xe an toàn, tiện lợi với đội xe đa dạng
+                            </p>
+                        </div>
+
+                        {/* Contact Info */}
+                        <div style={{ marginBottom: 28 }}>
+                            <div style={{ 
+                                display: "flex", 
+                                alignItems: "center", 
+                                marginBottom: 16,
+                                padding: "12px 16px",
+                                background: "rgba(59, 130, 246, 0.05)",
+                                borderRadius: 12,
+                                border: "1px solid rgba(59, 130, 246, 0.1)",
+                            }}>
+                                <span style={{ marginRight: 12, fontSize: 20 }}>📧</span>
+                                <a 
+                                    href="mailto:info@carrental.vn" 
+                                    style={{ 
+                                        color: "#3B82F6", 
+                                        textDecoration: "none",
+                                        fontWeight: 500,
+                                        fontSize: 15,
+                                        transition: "color 0.3s ease",
+                                    }}
+                                    onMouseOver={(e) => e.target.style.color = "#1D4ED8"}
+                                    onMouseOut={(e) => e.target.style.color = "#3B82F6"}
                                 >
-                                    <social.icon className="text-white" />
+                                    info@carrental.vn
                                 </a>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div>
-                        <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent flex items-center">
-                            <div className="w-2 h-6 bg-gradient-to-b from-emerald-400 to-cyan-400 rounded-full mr-3"></div>
-                            Liên kết nhanh
-                        </h3>
-                        <ul className="space-y-4">
-                            {[
-                                { name: "Trang chủ", path: "/" },
-                                { name: "Giới thiệu", path: "/gioi-thieu" },
-                                { name: "Xe cho thuê", path: "/search", state: { filterType: "all" } },
-                                { name: "Liên hệ", path: "/lien-he" }
-                            ].map((item, idx) => (
-                                <li key={idx}>
-                                    <Link
-                                        to={item.path}
-                                        state={item.state}
-                                        className="text-gray-300 hover:text-emerald-400 transition-all duration-300 hover:translate-x-2 inline-flex items-center group"
-                                    >
-                                        <div className="w-2 h-2 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full mr-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                        {item.name}
-                                    </Link>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    <div>
-                        <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent flex items-center">
-                            <div className="w-2 h-6 bg-gradient-to-b from-orange-400 to-red-400 rounded-full mr-3"></div>
-                            Thông tin liên hệ
-                        </h3>
-                        <ul className="space-y-4">
-                            <li className="flex items-start group">
-                                <div className="bg-gradient-to-r from-orange-500 to-red-500 p-2 rounded-lg mr-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                                    <FaMapMarkerAlt className="text-white text-sm" />
-                                </div>
-                                <span className="text-gray-300 group-hover:text-orange-400 transition-colors duration-300">
-                                    123 Luxury Drive, Beverly Hills, CA 90210, USA
+                            </div>
+                            <div style={{ 
+                                display: "flex", 
+                                alignItems: "center",
+                                padding: "12px 16px",
+                                background: "rgba(59, 130, 246, 0.05)",
+                                borderRadius: 12,
+                                border: "1px solid rgba(59, 130, 246, 0.1)",
+                            }}>
+                                <span style={{ marginRight: 12, fontSize: 20 }}>📞</span>
+                                <span style={{ 
+                                    color: "#3B82F6", 
+                                    fontWeight: 600, 
+                                    fontSize: 16 
+                                }}>
+                                    1900 9999
                                 </span>
-                            </li>
-                            <li className="flex items-center group">
-                                <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-2 rounded-lg mr-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                                    <FaPhone className="text-white text-sm" />
-                                </div>
-                                <span className="text-gray-300 group-hover:text-green-400 transition-colors duration-300">+1 (800) 123-4567</span>
-                            </li>
-                            <li className="flex items-center group">
-                                <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-2 rounded-lg mr-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                                    <FaEnvelope className="text-white text-sm" />
-                                </div>
-                                <span className="text-gray-300 group-hover:text-purple-400 transition-colors duration-300">info@driveluxe.com</span>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div>
-                        <h3 className="text-xl font-bold mb-6 bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent flex items-center">
-                            <div className="w-2 h-6 bg-gradient-to-b from-violet-400 to-purple-400 rounded-full mr-3"></div>
-                            Đăng ký nhận tin
-                        </h3>
-                        <p className="text-gray-300 mb-6 leading-relaxed">
-                            Nhận thông tin về ưu đãi độc quyền và xe mới nhất từ chúng tôi.
-                        </p>
-                        <div className="flex mb-8">
-                            <input
-                                type="email"
-                                placeholder="Email của bạn"
-                                className="flex-grow py-3 px-4 bg-slate-800/50 border border-slate-600 rounded-l-xl focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 text-white text-sm backdrop-blur-sm transition-all duration-300"
-                                aria-label="Nhập email để đăng ký bản tin"
-                            />
-                            <button className="bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white px-6 rounded-r-xl transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-violet-500/25">
-                                <FaEnvelope />
-                            </button>
+                            </div>
                         </div>
+
+                        {/* Social Media */}
                         <div>
-                            <h4 className="text-sm font-bold mb-4 text-gray-300 flex items-center">
-                                <div className="w-1 h-4 bg-gradient-to-b from-yellow-400 to-orange-400 rounded-full mr-2"></div>
-                                Phương thức thanh toán
-                            </h4>
-                            <div className="flex space-x-3">
+                            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 16, color: "#374151" }}>
+                                Kết nối với chúng tôi
+                            </div>
+                            <div style={{ display: "flex", gap: 12 }}>
                                 {[
-                                    { icon: FaCcVisa, color: "from-blue-600 to-blue-500" },
-                                    { icon: FaCcMastercard, color: "from-red-600 to-orange-500" },
-                                    { icon: FaCcAmex, color: "from-green-600 to-emerald-500" },
-                                    { icon: FaCcPaypal, color: "from-blue-500 to-cyan-500" }
-                                ].map(({ icon: Icon, color }, index) => (
-                                    <div key={index} className={`bg-gradient-to-r ${color} p-2 rounded-lg hover:scale-110 transition-all duration-300 shadow-lg cursor-pointer`}>
-                                        <Icon className="text-2xl text-white" />
+                                    { icon: "📘", name: "Facebook", color: "#1877F2" },
+                                    { icon: "📷", name: "Instagram", color: "#E4405F" },
+                                    { icon: "🐦", name: "Twitter", color: "#1DA1F2" },
+                                    { icon: "💼", name: "LinkedIn", color: "#0A66C2" }
+                                ].map((social, index) => (
+                                    <div
+                                        key={index}
+                                        style={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: "50%",
+                                            background: `linear-gradient(135deg, ${social.color}, ${social.color}dd)`,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            cursor: "pointer",
+                                            transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                                        }}
+                                        onMouseOver={(e) => {
+                                            e.target.style.transform = "translateY(-4px) scale(1.05)";
+                                            e.target.style.boxShadow = "0 8px 25px rgba(0,0,0,0.15)";
+                                        }}
+                                        onMouseOut={(e) => {
+                                            e.target.style.transform = "translateY(0) scale(1)";
+                                            e.target.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
+                                        }}
+                                    >
+                                        <span style={{ fontSize: 18 }}>{social.icon}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
+
+                    {/* SERVICES & LOCATIONS */}
+                    <div>
+                        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 24, color: "#3B82F6" }}>
+                            🌍 Địa điểm dịch vụ
+                        </div>
+                        <div style={{ fontSize: 15, lineHeight: 1.6, marginBottom: 40 }}>
+                            {["Đà Nẵng", "Hồ Chí Minh", "Hà Nội", "Bình Dương"].map((city, index) => (
+                                <div 
+                                    key={index}
+                                    style={{
+                                        padding: "14px 18px",
+                                        margin: "8px 0",
+                                        background: "linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.04))",
+                                        borderRadius: 12,
+                                        border: "1px solid rgba(59, 130, 246, 0.15)",
+                                        transition: "all 0.3s ease",
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                    }}
+                                    onMouseOver={(e) => {
+                                        e.target.style.background = "linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08))";
+                                        e.target.style.borderColor = "#3B82F6";
+                                        e.target.style.transform = "translateX(4px)";
+                                    }}
+                                    onMouseOut={(e) => {
+                                        e.target.style.background = "linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.04))";
+                                        e.target.style.borderColor = "rgba(59, 130, 246, 0.15)";
+                                        e.target.style.transform = "translateX(0)";
+                                    }}
+                                >
+                                    <span style={{ marginRight: 10, fontSize: 16 }}>📍</span>
+                                    <span style={{ fontWeight: 500, color: "#374151" }}>{city}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 24, color: "#3B82F6" }}>
+                            🛠️ Dịch vụ hỗ trợ
+                        </div>
+                        <div style={{ fontSize: 15, lineHeight: 1.8 }}>
+                            {[
+                                { text: "Quy định dịch vụ", link: "/support", icon: "📋" },
+                                { text: "Câu hỏi thường gặp", link: "/faq", icon: "❓" },
+                                { text: "Hướng dẫn sử dụng", link: "/guide", icon: "📖" },
+                                { text: "Chính sách bảo mật", link: "/privacy", icon: "🔒" }
+                            ].map((item, index) => (
+                                <div key={index} style={{ marginBottom: 12 }}>
+                                    <a
+                                        href={item.link}
+                                        style={{
+                                            color: "#6B7280",
+                                            textDecoration: "none",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            padding: "10px 12px",
+                                            borderRadius: 8,
+                                            transition: "all 0.3s ease",
+                                            fontWeight: 500,
+                                        }}
+                                        onMouseOver={(e) => {
+                                            e.target.style.color = "#3B82F6";
+                                            e.target.style.background = "rgba(59, 130, 246, 0.05)";
+                                            e.target.style.transform = "translateX(6px)";
+                                        }}
+                                        onMouseOut={(e) => {
+                                            e.target.style.color = "#6B7280";
+                                            e.target.style.background = "transparent";
+                                            e.target.style.transform = "translateX(0)";
+                                        }}
+                                    >
+                                        <span style={{ marginRight: 10, fontSize: 16 }}>{item.icon}</span>
+                                        {item.text}
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* GOOGLE MAPS */}
+                    <div>
+                        <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 24, color: "#3B82F6" }}>
+                            📍 Vị trí của chúng tôi
+                        </div>
+                        <div style={{
+                            borderRadius: 16,
+                            overflow: "hidden",
+                            boxShadow: "0 8px 32px rgba(59, 130, 246, 0.15)",
+                            marginBottom: 30,
+                            border: "2px solid rgba(59, 130, 246, 0.1)",
+                        }}>
+                            <iframe
+                                title="Địa điểm Đại học FPT Đà Nẵng"
+                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3833.8872692093785!2d108.24164181534495!3d16.0748569435527!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x314219c8e9e1b0e1%3A0x3ea1801d0b5c1d4d!2zRGnhu4cgSOG7kyBGUFQgxJBhIE5hbmcsIEtodSDEkOG7iWMgRlBUIENpdHksIE5ndcOhIEjhuqNuaCBTxrDGoW4sIMSQw6AgTuG7mWkgTmFuaCwgVmnhu4d0IE5hbQ!5e0!3m2!1svi!2s!4v1716866981752!5m2!1svi!2s"
+                                width="100%"
+                                height="220"
+                                style={{ border: 0, filter: "brightness(0.95) contrast(1.05)" }}
+                                allowFullScreen=""
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                            />
+                        </div>
+
+                        {/* Contact Info Card */}
+                        <div style={{ 
+                            background: "linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(59, 130, 246, 0.02))", 
+                            padding: 24, 
+                            borderRadius: 16,
+                            border: "1px solid rgba(59, 130, 246, 0.1)",
+                        }}>
+                            <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 16, color: "#374151" }}>
+                                📞 Liên hệ trực tiếp
+                            </div>
+                            <div style={{ color: "#6B7280", lineHeight: 1.6 }}>
+                                <div style={{ marginBottom: 8 }}>
+                                    <strong>Giờ làm việc:</strong> 8:00 - 22:00 (Hàng ngày)
+                                </div>
+                                <div style={{ marginBottom: 8 }}>
+                                    <strong>Hotline:</strong> <span style={{ color: "#3B82F6", fontWeight: 600 }}>1900 9999</span>
+                                </div>
+                                <div>
+                                    <strong>Email:</strong> <span style={{ color: "#3B82F6" }}>info@carrental.vn</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-blue-400 rounded-full opacity-20 animate-ping"></div>
-                <div className="absolute top-3/4 right-1/3 w-1 h-1 bg-purple-400 rounded-full opacity-30 animate-pulse"></div>
-                <div className="absolute bottom-1/4 left-2/3 w-1.5 h-1.5 bg-pink-400 rounded-full opacity-25 animate-bounce"></div>
-            </div>
-            {/* Divider - subtle line */}
-            <div className="w-full h-px bg-slate-700/40 my-8"></div>
-            <div className="flex flex-col lg:flex-row justify-between items-center pt-0">
-                <div className="mb-4 lg:mb-0">
-                    <p className="text-gray-400 text-sm flex items-center">
-                        <span>© {new Date().getFullYear()} DriveLuxe. All rights reserved.</span>
-                        <span className="mx-2 text-red-400">❤️</span>
-                        <span>Made with love in Vietnam</span>
-                    </p>
-                </div>
-                <div className="flex flex-wrap justify-center lg:justify-end space-x-6 text-sm text-gray-400">
-                    {[
-                        { name: "Chính sách bảo mật", color: "hover:text-blue-400" },
-                        { name: "Điều khoản dịch vụ", color: "hover:text-green-400" },
-                    ].map((item, index) => (
-                        <Link
-                            key={index}
-                            to={`/${item.name.toLowerCase().replace(/\s+/g, "-")}`}
-                            className={`${item.color} transition-colors duration-300 hover:underline relative group`}
+
+                {/* Newsletter Signup */}
+                <div style={{
+                    background: "linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.04))",
+                    padding: "36px",
+                    borderRadius: 20,
+                    border: "1px solid rgba(59, 130, 246, 0.15)",
+                    marginBottom: 50,
+                    textAlign: "center",
+                }}>
+                    <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 12, color: "#374151" }}>
+                        📬 Đăng ký nhận tin tức & ưu đãi
+                    </div>
+                    <div style={{ fontSize: 15, color: "#6B7280", marginBottom: 24 }}>
+                        Nhận thông tin về các chương trình khuyến mãi và xe mới nhất
+                    </div>
+                    <div style={{ display: "flex", gap: 12, maxWidth: 450, margin: "0 auto", flexWrap: "wrap" }}>
+                        <input
+                            type="email"
+                            placeholder="Nhập email của bạn..."
+                            style={{
+                                flex: 1,
+                                minWidth: 250,
+                                padding: "14px 18px",
+                                borderRadius: 12,
+                                border: "1px solid rgba(59, 130, 246, 0.3)",
+                                background: "#ffffff",
+                                color: "#374151",
+                                fontSize: 15,
+                                outline: "none",
+                                boxShadow: "0 2px 8px rgba(59, 130, 246, 0.1)",
+                                transition: "border-color 0.3s ease, box-shadow 0.3s ease",
+                            }}
+                            onFocus={(e) => {
+                                e.target.style.borderColor = "#3B82F6";
+                                e.target.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.2)";
+                            }}
+                            onBlur={(e) => {
+                                e.target.style.borderColor = "rgba(59, 130, 246, 0.3)";
+                                e.target.style.boxShadow = "0 2px 8px rgba(59, 130, 246, 0.1)";
+                            }}
+                        />
+                        <button
+                            style={{
+                                padding: "14px 28px",
+                                background: "linear-gradient(135deg, #3B82F6, #1D4ED8)",
+                                color: "#ffffff",
+                                border: "none",
+                                borderRadius: 12,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                fontSize: 15,
+                                transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                                boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+                            }}
+                            onMouseOver={(e) => {
+                                e.target.style.transform = "translateY(-2px)";
+                                e.target.style.boxShadow = "0 8px 20px rgba(59, 130, 246, 0.4)";
+                            }}
+                            onMouseOut={(e) => {
+                                e.target.style.transform = "translateY(0)";
+                                e.target.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.3)";
+                            }}
                         >
-                            {item.name}
-                            <div className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 group-hover:w-full transition-all duration-300"></div>
-                        </Link>
-                    ))}
+                            Đăng ký
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Copyright */}
+            <div
+                style={{
+                    borderTop: "1px solid rgba(59, 130, 246, 0.15)",
+                    background: "rgba(59, 130, 246, 0.03)",
+                    padding: "24px 0",
+                    fontSize: 14,
+                    color: "#6B7280",
+                    textAlign: "center",
+                }}
+            >
+                <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px" }}>
+                    <div style={{ marginBottom: 8, fontWeight: 500 }}>
+                        &copy; {new Date().getFullYear()} CAR RENTAL. Tất cả quyền được bảo lưu.
+                    </div>
+                    <div style={{ fontSize: 13, opacity: 0.8 }}>
+                        Thiết kế bởi Car Rental Team | 
+                        <span style={{ margin: "0 8px" }}>•</span>
+                        Phát triển với ❤️ tại Việt Nam
+                    </div>
                 </div>
             </div>
         </footer>
     );
 };
 
-export default Footer; 
+export default Footer;

@@ -44,4 +44,5 @@ public class BookingFinancial {
     @ColumnDefault("0")
     @Column(name = "is_deleted")
     private Boolean isDeleted;
+
 }

@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class BookingFinancialsService {
     private static final Logger logger = LoggerFactory.getLogger(BookingFinancialsService.class);
-    
+
     private final BookingFinancialsRepository repository;
     private final BookingFinancialsMapper mapper;
     private final CarRepository carRepository;
@@ -48,8 +48,8 @@ public class BookingFinancialsService {
     public BookingFinancialsDTO findById(Integer id) {
         BookingFinancial entity = repository.findById(id)
                 .filter(e -> !e.getIsDeleted())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "BookingFinancials not found with id: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "BookingFinancials not found with id: " + id));
         return mapper.toDTO(entity);
     }
 
@@ -75,7 +75,7 @@ public class BookingFinancialsService {
 
         // Kiểm tra xem BookingFinancial đã tồn tại chưa
         Optional<BookingFinancial> existingEntity = repository.findById(dto.getBookingId());
-        
+
         BookingFinancial entity;
         if (existingEntity.isPresent()) {
             // Update existing entity - chỉ cập nhật các field cần thiết
@@ -87,7 +87,7 @@ public class BookingFinancialsService {
             entity.setIsDeleted(false);
         } else {
             Booking bookingEntity = bookingRepository.findById(dto.getBookingId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
             entity = new BookingFinancial();
             entity.setBooking(bookingEntity);
             entity.setTotalFare(dto.getTotalFare());
@@ -96,7 +96,7 @@ public class BookingFinancialsService {
             entity.setLateDays(dto.getLateDays());
             entity.setIsDeleted(false);
         }
-        
+
         // Lưu entity - sử dụng persist thay vì save để tránh merge
         try {
             logger.info("Trước khi save BookingFinancials vào DB");
@@ -105,8 +105,8 @@ public class BookingFinancialsService {
             return mapper.toDTO(savedEntity);
         } catch (Exception e) {
             logger.error("Error saving BookingFinancial for booking ID: {}", dto.getBookingId(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
-                "Error saving booking financials: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error saving booking financials: " + e.getMessage());
         }
     }
 
@@ -115,7 +115,7 @@ public class BookingFinancialsService {
         logger.info("Trước khi truy vấn BookingFinancials...");
         Optional<BookingFinancial> bf = repository.findById(booking.getBookingId());
         logger.info("Sau khi truy vấn BookingFinancials...");
-        
+
         // Lấy thông tin xe
         Car car = carRepository.findById(booking.getCarId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Car not found"));
@@ -135,8 +135,8 @@ public class BookingFinancialsService {
         // Validate daily rate
         BigDecimal dailyRate = car.getDailyRate();
         if (dailyRate.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
-                "Invalid daily rate for car ID: " + booking.getCarId());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Invalid daily rate for car ID: " + booking.getCarId());
         }
 
         // Tính giá cơ bản
@@ -152,7 +152,7 @@ public class BookingFinancialsService {
                     .orElse(null);
             if (promo != null) {
                 BigDecimal discountRate = promo.getDiscountPercentage()
-                    .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+                        .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
                 discount = basePrice.multiply(discountRate);
                 discount = discount.min(basePrice); // Ensure discount doesn't exceed base price
             }
@@ -166,7 +166,7 @@ public class BookingFinancialsService {
         financials.setLateFeeAmount(BigDecimal.ZERO);
         financials.setLateDays(0);
         financials.setIsDeleted(false);
-        
+
         logger.info("Trước khi save BookingFinancials vào DB");
         try {
             BookingFinancialsDTO savedFinancials = save(financials);
@@ -174,15 +174,15 @@ public class BookingFinancialsService {
             return savedFinancials;
         } catch (Exception e) {
             logger.error("Lỗi khi tạo BookingFinancials cho booking ID: {}", booking.getBookingId(), e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
-                "Error saving booking financials: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Error saving booking financials: " + e.getMessage());
         }
     }
 
     @Transactional(readOnly = true)
     public PriceBreakdownDTO calculatePriceBreakdown(BookingDTO booking) {
         logger.info("Calculating price breakdown for booking ID: {}", booking.getBookingId());
-        
+
         // Lấy thông tin xe
         Car car = carRepository.findById(booking.getCarId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Car not found"));
@@ -202,8 +202,8 @@ public class BookingFinancialsService {
         // Validate daily rate
         BigDecimal dailyRate = car.getDailyRate();
         if (dailyRate.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
-                "Invalid daily rate for car ID: " + booking.getCarId());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Invalid daily rate for car ID: " + booking.getCarId());
         }
 
         // Tính các khoản phí
@@ -220,7 +220,7 @@ public class BookingFinancialsService {
                     .orElse(null);
             if (promo != null) {
                 BigDecimal discountRate = promo.getDiscountPercentage()
-                    .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+                        .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
                 discount = basePrice.multiply(discountRate);
                 discount = discount.min(basePrice); // Ensure discount doesn't exceed base price
             }
@@ -242,7 +242,7 @@ public class BookingFinancialsService {
         breakdown.setDiscount(discount.setScale(2, RoundingMode.HALF_UP));
         breakdown.setTotal(total.setScale(2, RoundingMode.HALF_UP));
         breakdown.setDeposit(deposit);
-        
+
         return breakdown;
     }
 
@@ -252,8 +252,8 @@ public class BookingFinancialsService {
         // Driver fee: 300,000 VND per day if driverId is present hoặc withDriver = true
         if (booking.getDriverId() != null && booking.getDriverId() > 1 || Boolean.TRUE.equals(booking.getWithDriver())) {
             extraFees = extraFees.add(DRIVER_FEE_PER_DAY.multiply(BigDecimal.valueOf(days)));
-            logger.info("Added driver fee: {} VND for {} days", 
-                DRIVER_FEE_PER_DAY.multiply(BigDecimal.valueOf(days)), days);
+            logger.info("Added driver fee: {} VND for {} days",
+                    DRIVER_FEE_PER_DAY.multiply(BigDecimal.valueOf(days)), days);
         }
 
         // Delivery fee: 100,000 VND if requested
@@ -276,16 +276,16 @@ public class BookingFinancialsService {
     public BookingFinancialsDTO update(Integer id, BookingFinancialsDTO dto) {
         BookingFinancial entity = repository.findById(id)
                 .filter(e -> !e.getIsDeleted())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "BookingFinancials not found with id: " + id));
-        
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "BookingFinancials not found with id: " + id));
+
         // Update fields
         entity.setTotalFare(dto.getTotalFare());
         entity.setAppliedDiscount(dto.getAppliedDiscount());
         entity.setLateFeeAmount(dto.getLateFeeAmount());
         entity.setLateDays(dto.getLateDays());
         entity.setIsDeleted(false);
-        
+
         return mapper.toDTO(repository.save(entity));
     }
 
@@ -293,8 +293,8 @@ public class BookingFinancialsService {
     public void delete(Integer id) {
         BookingFinancial entity = repository.findById(id)
                 .filter(e -> !e.getIsDeleted())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
-                    "BookingFinancials not found with id: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "BookingFinancials not found with id: " + id));
         entity.setIsDeleted(true);
         repository.save(entity);
     }
@@ -302,14 +302,14 @@ public class BookingFinancialsService {
     @Transactional(readOnly = true)
     public BookingFinancialsDTO getOrCreateFinancials(BookingDTO booking) {
         logger.info("Getting or creating financials for booking ID: {}", booking.getBookingId());
-        
+
         // Thử lấy financials hiện có
         Optional<BookingFinancial> existingFinancials = repository.findById(booking.getBookingId());
-        
+
         if (existingFinancials.isPresent() && !existingFinancials.get().getIsDeleted()) {
             return mapper.toDTO(existingFinancials.get());
         }
-        
+
         // Nếu không có, tạo mới
         return createOrUpdateFinancials(booking);
     }

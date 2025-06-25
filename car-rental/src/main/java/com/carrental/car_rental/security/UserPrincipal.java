@@ -1,5 +1,8 @@
 package com.carrental.car_rental.security;
 
+import com.carrental.car_rental.entity.User;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -7,34 +10,23 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.Collections;
 
+@Getter
+@AllArgsConstructor
 public class UserPrincipal implements UserDetails {
     private Integer id;
     private String username;
     private String password;
-    private String role;
+    private Collection<? extends GrantedAuthority> authorities;
 
-    public UserPrincipal(Integer id, String username, String password, String role) {
-        this.id = id;
-        this.username = username;
-        this.password = password;
-        this.role = role;
-    }
-
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        // Tạo authority với prefix ROLE_ và uppercase
-        String authority = "ROLE_" + role.toUpperCase();
-        return Collections.singletonList(new SimpleGrantedAuthority(authority));
-    }
-
-    @Override
-    public String getPassword() {
-        return password;
-    }
-
-    @Override
-    public String getUsername() {
-        return username;
+    public static UserPrincipal create(User user) {
+        return new UserPrincipal(
+                user.getId(),
+                user.getUsername(),
+                user.getPasswordHash(),
+                Collections.singletonList(
+                    new SimpleGrantedAuthority("ROLE_" + user.getRole().getRoleName())
+                )
+        );
     }
 
     @Override
@@ -55,13 +47,5 @@ public class UserPrincipal implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
-    }
-
-    public Integer getId() {
-        return id;
-    }
-
-    public String getRole() {
-        return role;
     }
 }
