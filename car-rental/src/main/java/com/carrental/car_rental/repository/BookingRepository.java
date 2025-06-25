@@ -1,6 +1,8 @@
 package com.carrental.car_rental.repository;
 
 import com.carrental.car_rental.entity.Booking;
+import com.carrental.car_rental.entity.User;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -54,5 +56,10 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
     List<Booking> findByCarIdAndStatusStatusNameNotAndIsDeletedFalse(
             @Param("carId") Integer carId, 
             @Param("statusName") String statusName);
+    // Lấy booking gần đây nhất (của hoàng)
+    List<Booking> findAllByIsDeletedFalseOrderByBookingDateDesc(Pageable pageable);
+
+    @Query("SELECT DISTINCT b.customer FROM Booking b WHERE b.isDeleted = false ORDER BY b.bookingDate DESC")
+    List<User> findRecentBookingUsers(Pageable pageable);
 
 }

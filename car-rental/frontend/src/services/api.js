@@ -36,45 +36,16 @@ const isTokenExpired = () => {
 // Interceptor thêm token
 api.interceptors.request.use(
     async (config) => {
-<<<<<<< HEAD
         console.log('[API Request]', config.method?.toUpperCase(), config.url, config.data);
         const token = localStorage.getItem('token');
-
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
-=======
-        console.log("=== REQUEST INTERCEPTOR ===");
-        console.log("Request URL:", config.url);
-        console.log("Request method:", config.method);
-        
-        const token = localStorage.getItem('token');
-        const expiresAt = localStorage.getItem('expiresAt');
-        
-        console.log("Token from localStorage:", token ? "EXISTS" : "NOT EXISTS");
-        console.log("ExpiresAt from localStorage:", expiresAt);
-        console.log("Current time:", new Date().getTime());
-        console.log("Token expired:", isTokenExpired());
-        
-        if (token && !isTokenExpired()) {
-            config.headers.Authorization = `Bearer ${token}`;
-            console.log("Token added to request headers");
-        } else if (token) {
-            console.log("Token exists but expired, removing from localStorage");
-            localStorage.removeItem('token');
-            localStorage.removeItem('expiresAt');
-            localStorage.removeItem('role');
-            window.location.href = '/login?error=token_expired';
-            return Promise.reject(new Error('Token hết hạn'));
-        } else {
-            console.log("No token found in localStorage");
->>>>>>> origin/admins
         }
         
         console.log("Final headers:", config.headers);
         console.log("=== END REQUEST INTERCEPTOR ===");
         return config;
     },
-<<<<<<< HEAD
     (error) => {
         console.error('[API Request Error]', error);
         return Promise.reject(error);
@@ -105,10 +76,6 @@ api.interceptors.response.use(
             // localStorage.removeItem('role');
             // window.location.href = '/login?error=unauthorized';
         }
-=======
-    (error) => {
-        console.error("Request interceptor error:", error);
->>>>>>> origin/admins
         return Promise.reject(error);
     }
 );
@@ -222,12 +189,8 @@ export const changePassword = async (currentPassword, newPassword) => {
     console.log('🔐 Change password payload:', payload);
 
     try {
-<<<<<<< HEAD
         const response = await api.post('/api/users/change-password', payload);
         console.log('✅ Change password success:', response.data);
-=======
-        const response = await api.post('/api/users/change-password', { currentPassword, newPassword });
->>>>>>> origin/admins
         return response.data;
     } catch (error) {
         console.error('❌ Change password error:', error);
@@ -429,17 +392,10 @@ export const searchCars = async (filters = {}, page = 0, size = 10) => {
     // XÓA dropoffLocation khỏi filters nếu có
     const { dropoffLocation, ...restFilters } = filters;
     try {
-<<<<<<< HEAD
         const response = await api.get('/api/cars/search', { 
             params: { 
                 ...restFilters, 
-                page, 
-=======
-        const response = await api.get('/api/cars/search', {
-            params: {
-                ...filters,
                 page,
->>>>>>> origin/admins
                 size,
                 sort: 'createdAt,desc',
             },
@@ -461,6 +417,7 @@ export const getCarById = async (carId) => {
     }
 };
 
+
 export const getBookedDates = async (carId) => {
     try {
         const response = await api.get(`/api/cars/${carId}/booked-dates`);
@@ -471,11 +428,19 @@ export const getBookedDates = async (carId) => {
     }
 };
 
+export function getToken() {
+    return localStorage.getItem('token');
+}
+
+
 export const getCarBrands = async () => {
     const cacheKey = 'carBrands';
     if (cache.has(cacheKey)) return cache.get(cacheKey);
     try {
-        const response = await api.get('/api/car-brands');
+        const token = getToken();
+        const response = await api.get('/api/car-brands', {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         cache.set(cacheKey, response.data);
         return response.data;
     } catch (error) {
@@ -518,7 +483,10 @@ export const getRegions = async () => {
     const cacheKey = 'regions';
     if (cache.has(cacheKey)) return cache.get(cacheKey);
     try {
-        const response = await api.get('/api/regions');
+        const token = getToken();
+        const response = await api.get('/api/regions', {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         cache.set(cacheKey, response.data);
         return response.data;
     } catch (error) {
@@ -876,7 +844,6 @@ export const getSimilarCarsAdvanced = async (carId, page = 0, size = 4) => {
     }
 };
 
-<<<<<<< HEAD
 // Test authentication endpoint
 export const testAuth = async () => {
     try {
@@ -1039,7 +1006,8 @@ export const ensureBookingFinancials = async (bookingId) => {
     } catch (error) {
         console.error('[API] ensureBookingFinancials error:', error.response?.status, error.response?.data);
         throw new Error(error.response?.data?.message || 'Đảm bảo thông tin tài chính thất bại');
-=======
+    }
+}
 export const getReportsData = async () => {
     try {
         const response = await api.get('/api/reports/overview');
@@ -1055,8 +1023,33 @@ export const getMonthlyUserRegistrations = async () => {
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Lấy thống kê đăng ký người dùng thất bại');
->>>>>>> origin/admins
     }
+}
+// Lấy booking gần đây nhất cho dashboard admin
+export const getRecentBookings = async (size = 5) => {
+    const token = getToken();
+    const response = await api.get(`/api/admin/bookings/recent?size=${size}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+    return response.data;
+};
+
+// Lấy khách hàng mới đăng ký theo tháng/năm cho dashboard admin
+export const getNewUsersByMonth = async (month, year) => {
+    const token = getToken();
+    const response = await api.get(`/api/users/new-by-month?month=${month}&year=${year}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+    return response.data;
+};
+
+// Lấy user có booking gần đây nhất cho dashboard admin
+export const getRecentBookingUsers = async (size = 5) => {
+    const token = getToken();
+    const response = await api.get(`/api/users/recent-userbooking?size=${size}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+    );
+    return response.data;
 };
 
 export default api;

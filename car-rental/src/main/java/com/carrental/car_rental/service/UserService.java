@@ -340,47 +340,95 @@ public class UserService {
 
     // Chuyển đổi trạng thái người dùng (của hoàng)
     public UserDTO toggleUserStatus(Integer userId, ToggleUserStatusRequest request) {
-        User user = userRepository.findById(userId)
-                .filter(u -> !u.getIsDeleted())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + userId));
-
-        // Xác định status mới dựa trên status hiện tại
-        String newStatusName;
-        if (user.getStatus().getStatusName().equals("active")) {
-            newStatusName = "blocked"; // Chặn user
-        } else {
-            newStatusName = "active"; // Mở chặn user
-        }
-
-        // Tìm status mới
-        Status newStatus = statusRepository.findByStatusName(newStatusName)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status: " + newStatusName));
-
-        // Lưu status cũ để gửi email
-        String oldStatus = user.getStatus().getStatusName();
-        user.setStatus(newStatus);
-        user.setUpdatedAt(Instant.now());
-        userRepository.save(user);
-
-        // Gửi email thông báo
+        log.info("=== BẮT ĐẦU TOGGLE USER STATUS TRONG SERVICE ===");
+        log.info("User ID: {}", userId);
+        log.info("Request: reason={}", request.getReason());
+        
         try {
-            String subject = "Thông báo thay đổi trạng thái tài khoản";
-            String message = String.format(
-                "Tài khoản của bạn đã được %s. %s",
-                newStatusName.equals("blocked") ? "khóa" : "mở khóa",
-                request.getReason() != null ? "Lý do: " + request.getReason() : ""
-            );
-            emailService.sendEmail(user.getEmail(), subject, message);
+            log.info("Tìm user trong database với ID: {}", userId);
+            User user = userRepository.findById(userId)
+                    .filter(u -> !u.getIsDeleted())
+                    .orElseThrow(() -> {
+                        log.error("Không tìm thấy user với ID: {} hoặc user đã bị xóa", userId);
+                        return new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng với id: " + userId);
+                    });
+            
+            log.info("Tìm thấy user: username={}, currentStatus={}", user.getUsername(), user.getStatus().getStatusName());
+            
+            // Xác định status mới dựa trên status hiện tại
+            String newStatusName;
+            if (user.getStatus().getStatusName().equals("active")) {
+                newStatusName = "blocked"; // Chặn user
+            } else {
+                newStatusName = "active"; // Mở chặn user
+            }
+            
+            log.info("Tìm status mới trong database: {}", newStatusName);
+            Status newStatus = statusRepository.findByStatusName(newStatusName)
+                    .orElseThrow(() -> {
+                        log.error("Không tìm thấy status: {}", newStatusName);
+                        return new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên trạng thái không hợp lệ: " + newStatusName);
+                    });
+            
+            log.info("Tìm thấy status mới: {}", newStatus.getStatusName());
+            
+            String oldStatusName = user.getStatus().getStatusName();
+            log.info("Cập nhật status từ '{}' thành '{}'", oldStatusName, newStatus.getStatusName());
+            
+            user.setStatus(newStatus);
+            user.setUpdatedAt(Instant.now());
+            
+            log.info("Lưu user vào database...");
+            userRepository.save(user);
+            log.info("Đã lưu user thành công");
+            
+            // Gửi email thông báo
+            try {
+                log.info("Bắt đầu gửi email thông báo...");
+                String subject = newStatus.getStatusName().equals("blocked") ? "Tài khoản của bạn đã bị chặn" : "Tài khoản của bạn đã được mở chặn";
+                String message = newStatus.getStatusName().equals("blocked") 
+                    ? String.format("Tài khoản của bạn đã bị chặn. Lý do: %s", request.getReason() != null ? request.getReason() : "Không có lý do cụ thể")
+                    : "Tài khoản của bạn đã được mở chặn và có thể sử dụng bình thường.";
+                
+                log.info("Email subject: {}", subject);
+                log.info("Email message: {}", message);
+                
+                emailService.sendEmail(user.getEmail(), subject, message);
+                log.info("Đã gửi email thành công đến: {}", user.getEmail());
+            } catch (Exception emailException) {
+                log.error("Lỗi khi gửi email: {}", emailException.getMessage());
+                log.error("Stack trace email error:", emailException);
+                // Không throw exception vì việc gửi email không quan trọng bằng việc cập nhật status
+            }
+            
+            UserDTO result = userMapper.toDto(user);
+            log.info("Chuyển đổi user thành DTO thành công");
+            log.info("=== KẾT THÚC TOGGLE USER STATUS TRONG SERVICE (THÀNH CÔNG) ===");
+            return result;
+            
+        } catch (ResponseStatusException e) {
+            log.error("=== LỖI ResponseStatusException TRONG TOGGLE USER STATUS ===");
+            log.error("User ID: {}", userId);
+            log.error("Exception: {}", e.getMessage());
+            log.error("HTTP Status: {}", e.getStatusCode());
+            log.error("=== KẾT THÚC LỖI ResponseStatusException ===");
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to send status change email to user {}: {}", userId, e.getMessage());
+            log.error("=== LỖI KHÔNG XÁC ĐỊNH TRONG TOGGLE USER STATUS ===");
+            log.error("User ID: {}", userId);
+            log.error("Exception type: {}", e.getClass().getSimpleName());
+            log.error("Exception message: {}", e.getMessage());
+            log.error("Stack trace:", e);
+            log.error("=== KẾT THÚC LỖI KHÔNG XÁC ĐỊNH ===");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi khi cập nhật trạng thái người dùng", e);
         }
-
-        return userMapper.toDto(user);
     }
-    
-    public long countUsersByRole(String roleName) {
-        return userRepository.findAllByIsDeletedFalse().stream()
-                .filter(user -> user.getRole().getRoleName().equals(roleName))
-                .count();
+
+    // Lấy user role customer đăng ký trong tháng/năm (của hoàng)
+    public List<UserDTO> findNewUsersByMonth(int month, int year) {
+        return userRepository.findByRoleNameAndCreatedAtInMonth("customer", month, year)
+            .stream()
+            .map(userMapper::toDto)
+            .collect(Collectors.toList());
     }
 }

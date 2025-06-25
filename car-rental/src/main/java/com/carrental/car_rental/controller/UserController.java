@@ -441,4 +441,17 @@ public class UserController {
                     .body((UserDTO) createErrorResponse("Lỗi khi cập nhật trạng thái: " + e.getMessage()));
         }
     }
+
+    // Lấy user role customer đăng ký trong tháng/năm (của hoàng)
+    @GetMapping("/new-by-month")
+    public ResponseEntity<List<UserDTO>> getNewUsersByMonth(@RequestParam int month, @RequestParam int year) {
+        List<UserDTO> users = userService.findNewUsersByMonth(month, year);
+        return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/recent-userbooking")
+    public ResponseEntity<List<UserDTO>> getRecentBookingUsers(@RequestParam(defaultValue = "5") int size) {
+        List<UserDTO> users = bookingService.findRecentBookingUsers(size);
+        return ResponseEntity.ok(users);
+    }
 }

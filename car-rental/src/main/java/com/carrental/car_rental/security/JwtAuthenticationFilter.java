@@ -113,9 +113,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             
             logger.info("Authentication set in SecurityContext: {}", authentication.getAuthorities());
         } else if (token != null) {
-            logger.warn("Invalid JWT token found for request: {} {} - Token validation failed", method, path);
+            logger.error("Invalid JWT token found for request: {}. Token: {}", path, token);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Invalid or expired JWT token");
+            logger.error("Set response 401 Unauthorized for invalid token");
+            return;
         } else {
-            logger.debug("No JWT token found for request: {} {}", method, path);
+            logger.warn("No JWT token found for request: {}", path);
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("Missing JWT token");
+            logger.warn("Set response 401 Unauthorized for missing token");
+            return;
+
         }
 
         filterChain.doFilter(request, response);
