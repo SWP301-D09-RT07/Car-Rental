@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -58,11 +57,16 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/login/oauth2/code/**", "/oauth2/authorization/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/api/cars/**", "/api/languages/**", "/api/country-codes/**",
-                                "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**",
-                                "/api/cars/**/features", "/api/service-types/**").permitAll()
-                        .requestMatchers(HttpMethod.GET,"/api/bookings/**", "/api/ratings/**").permitAll()
+                        .requestMatchers("/api/cars/featured", "/api/cars/popular", "/api/cars/search").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/languages/**", "/api/country-codes/**",
+                                "/api/car-brands/**", "/api/fuel-types/**").permitAll()
+                        .requestMatchers("/api/cars/car-brands", "/api/cars/fuel-types", "/api/cars/regions",
+                                "/api/cars/seat-options", "/api/cars/price-ranges", "/api/cars/years", "/api/cars/country-codes").permitAll()
+                        .requestMatchers("/api/cars", "/api/cars/regions/country/**", "/api/cars/{carId}/rentals").permitAll() // Đặt trước /api/cars/**
+                        .requestMatchers("/api/cars/{id}", "/api/cars/supplier/**", "/api/cars/brand/**").authenticated()
+                        .requestMatchers("/api/cars/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("admin")
+                        .requestMatchers("/api/reports/**").hasRole("admin")
                         .requestMatchers("/api/customer/**").hasRole("customer")
                         .requestMatchers("/api/users/**").authenticated()
                         .anyRequest().authenticated()

@@ -182,6 +182,7 @@ public class CarService {
         return dto;
     }
 
+    // Lấy tất cả xe có phân trang (của hoàng)
     @Transactional(readOnly = true)
     public Page<CarDTO> findAll(int page, int size) {
         logger.info("Lấy tất cả xe, trang {}, kích thước {}", page, size);
@@ -356,6 +357,7 @@ public class CarService {
         }
     }
 
+    // Lưu xe mới (của hoàng)
     @Transactional
     public CarDTO save(CarDTO dto) {
         logger.info("Lưu xe mới: {}", dto);
@@ -366,6 +368,7 @@ public class CarService {
         return mapper.toDTO(repository.save(entity));
     }
 
+    // Cập nhật xe (của hoàng)
     @Transactional
     public CarDTO update(Integer id, CarDTO dto) {
         logger.info("Cập nhật xe với id: {}", id);
@@ -379,6 +382,7 @@ public class CarService {
         return mapper.toDTO(repository.save(updatedEntity));
     }
 
+    // Xóa xe (của hoàng)
     @Transactional
     public void delete(Integer id) {
         logger.info("Xóa xe với id: {}", id);

@@ -1,128 +1,151 @@
-@use "_variables" as *;
-@use "_mixins" as *;
-
 .reportsContainer {
-  padding: 24px;
-  background-color: $gray-light;
-  min-height: calc(100vh - 48px);
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  margin-left: 250px; /* Offset for sidebar width */
+  width: calc(100% - 250px); /* Adjust width to fit remaining space */
+  box-sizing: border-box;
+}
 
-  .title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: $primary-blue;
-    margin-bottom: 32px;
-    text-align: center;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
+.title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+.reportGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.reportCard {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cardTitle {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #555;
+}
+
+.cardValue {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #4682b4;
+}
+
+// Styles cho phần xe phổ biến chi tiết
+.popularCarDetail {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0; // Bỏ margin bottom vì không còn chart
+  align-items: flex-start;
+}
+
+.carImage {
+  flex-shrink: 0;
+  width: 120px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
+}
 
-  .reportGrid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
+.carInfo {
+  flex: 1;
+  min-width: 0; // Để text không bị tràn
+}
 
-    .reportCard {
-      padding: 20px;
-      background: linear-gradient(135deg, $white 70%, $primary-light-blue 100%);
-      border-radius: 12px;
-      box-shadow: $shadow-sm;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
+.carModel {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
 
-      &:hover {
-        box-shadow: 0 8px 16px rgba(70, 130, 180, 0.3);
-        transform: translateY(-5px);
+.carBrand {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0 0 0.25rem 0;
+}
 
-        &::before {
-          opacity: 1;
-          transform: scale(1);
-        }
-      }
+.carPlate {
+  font-size: 0.9rem;
+  color: #4682b4;
+  font-weight: 500;
+  margin: 0 0 0.5rem 0;
+}
 
-      &::before {
-        content: "";
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(173, 216, 230, 0.2) 0%, transparent 70%);
-        opacity: 0;
-        transition: all 0.5s ease;
-        transform: scale(0);
-        z-index: 0;
-      }
-
-      .cardTitle {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: $gray-700;
-        margin-bottom: 12px;
-        position: relative;
-        z-index: 1;
-      }
-
-      .cardValue {
-        font-size: 2rem;
-        font-weight: 700;
-        color: $primary-blue;
-        margin: 0;
-        position: relative;
-        z-index: 1;
-
-        &::after {
-          content: "";
-          position: absolute;
-          bottom: -5px;
-          left: 0;
-          width: 0;
-          height: 2px;
-          background: $accent-yellow;
-          transition: width 0.3s ease;
-        }
-      }
-
-      &:hover .cardValue::after {
-        width: 100%;
-      }
-
-      .chartContainer {
-        margin-top: 16px;
-        height: 100px;
-        position: relative;
-        z-index: 1;
-      }
-    }
+.supplierName,
+.bookingCount,
+.carRevenue {
+  font-size: 0.85rem;
+  margin: 0.25rem 0;
+  color: #555;
+  
+  strong {
+    color: #333;
   }
+}
 
-  .suppliersSection {
-    margin-top: 40px;
+.chartContainer {
+  height: 200px;
+  position: relative; /* Ensure charts are contained */
+  width: 100%;
+}
 
-    .sectionTitle {
-      font-size: 1.75rem;
-      font-weight: 600;
-      color: $primary-blue;
-      margin-bottom: 16px;
-      text-align: center;
-    }
+.suppliersSection {
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
 
-    .suppliersChart {
-      padding: 20px;
-      background: $white;
-      border-radius: 12px;
-      box-shadow: $shadow-sm;
-      transition: all 0.3s ease;
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+  color: #333;
+}
 
-      &:hover {
-        box-shadow: 0 8px 16px rgba(70, 130, 180, 0.3);
-        transform: translateY(-5px);
-      }
+.suppliersChart {
+  height: 300px;
+  position: relative; /* Ensure bar chart is contained */
+  width: 100%;
+}
 
-      .chartContainer {
-        height: 200px;
-        position: relative;
-      }
-    }
+.loading {
+  text-align: center;
+  font-size: 1.2rem;
+  color: #666;
+  padding: 2rem;
+}
+
+.error {
+  text-align: center;
+  font-size: 1.2rem;
+  color: #d32f2f;
+  padding: 2rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .reportsContainer {
+    margin-left: 0; /* Remove offset if sidebar is hidden */
+    width: 100%;
   }
 }

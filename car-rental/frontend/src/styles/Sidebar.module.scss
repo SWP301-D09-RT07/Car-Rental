@@ -2,11 +2,11 @@
 @use "_mixins" as *;
 
 .sidebar {
-  width: 200px; // Giảm chiều rộng từ 250px xuống 200px
+  width: 200px; // Độ rộng cố định
   height: 100vh;
   background-color: $white;
   box-shadow: $shadow-md;
-  position: fixed;
+  position: fixed; // Cố định bên trái
   top: 0;
   left: 0;
   z-index: 1000;
@@ -25,7 +25,7 @@
     position: relative;
 
     h1 {
-      font-size: 1.5rem; // Giảm font-size cho phù hợp
+      font-size: 1.5rem;
       font-weight: 700;
       margin: 0;
       text-transform: uppercase;
@@ -58,7 +58,7 @@
       padding: 0;
 
       .navItem {
-        padding: 12px 16px; // Giảm padding cho phù hợp chiều rộng
+        padding: 12px 16px;
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
@@ -90,11 +90,11 @@
         .navLink {
           text-decoration: none;
           color: $gray-dark;
-          font-size: 1rem; // Giảm font-size
+          font-size: 1rem;
           font-weight: 500;
           display: flex;
           align-items: center;
-          gap: 10px; // Giảm gap
+          gap: 10px;
           transition: color 0.3s ease;
 
           &:hover {
@@ -103,7 +103,7 @@
         }
 
         .navIcon {
-          font-size: 1.3rem; // Giảm kích thước icon
+          font-size: 1.3rem;
           transition: transform 0.3s ease;
         }
       }
@@ -150,7 +150,7 @@
 
 @media (max-width: 768px) {
   .sidebar {
-    width: 200px; // Giữ chiều rộng 200px trên mobile
+    width: 200px;
     transform: translateX(-100%); // Ẩn sidebar mặc định
     &.open {
       transform: translateX(0);

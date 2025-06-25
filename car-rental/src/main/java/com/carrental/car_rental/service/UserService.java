@@ -3,6 +3,7 @@ package com.carrental.car_rental.service;
 import com.carrental.car_rental.dto.CreateUserDTO;
 import com.carrental.car_rental.dto.UpdateUserDTO;
 import com.carrental.car_rental.dto.UserDTO;
+import com.carrental.car_rental.dto.ToggleUserStatusRequest;
 import com.carrental.car_rental.entity.*;
 import com.carrental.car_rental.mapper.UserMapper;
 import com.carrental.car_rental.mapper.UserDetailMapper;
@@ -10,6 +11,10 @@ import com.carrental.car_rental.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -37,6 +42,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final UserDetailMapper userDetailMapper;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     public UserDTO findById(Integer id) {
         User user = userRepository.findById(id)
@@ -85,6 +91,17 @@ public class UserService {
 
     public Optional<UserDTO> findByEmail(String email) {
         return userRepository.findByEmailAndIsDeletedFalse(email)
+                .map(user -> {
+                    UserDTO dto = userMapper.toDto(user);
+                    userDetailRepository.findByUserIdAndIsDeletedFalse(user.getId())
+                            .ifPresent(ud -> dto.setUserDetail(userDetailMapper.toDTO(ud)));
+                    return dto;
+                });
+    }
+
+    public Optional<UserDTO> findByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .filter(user -> !user.getIsDeleted())
                 .map(user -> {
                     UserDTO dto = userMapper.toDto(user);
                     userDetailRepository.findByUserIdAndIsDeletedFalse(user.getId())
@@ -231,5 +248,98 @@ public class UserService {
             languageRepository.findById(preferredLanguage)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid preferredLanguage: " + preferredLanguage));
         }
+    }
+
+    // Lấy danh sách người dùng có phân trang và lọc (của hoàng)
+    public Page<UserDTO> findUsersWithFilters(String roleName, String statusName, int page, int size) {
+        Pageable pageable = PageRequest.of(page - 1, size);
+        
+        // Nếu roleName là "all" hoặc null, chỉ lấy supplier và customer
+        final String filterRoleName = (roleName != null && !roleName.equals("all")) ? roleName : null;
+        
+        // Lấy tất cả user trước để tính tổng số
+        List<User> allUsers = userRepository.findAllByIsDeletedFalse();
+        List<User> allFilteredUsers = allUsers.stream()
+                .filter(user -> {
+                    // Filter theo role nếu có
+                    if (filterRoleName != null && !user.getRole().getRoleName().equals(filterRoleName)) {
+                        return false;
+                    }
+                    // Filter theo status nếu có
+                    if (statusName != null && !statusName.equals("all") && !user.getStatus().getStatusName().equals(statusName)) {
+                        return false;
+                    }
+                    // Loại bỏ admin
+                    if (user.getRole().getRoleName().equals("admin")) {
+                        return false;
+                    }
+                    return true;
+                })
+                .collect(Collectors.toList());
+        
+        // Tính toán phân trang
+        int totalElements = allFilteredUsers.size();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+        
+        // Lấy user cho trang hiện tại
+        int startIndex = (page - 1) * size;
+        int endIndex = Math.min(startIndex + size, totalElements);
+        List<User> pageUsers = allFilteredUsers.subList(startIndex, endIndex);
+        
+        // Tạo Page object
+        Page<User> userPage = new PageImpl<>(pageUsers, pageable, totalElements);
+        
+        return userPage.map(user -> {
+            UserDTO dto = userMapper.toDto(user);
+            userDetailRepository.findByUserIdAndIsDeletedFalse(user.getId())
+                    .ifPresent(ud -> dto.setUserDetail(userDetailMapper.toDTO(ud)));
+            return dto;
+        });
+    }
+
+    // Chuyển đổi trạng thái người dùng (của hoàng)
+    public UserDTO toggleUserStatus(Integer userId, ToggleUserStatusRequest request) {
+        User user = userRepository.findById(userId)
+                .filter(u -> !u.getIsDeleted())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with id: " + userId));
+
+        // Xác định status mới dựa trên status hiện tại
+        String newStatusName;
+        if (user.getStatus().getStatusName().equals("active")) {
+            newStatusName = "blocked"; // Chặn user
+        } else {
+            newStatusName = "active"; // Mở chặn user
+        }
+
+        // Tìm status mới
+        Status newStatus = statusRepository.findByStatusName(newStatusName)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid status: " + newStatusName));
+
+        // Lưu status cũ để gửi email
+        String oldStatus = user.getStatus().getStatusName();
+        user.setStatus(newStatus);
+        user.setUpdatedAt(Instant.now());
+        userRepository.save(user);
+
+        // Gửi email thông báo
+        try {
+            String subject = "Thông báo thay đổi trạng thái tài khoản";
+            String message = String.format(
+                "Tài khoản của bạn đã được %s. %s",
+                newStatusName.equals("blocked") ? "khóa" : "mở khóa",
+                request.getReason() != null ? "Lý do: " + request.getReason() : ""
+            );
+            emailService.sendEmail(user.getEmail(), subject, message);
+        } catch (Exception e) {
+            log.error("Failed to send status change email to user {}: {}", userId, e.getMessage());
+        }
+
+        return userMapper.toDto(user);
+    }
+    
+    public long countUsersByRole(String roleName) {
+        return userRepository.findAllByIsDeletedFalse().stream()
+                .filter(user -> user.getRole().getRoleName().equals(roleName))
+                .count();
     }
 }

@@ -48,7 +48,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        logger.info("=== JWT FILTER - BẮT ĐẦU XỬ LÝ REQUEST ===");
+        logger.info("Request URI: {}", request.getRequestURI());
+        logger.info("Request method: {}", request.getMethod());
+        logger.info("Authorization header: {}", request.getHeader("Authorization"));
+        
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            logger.info("OPTIONS request, skipping authentication");
             filterChain.doFilter(request, response);
             return;
         }
@@ -61,23 +67,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 && "GET".equalsIgnoreCase(method);
 
         if (isPublicEndpoint || isGetRestrictedEndpoint || path.startsWith("/login/oauth2/code/")) {
+            logger.info("Public endpoint, skipping authentication");
             filterChain.doFilter(request, response);
             return;
         }
 
         String token = getJwtFromRequest(request);
+        logger.info("Extracted token: {}", token != null ? "EXISTS" : "NOT EXISTS");
+        
         if (token != null && jwtTokenProvider.validateToken(token)) {
             logger.info("Valid JWT token found for request: {}", path);
             String username = jwtTokenProvider.getUsernameFromToken(token);
             String role = jwtTokenProvider.getRoleFromToken(token);
+            logger.info("Token username: {}", username);
+            logger.info("Token role: {}", role);
+            
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            logger.info("UserDetails loaded: {}", userDetails.getUsername());
+            logger.info("UserDetails authorities: {}", userDetails.getAuthorities());
+            
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities());
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
+            logger.info("Authentication set in SecurityContext");
         } else if (token != null) {
-            logger.debug("No valid JWT token found for request: {}", path);
+            logger.error("Invalid JWT token found for request: {}", path);
+        } else {
+            logger.warn("No JWT token found for request: {}", path);
         }
+        
+        logger.info("=== JWT FILTER - KẾT THÚC XỬ LÝ REQUEST ===");
         filterChain.doFilter(request, response);
     }
 

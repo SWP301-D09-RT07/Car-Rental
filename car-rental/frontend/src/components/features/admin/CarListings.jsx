@@ -1,72 +1,64 @@
 import { useState, useEffect } from "react";
-import styles from "../../../../../styles/Payments.module.scss";
+import styles from "../../../styles/CarListings.module.scss";
 
-const mockPayments = [
-  { id: 1, booking_id: 1, amount: 300, currency: "USD", status: "Đã thanh toán", refund: null },
-  { id: 2, booking_id: 2, amount: 250, currency: "USD", status: "Chờ thanh toán", refund: null },
-  { id: 3, booking_id: 3, amount: 400, currency: "USD", status: "Đã thanh toán", refund: null },
-  { id: 4, booking_id: 4, amount: 200, currency: "USD", status: "Chờ thanh toán", refund: null },
-  { id: 5, booking_id: 5, amount: 350, currency: "USD", status: "Đã thanh toán", refund: null },
-  { id: 6, booking_id: 6, amount: 280, currency: "USD", status: "Chờ thanh toán", refund: null },
-  { id: 7, booking_id: 7, amount: 500, currency: "USD", status: "Đã thanh toán", refund: null },
-  { id: 8, booking_id: 8, amount: 320, currency: "USD", status: "Chờ thanh toán", refund: null },
-  { id: 9, booking_id: 9, amount: 450, currency: "USD", status: "Đã thanh toán", refund: null },
-  { id: 10, booking_id: 10, amount: 270, currency: "USD", status: "Chờ thanh toán", refund: null },
-  { id: 11, booking_id: 11, amount: 380, currency: "USD", status: "Đã thanh toán", refund: null },
-  { id: 12, booking_id: 12, amount: 290, currency: "USD", status: "Chờ thanh toán", refund: null },
+const mockCars = [
+  { id: 1, license_plate: "ABC123", model: "Toyota Camry", supplier: "jane_smith", status: "Chờ duyệt" },
+  { id: 2, license_plate: "XYZ789", model: "Honda Civic", supplier: "jane_smith", status: "Đã duyệt" },
+  { id: 3, license_plate: "DEF456", model: "Mazda 3", supplier: "mike_jones", status: "Chờ duyệt" },
+  { id: 4, license_plate: "GHI789", model: "Ford Focus", supplier: "sarah_lee", status: "Đã duyệt" },
+  { id: 5, license_plate: "JKL012", model: "Hyundai Sonata", supplier: "david_brown", status: "Chờ duyệt" },
+  { id: 6, license_plate: "MNO345", model: "Kia Rio", supplier: "emma_wilson", status: "Đã duyệt" },
+  { id: 7, license_plate: "PQR678", model: "Nissan Altima", supplier: "peter_parker", status: "Chờ duyệt" },
+  { id: 8, license_plate: "STU901", model: "BMW 3 Series", supplier: "lisa_ray", status: "Đã duyệt" },
+  { id: 9, license_plate: "VWX234", model: "Audi A4", supplier: "tom_hardy", status: "Chờ duyệt" },
+  { id: 10, license_plate: "YZA567", model: "Mercedes C-Class", supplier: "anna_king", status: "Đã duyệt" },
+  { id: 11, license_plate: "BCD890", model: "Volkswagen Golf", supplier: "chris_rock", status: "Chờ duyệt" },
+  { id: 12, license_plate: "EFG123", model: "Subaru Outback", supplier: "sophia_mart", status: "Đã duyệt" },
 ];
 
 const ITEMS_PER_PAGE = 5;
 
-function Payments() {
+function CarListings() {
   const [currentPage, setCurrentPage] = useState(1);
   const [filterStatus, setFilterStatus] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedCar, setSelectedCar] = useState(null);
   const [modalAction, setModalAction] = useState("");
 
-  // Giả lập loading
   useEffect(() => {
     setTimeout(() => setIsLoading(false), 1000);
   }, []);
 
-  // Lọc thanh toán dựa trên trạng thái
-  const filteredPayments = mockPayments.filter((payment) => {
-    return filterStatus === "all" || payment.status === filterStatus;
+  const filteredCars = mockCars.filter((car) => {
+    return filterStatus === "all" || car.status === filterStatus;
   });
 
-  // Tính toán số trang
-  const totalPages = Math.ceil(filteredPayments.length / ITEMS_PER_PAGE);
-
-  // Lấy danh sách thanh toán cho trang hiện tại
+  const totalPages = Math.ceil(filteredCars.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentPayments = filteredPayments.slice(startIndex, endIndex);
+  const currentCars = filteredCars.slice(startIndex, endIndex);
 
-  // Xử lý chuyển trang
   const handlePageChange = (page) => {
     setCurrentPage(page);
   };
 
-  // Xử lý hành động
-  const handleAction = (payment, action) => {
-    setSelectedPayment(payment);
+  const handleAction = (car, action) => {
+    setSelectedCar(car);
     setModalAction(action);
     setShowModal(true);
   };
 
   const confirmAction = () => {
-    console.log(`${modalAction} thanh toán ID: ${selectedPayment?.id}`);
+    console.log(`${modalAction} xe: ${selectedCar?.license_plate}`);
     setShowModal(false);
-    setSelectedPayment(null);
+    setSelectedCar(null);
   };
 
   return (
-    <div className={styles.paymentsContainer}>
-      <h2 className={styles.title}>Quản lý Thanh toán</h2>
+    <div className={styles.carListingsContainer}>
+      <h2 className={styles.title}>Quản lý Tin đăng xe</h2>
 
-      {/* Bộ lọc */}
       <div className={styles.filters}>
         <select
           value={filterStatus}
@@ -74,19 +66,18 @@ function Payments() {
           className={styles.filterSelect}
         >
           <option value="all">Tất cả trạng thái</option>
-          <option value="Chờ thanh toán">Chờ thanh toán</option>
-          <option value="Đã thanh toán">Đã thanh toán</option>
+          <option value="Chờ duyệt">Chờ duyệt</option>
+          <option value="Đã duyệt">Đã duyệt</option>
         </select>
       </div>
 
-      {/* Bảng thanh toán */}
       <table className={styles.table}>
         <thead>
           <tr className={styles.tableHeader}>
             <th className={styles.tableHeaderCell}>ID</th>
-            <th className={styles.tableHeaderCell}>ID Đơn</th>
-            <th className={styles.tableHeaderCell}>Số tiền</th>
-            <th className={styles.tableHeaderCell}>Tiền tệ</th>
+            <th className={styles.tableHeaderCell}>Biển số</th>
+            <th className={styles.tableHeaderCell}>Mô hình</th>
+            <th className={styles.tableHeaderCell}>Chủ xe</th>
             <th className={styles.tableHeaderCell}>Trạng thái</th>
             <th className={styles.tableHeaderCell}>Hành động</th>
           </tr>
@@ -104,31 +95,36 @@ function Payments() {
               </tr>
             ))
           ) : (
-            currentPayments.map((payment) => (
-              <tr key={payment.id} className={styles.tableRow}>
-                <td className={styles.tableCell}>{payment.id}</td>
-                <td className={styles.tableCell}>{payment.booking_id}</td>
-                <td className={styles.tableCell}>{payment.amount}</td>
-                <td className={styles.tableCell}>{payment.currency}</td>
+            currentCars.map((car) => (
+              <tr key={car.id} className={styles.tableRow}>
+                <td className={styles.tableCell}>{car.id}</td>
+                <td className={styles.tableCell}>{car.license_plate}</td>
+                <td className={styles.tableCell}>{car.model}</td>
+                <td className={styles.tableCell}>{car.supplier}</td>
                 <td className={styles.tableCell}>
-                  <span className={`${styles.statusTag} ${payment.status === "Đã thanh toán" ? styles.paid : styles.pending}`}>
-                    {payment.status}
+                  <span className={`${styles.statusTag} ${car.status === "Đã duyệt" ? styles.approved : styles.pending}`}>
+                    {car.status}
                   </span>
                 </td>
                 <td className={styles.tableCell}>
                   <div className={styles.actionButtons}>
                     <button
-                      className={styles.viewButton}
-                      onClick={() => handleAction(payment, "Xem")}
+                      className={styles.approveButton}
+                      onClick={() => handleAction(car, car.status === "Chờ duyệt" ? "Duyệt" : "Hủy duyệt")}
                     >
-                      Xem
+                      {car.status === "Chờ duyệt" ? "Duyệt" : "Hủy duyệt"}
                     </button>
                     <button
-                      className={styles.refundButton}
-                      onClick={() => handleAction(payment, "Hoàn tiền")}
-                      disabled={payment.status !== "Đã thanh toán"}
+                      className={styles.editButton}
+                      onClick={() => handleAction(car, "Chỉnh sửa")}
                     >
-                      Hoàn tiền
+                      Chỉnh sửa
+                    </button>
+                    <button
+                      className={styles.lockButton}
+                      onClick={() => handleAction(car, "Khóa")}
+                    >
+                      Khóa
                     </button>
                   </div>
                 </td>
@@ -138,7 +134,6 @@ function Payments() {
         </tbody>
       </table>
 
-      {/* Phân trang */}
       <div className={styles.pagination}>
         <button
           onClick={() => handlePageChange(currentPage - 1)}
@@ -165,13 +160,12 @@ function Payments() {
         </button>
       </div>
 
-      {/* Modal xác nhận */}
       {showModal && (
         <div className={styles.modal}>
           <div className={styles.modalContent}>
             <h3>Xác nhận hành động</h3>
             <p>
-              Bạn có chắc chắn muốn {modalAction} thanh toán ID <strong>{selectedPayment?.id}</strong>?
+              Bạn có chắc chắn muốn {modalAction} xe <strong>{selectedCar?.license_plate}</strong>?
             </p>
             <div className={styles.modalActions}>
               <button className={styles.cancelButton} onClick={() => setShowModal(false)}>
@@ -188,4 +182,4 @@ function Payments() {
   );
 }
 
-export default Payments;
+export default CarListings;

@@ -25,18 +25,21 @@ public class CarBrandService {
         return mapper.toDTO(entity);
     }
 
+    // Lấy tất cả thương hiệu xe (của hoàng)
     public List<CarBrandDTO> findAll() {
         return repository.findByIsDeletedFalse().stream()
                 .map(mapper::toDTO)
                 .collect(Collectors.toList());
     }
 
+    // Lưu thương hiệu xe mới (của hoàng)
     public CarBrandDTO save(CarBrandDTO dto) {
         CarBrand entity = mapper.toEntity(dto);
         entity.setIsDeleted(false);
         return mapper.toDTO(repository.save(entity));
     }
 
+    // Cập nhật thương hiệu xe (của hoàng)
     public CarBrandDTO update(Integer id, CarBrandDTO dto) {
         CarBrand entity = repository.findById(id)
                 .filter(e -> !e.getIsDeleted())
@@ -47,6 +50,7 @@ public class CarBrandService {
         return mapper.toDTO(repository.save(updatedEntity));
     }
 
+    // Xóa thương hiệu xe (của hoàng)
     public void delete(Integer id) {
         CarBrand entity = repository.findById(id)
                 .filter(e -> !e.getIsDeleted())

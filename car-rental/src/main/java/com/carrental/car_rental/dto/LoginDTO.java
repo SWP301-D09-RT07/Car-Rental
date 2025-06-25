@@ -1,7 +1,12 @@
 package com.carrental.car_rental.dto;
 
+import jakarta.validation.constraints.NotBlank;
+
 public class LoginDTO {
+    @NotBlank(message = "Username là bắt buộc")
     private String username;
+
+    @NotBlank(message = "Mật khẩu là bắt buộc")
     private String password;
 
     public String getUsername() {
@@ -20,4 +25,3 @@ public class LoginDTO {
         this.password = password;
     }
 }
-

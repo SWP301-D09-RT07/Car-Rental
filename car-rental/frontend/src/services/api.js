@@ -35,40 +35,64 @@ const isTokenExpired = () => {
 // Interceptor thêm token
 api.interceptors.request.use(
     async (config) => {
+        console.log("=== REQUEST INTERCEPTOR ===");
+        console.log("Request URL:", config.url);
+        console.log("Request method:", config.method);
+        
         const token = localStorage.getItem('token');
+        const expiresAt = localStorage.getItem('expiresAt');
+        
+        console.log("Token from localStorage:", token ? "EXISTS" : "NOT EXISTS");
+        console.log("ExpiresAt from localStorage:", expiresAt);
+        console.log("Current time:", new Date().getTime());
+        console.log("Token expired:", isTokenExpired());
+        
         if (token && !isTokenExpired()) {
             config.headers.Authorization = `Bearer ${token}`;
+            console.log("Token added to request headers");
         } else if (token) {
+            console.log("Token exists but expired, removing from localStorage");
             localStorage.removeItem('token');
             localStorage.removeItem('expiresAt');
             localStorage.removeItem('role');
             window.location.href = '/login?error=token_expired';
             return Promise.reject(new Error('Token hết hạn'));
+        } else {
+            console.log("No token found in localStorage");
         }
+        
+        console.log("Final headers:", config.headers);
+        console.log("=== END REQUEST INTERCEPTOR ===");
         return config;
     },
-    (error) => Promise.reject(error)
-);
-
-// Interceptor xử lý lỗi
-api.interceptors.response.use(
-    (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
-            // Chỉ xóa token và chuyển hướng nếu không phải là request lấy danh sách xe
-            if (!error.config.url.includes('/cars')) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('expiresAt');
-                localStorage.removeItem('role');
-                window.location.href = '/login?error=unauthorized';
-            }
-        } else if (error.response?.status === 400) {
-            const message = error.response?.data?.message || error.response?.data?.errors?.join(', ') || 'Dữ liệu không hợp lệ';
-            return Promise.reject(new Error(message));
-        }
+        console.error("Request interceptor error:", error);
         return Promise.reject(error);
     }
 );
+
+// Interceptor xử lý lỗi
+// api.interceptors.response.use(
+//     (response) => response,
+//     (error) => {
+//         if (error.response?.status === 401) {
+//             if (!error.config.url.includes('/cars')) {
+//                 localStorage.removeItem('token');
+//                 localStorage.removeItem('expiresAt');
+//                 localStorage.removeItem('role');
+//                 window.location.href = '/login?error=unauthorized';
+//             }
+//         } else if (error.response?.status === 400) {
+//             const message = error.response?.data?.message || error.response?.data?.errors?.join(', ') || 'Dữ liệu không hợp lệ';
+//             return Promise.reject(new Error(message));
+//         } else if (error.response?.status === 500) {
+//             // Ném lỗi để component xử lý, không chuyển hướng
+//             const message = error.response?.data?.message || 'Lỗi server, vui lòng thử lại sau';
+//             return Promise.reject(new Error(message));
+//         }
+//         return Promise.reject(error);
+//     }
+// );
 
 // Xử lý Google login callback
 export const handleGoogleLoginCallback = () => {
@@ -141,7 +165,7 @@ export const resetPassword = async (email, newPassword) => {
 export const changePassword = async (currentPassword, newPassword) => {
     if (!currentPassword || !newPassword) throw new Error('Vui lòng cung cấp mật khẩu hiện tại và mật khẩu mới');
     try {
-        const response = await api.post('/api/auth/change-password', { currentPassword, newPassword });
+        const response = await api.post('/api/users/change-password', { currentPassword, newPassword });
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Đổi mật khẩu thất bại');
@@ -201,6 +225,61 @@ export const toggleNotifications = async (userId, enable) => {
     }
 };
 
+// Quản lý người dùng (Admin)
+export const getUsers = async (page, size, role, status) => {
+    try {
+        const response = await api.get('/api/users', {
+            params: {
+                page,
+                size,
+                role: role || 'all',
+                status: status || 'all',
+            },
+        });
+        return response.data; // Trả về Page<UserDTO> với content, totalPages, v.v.
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Lấy danh sách người dùng thất bại');
+    }
+};
+
+export const toggleUserStatus = async (userId, reason = null) => {
+    console.log("=== BẮT ĐẦU TOGGLE USER STATUS (FRONTEND) ===");
+    console.log("User ID:", userId);
+    console.log("Reason:", reason);
+    console.log("Current token:", localStorage.getItem('token'));
+    
+    try {
+        const requestBody = {
+            reason: reason
+        };
+        
+        console.log("Request body:", requestBody);
+        console.log("API URL:", `/api/users/${userId}/toggle-status`);
+        
+        const response = await api.put(`/api/users/${userId}/toggle-status`, requestBody, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        });
+        
+        console.log("Response status:", response.status);
+        console.log("Response data:", response.data);
+        console.log("=== KẾT THÚC TOGGLE USER STATUS (FRONTEND) - THÀNH CÔNG ===");
+        return response.data; // Trả về UserDTO đã cập nhật
+    } catch (error) {
+        console.error("=== LỖI TOGGLE USER STATUS (FRONTEND) ===");
+        console.error("User ID:", userId);
+        console.error("Reason:", reason);
+        console.error("Error object:", error);
+        console.error("Error response:", error.response);
+        console.error("Error status:", error.response?.status);
+        console.error("Error data:", error.response?.data);
+        console.error("Error message:", error.message);
+        console.error("=== KẾT THÚC LỖI TOGGLE USER STATUS (FRONTEND) ===");
+        throw new Error(error.response?.data?.message || 'Chuyển đổi trạng thái người dùng thất bại');
+    }
+};
+
 // Quản lý yêu thích
 export const getFavorites = async () => {
     const cacheKey = 'favorites';
@@ -248,13 +327,13 @@ export const getCars = async (filters = {}) => {
 
 export const searchCars = async (filters = {}, page = 0, size = 10) => {
     try {
-        const response = await api.get('/api/cars/search', { 
-            params: { 
-                ...filters, 
-                page, 
+        const response = await api.get('/api/cars/search', {
+            params: {
+                ...filters,
+                page,
                 size,
-                sort: 'createdAt,desc'
-            } 
+                sort: 'createdAt,desc',
+            },
         });
         return response.data;
     } catch (error) {
@@ -477,12 +556,12 @@ export const postReview = async (url, data) => {
 export const getRentalHistory = async (carId) => {
     if (!carId) throw new Error('Vui lòng cung cấp ID xe');
     try {
-        const response = await api.get('/api/bookings', { 
-            params: { 
+        const response = await api.get('/api/bookings', {
+            params: {
                 carId,
                 status: 'completed',
-                sort: 'createdAt,desc'
-            } 
+                sort: 'createdAt,desc',
+            },
         });
         return response.data;
     } catch (error) {
@@ -515,8 +594,8 @@ export const post = async (url, data) => {
 export const getSimilarCars = async (carId, page = 0, size = 4) => {
     if (!carId) throw new Error('Vui lòng cung cấp ID xe');
     try {
-        const response = await api.get(`/api/cars/${carId}/similar`, { 
-            params: { page, size } 
+        const response = await api.get(`/api/cars/${carId}/similar`, {
+            params: { page, size },
         });
         return response.data;
     } catch (error) {
@@ -527,12 +606,30 @@ export const getSimilarCars = async (carId, page = 0, size = 4) => {
 export const getSimilarCarsAdvanced = async (carId, page = 0, size = 4) => {
     if (!carId) throw new Error('Vui lòng cung cấp ID xe');
     try {
-        const response = await api.get(`/api/cars/${carId}/similar-advanced`, { 
-            params: { page, size } 
+        const response = await api.get(`/api/cars/${carId}/similar-advanced`, {
+            params: { page, size },
         });
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Lấy danh sách xe tương tự nâng cao thất bại');
+    }
+};
+
+export const getReportsData = async () => {
+    try {
+        const response = await api.get('/api/reports/overview');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Lấy dữ liệu báo cáo thất bại');
+    }
+};
+
+export const getMonthlyUserRegistrations = async () => {
+    try {
+        const response = await api.get('/api/reports/user-registrations');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Lấy thống kê đăng ký người dùng thất bại');
     }
 };
 

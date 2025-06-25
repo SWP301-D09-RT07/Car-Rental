@@ -110,6 +110,7 @@ public class CarController {
                 .build();
     }
 
+    // Lấy tất cả xe có phân trang (của hoàng)
     @GetMapping("")
     public ResponseEntity<Page<CarDTO>> getAllCars(
             @RequestParam(defaultValue = "0") int page,
@@ -152,6 +153,7 @@ public class CarController {
         }
     }
 
+    // Tạo xe mới (của hoàng)
     @PostMapping("")
     public ResponseEntity<CarDTO> createCar(@RequestBody CarDTO dto) {
         logger.info("Yêu cầu tạo xe mới: {}", dto);
@@ -163,6 +165,7 @@ public class CarController {
         }
     }
 
+    // Cập nhật xe (của hoàng)
     @PutMapping("/{id}")
     public ResponseEntity<CarDTO> updateCar(@PathVariable Integer id, @RequestBody CarDTO dto) {
         logger.info("Yêu cầu cập nhật xe với ID: {}", id);
@@ -174,6 +177,7 @@ public class CarController {
         }
     }
 
+    // Xóa xe (của hoàng)
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCar(@PathVariable Integer id) {
         logger.warn("Yêu cầu xóa xe với ID: {}", id);

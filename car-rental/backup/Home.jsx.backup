@@ -1,0 +1,231 @@
+import { useState, useEffect } from "react";
+import { Bar, Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import {
+  FaDollarSign,
+  FaCar,
+  FaChartLine,
+  FaUsers,
+  FaClock,
+} from "react-icons/fa";
+import styles from "../../../styles/Home.module.scss";
+
+// Register Chart.js components
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    LineElement,
+    PointElement,
+    Title,
+    Tooltip,
+    Legend
+);
+
+function Home() {
+  const [dashboardData, setDashboardData] = useState({
+    totalRevenue: 0,
+    totalBookings: 0,
+    popularCarDetail: null,
+    monthlyRevenue: [],
+    monthlyBookings: [],
+    monthlyRegistrations: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log("Fetching dashboard data...");
+      const data = await getReportsData();
+      console.log("Dashboard data received:", data);
+      setDashboardData(data);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Prepare chart data for monthly revenue
+  const monthlyRevenueData = {
+    labels: dashboardData.monthlyRevenue?.map(item => `Tháng ${item.month}`) || [],
+    datasets: [
+      {
+        label: "Doanh thu (VNĐ)",
+        data: dashboardData.monthlyRevenue?.map(item => item.value) || [],
+        borderColor: "rgb(75, 192, 192)",
+        backgroundColor: "rgba(75, 192, 192, 0.2)",
+        tension: 0.1,
+      },
+    ],
+  };
+
+  // Prepare chart data for monthly bookings
+  const monthlyBookingsData = {
+    labels: dashboardData.monthlyBookings?.map(item => `Tháng ${item.month}`) || [],
+    datasets: [
+      {
+        label: "Số lượt đặt",
+        data: dashboardData.monthlyBookings?.map(item => item.value) || [],
+        borderColor: "rgb(255, 99, 132)",
+        backgroundColor: "rgba(255, 99, 132, 0.2)",
+        tension: 0.1,
+      },
+    ],
+  };
+
+  if (loading) {
+    return (
+      <div className={styles.loadingContainer}>
+        <div className={styles.loadingSpinner}></div>
+        <p>Đang tải dữ liệu...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={styles.errorContainer}>
+        <p>Lỗi: {error}</p>
+        <button onClick={fetchDashboardData}>Thử lại</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.homeContainer}>
+      <h1 className={styles.pageTitle}>Dashboard</h1>
+
+      {/* Stats Cards */}
+      <div className={styles.statsGrid}>
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>
+            <FaDollarSign />
+          </div>
+          <div className={styles.statContent}>
+            <h3>Tổng Doanh Thu</h3>
+            <p className={styles.statValue}>
+              {dashboardData.totalRevenue?.toLocaleString('vi-VN')} VNĐ
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>
+            <FaCar />
+          </div>
+          <div className={styles.statContent}>
+            <h3>Tổng Lượt Đặt</h3>
+            <p className={styles.statValue}>
+              {dashboardData.totalBookings?.toLocaleString('vi-VN')}
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>
+            <FaUsers />
+          </div>
+          <div className={styles.statContent}>
+            <h3>Khách Hàng Mới</h3>
+            <p className={styles.statValue}>
+              {dashboardData.monthlyRegistrations?.reduce((sum, item) => sum + item.value, 0) || 0}
+            </p>
+          </div>
+        </div>
+
+        <div className={styles.statCard}>
+          <div className={styles.statIcon}>
+            <FaClock />
+          </div>
+          <div className={styles.statContent}>
+            <h3>Xe Phổ Biến</h3>
+            <p className={styles.statValue}>
+              {dashboardData.popularCarDetail?.carModel || 'N/A'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Popular Car Section */}
+      {dashboardData.popularCarDetail && (
+        <div className={styles.popularCarSection}>
+          <h2>Xe Phổ Biến Nhất</h2>
+          <div className={styles.popularCarCard}>
+            <div className={styles.carImage}>
+              {dashboardData.popularCarDetail.carImages && dashboardData.popularCarDetail.carImages.length > 0 ? (
+                <img 
+                  src={dashboardData.popularCarDetail.carImages[0]} 
+                  alt={dashboardData.popularCarDetail.carModel}
+                />
+              ) : (
+                <div className={styles.noImage}>Không có hình ảnh</div>
+              )}
+            </div>
+            <div className={styles.carInfo}>
+              <h3>{dashboardData.popularCarDetail.carModel}</h3>
+              <p><strong>Chủ xe:</strong> {dashboardData.popularCarDetail.ownerName}</p>
+              <p><strong>Số lượt đặt:</strong> {dashboardData.popularCarDetail.bookingCount}</p>
+              <p><strong>Doanh thu:</strong> {dashboardData.popularCarDetail.totalRevenue?.toLocaleString('vi-VN')} VNĐ</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Charts Section */}
+      <div className={styles.chartsSection}>
+        <div className={styles.chartContainer}>
+          <h2>Doanh Thu Theo Tháng</h2>
+          <Line data={monthlyRevenueData} options={{
+            responsive: true,
+            plugins: {
+              legend: {
+                position: 'top',
+              },
+              title: {
+                display: true,
+                text: 'Biểu đồ doanh thu theo tháng'
+              }
+            }
+          }} />
+        </div>
+
+        <div className={styles.chartContainer}>
+          <h2>Lượt Đặt Theo Tháng</h2>
+          <Line data={monthlyBookingsData} options={{
+            responsive: true,
+            plugins: {
+              legend: {
+                position: 'top',
+              },
+              title: {
+                display: true,
+                text: 'Biểu đồ lượt đặt theo tháng'
+              }
+            }
+          }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Home; 

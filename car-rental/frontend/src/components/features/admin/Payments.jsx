@@ -1,29 +1,29 @@
 import { useState, useEffect } from "react";
-import styles from "../../../../../styles/Bookings.module.scss";
+import styles from "../../../styles/Payments.module.scss";
 
-const mockBookings = [
-  { id: 1, customer: "john_doe", car: "Toyota Camry", start_date: "2025-06-01", status: "Đã xác nhận" },
-  { id: 2, customer: "john_doe", car: "Honda Civic", start_date: "2025-06-05", status: "Chờ xử lý" },
-  { id: 3, customer: "mike_jones", car: "Mazda 3", start_date: "2025-06-07", status: "Đã xác nhận" },
-  { id: 4, customer: "sarah_lee", car: "Ford Focus", start_date: "2025-06-10", status: "Chờ xử lý" },
-  { id: 5, customer: "david_brown", car: "Hyundai Sonata", start_date: "2025-06-12", status: "Đã xác nhận" },
-  { id: 6, customer: "emma_wilson", car: "Kia Rio", start_date: "2025-06-15", status: "Chờ xử lý" },
-  { id: 7, customer: "peter_parker", car: "Nissan Altima", start_date: "2025-06-18", status: "Đã xác nhận" },
-  { id: 8, customer: "lisa_ray", car: "BMW 3 Series", start_date: "2025-06-20", status: "Chờ xử lý" },
-  { id: 9, customer: "tom_hardy", car: "Audi A4", start_date: "2025-06-22", status: "Đã xác nhận" },
-  { id: 10, customer: "anna_king", car: "Mercedes C-Class", start_date: "2025-06-25", status: "Chờ xử lý" },
-  { id: 11, customer: "chris_rock", car: "Volkswagen Golf", start_date: "2025-06-28", status: "Đã xác nhận" },
-  { id: 12, customer: "sophia_mart", car: "Subaru Outback", start_date: "2025-07-01", status: "Chờ xử lý" },
+const mockPayments = [
+  { id: 1, booking_id: 1, amount: 300, currency: "USD", status: "Đã thanh toán", refund: null },
+  { id: 2, booking_id: 2, amount: 250, currency: "USD", status: "Chờ thanh toán", refund: null },
+  { id: 3, booking_id: 3, amount: 400, currency: "USD", status: "Đã thanh toán", refund: null },
+  { id: 4, booking_id: 4, amount: 200, currency: "USD", status: "Chờ thanh toán", refund: null },
+  { id: 5, booking_id: 5, amount: 350, currency: "USD", status: "Đã thanh toán", refund: null },
+  { id: 6, booking_id: 6, amount: 280, currency: "USD", status: "Chờ thanh toán", refund: null },
+  { id: 7, booking_id: 7, amount: 500, currency: "USD", status: "Đã thanh toán", refund: null },
+  { id: 8, booking_id: 8, amount: 320, currency: "USD", status: "Chờ thanh toán", refund: null },
+  { id: 9, booking_id: 9, amount: 450, currency: "USD", status: "Đã thanh toán", refund: null },
+  { id: 10, booking_id: 10, amount: 270, currency: "USD", status: "Chờ thanh toán", refund: null },
+  { id: 11, booking_id: 11, amount: 380, currency: "USD", status: "Đã thanh toán", refund: null },
+  { id: 12, booking_id: 12, amount: 290, currency: "USD", status: "Chờ thanh toán", refund: null },
 ];
 
 const ITEMS_PER_PAGE = 5;
 
-function Bookings() {
+function Payments() {
   const [currentPage, setCurrentPage] = useState(1);
   const [filterStatus, setFilterStatus] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [selectedPayment, setSelectedPayment] = useState(null);
   const [modalAction, setModalAction] = useState("");
 
   // Giả lập loading
@@ -31,18 +31,18 @@ function Bookings() {
     setTimeout(() => setIsLoading(false), 1000);
   }, []);
 
-  // Lọc đơn đặt xe dựa trên trạng thái
-  const filteredBookings = mockBookings.filter((booking) => {
-    return filterStatus === "all" || booking.status === filterStatus;
+  // Lọc thanh toán dựa trên trạng thái
+  const filteredPayments = mockPayments.filter((payment) => {
+    return filterStatus === "all" || payment.status === filterStatus;
   });
 
   // Tính toán số trang
-  const totalPages = Math.ceil(filteredBookings.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredPayments.length / ITEMS_PER_PAGE);
 
-  // Lấy danh sách đơn đặt xe cho trang hiện tại
+  // Lấy danh sách thanh toán cho trang hiện tại
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentBookings = filteredBookings.slice(startIndex, endIndex);
+  const currentPayments = filteredPayments.slice(startIndex, endIndex);
 
   // Xử lý chuyển trang
   const handlePageChange = (page) => {
@@ -50,21 +50,21 @@ function Bookings() {
   };
 
   // Xử lý hành động
-  const handleAction = (booking, action) => {
-    setSelectedBooking(booking);
+  const handleAction = (payment, action) => {
+    setSelectedPayment(payment);
     setModalAction(action);
     setShowModal(true);
   };
 
   const confirmAction = () => {
-    console.log(`${modalAction} đơn đặt xe ID: ${selectedBooking?.id}`);
+    console.log(`${modalAction} thanh toán ID: ${selectedPayment?.id}`);
     setShowModal(false);
-    setSelectedBooking(null);
+    setSelectedPayment(null);
   };
 
   return (
-    <div className={styles.bookingsContainer}>
-      <h2 className={styles.title}>Quản lý Đơn đặt xe</h2>
+    <div className={styles.paymentsContainer}>
+      <h2 className={styles.title}>Quản lý Thanh toán</h2>
 
       {/* Bộ lọc */}
       <div className={styles.filters}>
@@ -74,19 +74,19 @@ function Bookings() {
           className={styles.filterSelect}
         >
           <option value="all">Tất cả trạng thái</option>
-          <option value="Chờ xử lý">Chờ xử lý</option>
-          <option value="Đã xác nhận">Đã xác nhận</option>
+          <option value="Chờ thanh toán">Chờ thanh toán</option>
+          <option value="Đã thanh toán">Đã thanh toán</option>
         </select>
       </div>
 
-      {/* Bảng đơn đặt xe */}
+      {/* Bảng thanh toán */}
       <table className={styles.table}>
         <thead>
           <tr className={styles.tableHeader}>
             <th className={styles.tableHeaderCell}>ID</th>
-            <th className={styles.tableHeaderCell}>Khách hàng</th>
-            <th className={styles.tableHeaderCell}>Xe</th>
-            <th className={styles.tableHeaderCell}>Ngày bắt đầu</th>
+            <th className={styles.tableHeaderCell}>ID Đơn</th>
+            <th className={styles.tableHeaderCell}>Số tiền</th>
+            <th className={styles.tableHeaderCell}>Tiền tệ</th>
             <th className={styles.tableHeaderCell}>Trạng thái</th>
             <th className={styles.tableHeaderCell}>Hành động</th>
           </tr>
@@ -104,30 +104,31 @@ function Bookings() {
               </tr>
             ))
           ) : (
-            currentBookings.map((booking) => (
-              <tr key={booking.id} className={styles.tableRow}>
-                <td className={styles.tableCell}>{booking.id}</td>
-                <td className={styles.tableCell}>{booking.customer}</td>
-                <td className={styles.tableCell}>{booking.car}</td>
-                <td className={styles.tableCell}>{booking.start_date}</td>
+            currentPayments.map((payment) => (
+              <tr key={payment.id} className={styles.tableRow}>
+                <td className={styles.tableCell}>{payment.id}</td>
+                <td className={styles.tableCell}>{payment.booking_id}</td>
+                <td className={styles.tableCell}>{payment.amount}</td>
+                <td className={styles.tableCell}>{payment.currency}</td>
                 <td className={styles.tableCell}>
-                  <span className={`${styles.statusTag} ${booking.status === "Đã xác nhận" ? styles.confirmed : styles.pending}`}>
-                    {booking.status}
+                  <span className={`${styles.statusTag} ${payment.status === "Đã thanh toán" ? styles.paid : styles.pending}`}>
+                    {payment.status}
                   </span>
                 </td>
                 <td className={styles.tableCell}>
                   <div className={styles.actionButtons}>
                     <button
                       className={styles.viewButton}
-                      onClick={() => handleAction(booking, "Xem")}
+                      onClick={() => handleAction(payment, "Xem")}
                     >
                       Xem
                     </button>
                     <button
-                      className={styles.complaintButton}
-                      onClick={() => handleAction(booking, "Xử lý khiếu nại")}
+                      className={styles.refundButton}
+                      onClick={() => handleAction(payment, "Hoàn tiền")}
+                      disabled={payment.status !== "Đã thanh toán"}
                     >
-                      Xử lý khiếu nại
+                      Hoàn tiền
                     </button>
                   </div>
                 </td>
@@ -170,7 +171,7 @@ function Bookings() {
           <div className={styles.modalContent}>
             <h3>Xác nhận hành động</h3>
             <p>
-              Bạn có chắc chắn muốn {modalAction} đơn đặt xe ID <strong>{selectedBooking?.id}</strong>?
+              Bạn có chắc chắn muốn {modalAction} thanh toán ID <strong>{selectedPayment?.id}</strong>?
             </p>
             <div className={styles.modalActions}>
               <button className={styles.cancelButton} onClick={() => setShowModal(false)}>
@@ -187,4 +188,4 @@ function Bookings() {
   );
 }
 
-export default Bookings;
+export default Payments;
