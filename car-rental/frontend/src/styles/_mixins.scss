@@ -7,7 +7,17 @@
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
   }
 }
-
+// src/styles/_mixins.scss
+@mixin button-style($bg-color: #4682B4, $text-color: #ffffff) { // Thay $primary-blue và $text-light bằng giá trị cụ thể
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  color: $text-color;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
 @mixin button-style($bg-color: $primary-blue, $text-color: $text-light) {
   padding: $spacing-sm $spacing-md;
   border: none;

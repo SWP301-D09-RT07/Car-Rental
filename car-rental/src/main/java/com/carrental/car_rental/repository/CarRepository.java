@@ -50,8 +50,8 @@ public interface CarRepository extends JpaRepository<Car, Integer>, JpaSpecifica
     @Query(value = "EXEC sp_GetAvailableCars :startDate, :endDate", nativeQuery = true)
     List<Car> findAvailableCars(Instant startDate, Instant endDate);
 
-    @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.id = :id AND c.isDeleted = false")
-    Optional<Car> findByIdWithRelations(Integer id);
+    @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status LEFT JOIN FETCH c.images i WHERE c.id = :id AND c.isDeleted = false AND (i.isDeleted = false OR i.isDeleted IS NULL)")
+    Optional<Car> findByIdWithRelations(@Param("id") Integer id);
 
     @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.isDeleted = false")
     Page<Car> findAllWithRelations(Pageable pageable);
@@ -60,68 +60,68 @@ public interface CarRepository extends JpaRepository<Car, Integer>, JpaSpecifica
     List<Car> findByRegionIdAndIsDeletedFalse(Integer regionId);
 
     @Query("SELECT c FROM Car c " +
-           "JOIN FETCH c.brand " +
-           "WHERE c.brand.id = :brandId " +
-           "AND c.id != :carId " +
-           "AND c.status.id = 11 " +
-           "AND c.isDeleted = false")
+            "JOIN FETCH c.brand " +
+            "WHERE c.brand.id = :brandId " +
+            "AND c.id != :carId " +
+            "AND c.status.id = 11 " +
+            "AND c.isDeleted = false")
     Page<Car> findSimilarCars(
-        @Param("brandId") Integer brandId,
-        @Param("carId") Integer carId,
-        Pageable pageable
+            @Param("brandId") Integer brandId,
+            @Param("carId") Integer carId,
+            Pageable pageable
     );
 
     @Query("SELECT c FROM Car c " +
-           "JOIN FETCH c.brand " +
-           "JOIN FETCH c.fuelType " +
-           "JOIN FETCH c.region " +
-           "JOIN FETCH c.status " +
-           "WHERE c.brand.id = :brandId " +
-           "AND c.id != :carId " +
-           "AND c.isDeleted = false")
+            "JOIN FETCH c.brand " +
+            "JOIN FETCH c.fuelType " +
+            "JOIN FETCH c.region " +
+            "JOIN FETCH c.status " +
+            "WHERE c.brand.id = :brandId " +
+            "AND c.id != :carId " +
+            "AND c.isDeleted = false")
     Page<Car> findByBrand_IdAndIsDeletedFalseAndIdNot(
-        @Param("brandId") Integer brandId,
-        @Param("carId") Integer carId,
-        Pageable pageable
+            @Param("brandId") Integer brandId,
+            @Param("carId") Integer carId,
+            Pageable pageable
     );
 
     @Query("SELECT c FROM Car c " +
-           "JOIN FETCH c.brand " +
-           "JOIN FETCH c.fuelType " +
-           "JOIN FETCH c.region " +
-           "JOIN FETCH c.status " +
-           "WHERE c.region.id = :regionId " +
-           "AND c.id != :carId " +
-           "AND c.isDeleted = false")
+            "JOIN FETCH c.brand " +
+            "JOIN FETCH c.fuelType " +
+            "JOIN FETCH c.region " +
+            "JOIN FETCH c.status " +
+            "WHERE c.region.id = :regionId " +
+            "AND c.id != :carId " +
+            "AND c.isDeleted = false")
     Page<Car> findByRegion_IdAndIsDeletedFalseAndIdNot(
-        @Param("regionId") Integer regionId,
-        @Param("carId") Integer carId,
-        Pageable pageable
+            @Param("regionId") Integer regionId,
+            @Param("carId") Integer carId,
+            Pageable pageable
     );
 
     @Query("SELECT c FROM Car c " +
-           "JOIN FETCH c.brand " +
-           "JOIN FETCH c.fuelType " +
-           "JOIN FETCH c.region " +
-           "JOIN FETCH c.status " +
-           "WHERE c.fuelType.id = :fuelTypeId " +
-           "AND c.id != :carId " +
-           "AND c.isDeleted = false")
+            "JOIN FETCH c.brand " +
+            "JOIN FETCH c.fuelType " +
+            "JOIN FETCH c.region " +
+            "JOIN FETCH c.status " +
+            "WHERE c.fuelType.id = :fuelTypeId " +
+            "AND c.id != :carId " +
+            "AND c.isDeleted = false")
     Page<Car> findByFuelType_IdAndIsDeletedFalseAndIdNot(
-        @Param("fuelTypeId") Integer fuelTypeId,
-        @Param("carId") Integer carId,
-        Pageable pageable
+            @Param("fuelTypeId") Integer fuelTypeId,
+            @Param("carId") Integer carId,
+            Pageable pageable
     );
 
     @Query("SELECT c FROM Car c " +
-           "JOIN FETCH c.brand " +
-           "JOIN FETCH c.fuelType " +
-           "JOIN FETCH c.region " +
-           "JOIN FETCH c.status " +
-           "WHERE c.id != :carId " +
-           "AND c.isDeleted = false")
+            "JOIN FETCH c.brand " +
+            "JOIN FETCH c.fuelType " +
+            "JOIN FETCH c.region " +
+            "JOIN FETCH c.status " +
+            "WHERE c.id != :carId " +
+            "AND c.isDeleted = false")
     Page<Car> findByIdNotAndIsDeletedFalse(
-        @Param("carId") Integer carId,
-        Pageable pageable
+            @Param("carId") Integer carId,
+            Pageable pageable
     );
 }

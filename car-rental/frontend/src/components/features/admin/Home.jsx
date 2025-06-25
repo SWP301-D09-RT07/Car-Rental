@@ -18,8 +18,8 @@ import {
   FaUsers,
   FaClock,
 } from "react-icons/fa";
-import { getReportsData } from "../../../services/api";
 import styles from "../../../styles/Home.module.scss";
+import { getReportsData } from '../../../services/api';
 
 // Register Chart.js components
 ChartJS.register(
@@ -34,198 +34,108 @@ ChartJS.register(
 );
 
 function Home() {
-  const [dashboardData, setDashboardData] = useState({
-    totalRevenue: 0,
-    totalBookings: 0,
-    popularCarDetail: null,
-    monthlyRevenue: [],
-    monthlyBookings: [],
-    monthlyRegistrations: []
-  });
+  const [overview, setOverview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
-      console.log("Fetching dashboard data...");
-      const data = await getReportsData();
-      console.log("Dashboard data received:", data);
-      setDashboardData(data);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        const token = localStorage.getItem('token');
+        console.log('[ADMIN HOME] Token in localStorage:', token);
+        const overviewData = await getReportsData();
+        setOverview(overviewData);
+      } catch (err) {
+        setError(err.message || 'Lỗi tải dữ liệu dashboard');
+        console.error('[ADMIN HOME] fetchData error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
 
-  // Prepare chart data for monthly revenue
-  const monthlyRevenueData = {
-    labels: dashboardData.monthlyRevenue?.map(item => `Tháng ${item.month}`) || [],
+  if (loading) return <div className={styles.loading}>Đang tải dữ liệu...</div>;
+  if (error) return <div className={styles.error}>{error}</div>;
+  if (!overview) return null;
+
+  // Chuẩn bị dữ liệu biểu đồ thu nhập (nếu muốn vẽ)
+  const totalIncomeData = {
+    labels: overview.monthlyRevenue?.map(m => `Th${m.month}`) || [],
     datasets: [
       {
-        label: "Doanh thu (VNĐ)",
-        data: dashboardData.monthlyRevenue?.map(item => item.revenue) || [],
-        borderColor: "rgb(75, 192, 192)",
-        backgroundColor: "rgba(75, 192, 192, 0.2)",
-        tension: 0.1,
+        label: "Tổng thu nhập (VND)",
+        data: overview.monthlyRevenue?.map(m => m.revenue) || [],
+        fill: false,
+        borderColor: "#4682B4",
+        tension: 0.4,
       },
     ],
   };
-
-  // Prepare chart data for monthly bookings
-  const monthlyBookingsData = {
-    labels: dashboardData.monthlyBookings?.map(item => `Tháng ${item.month}`) || [],
-    datasets: [
-      {
-        label: "Số lượt đặt",
-        data: dashboardData.monthlyBookings?.map(item => item.count) || [],
-        borderColor: "rgb(255, 99, 132)",
-        backgroundColor: "rgba(255, 99, 132, 0.2)",
-        tension: 0.1,
-      },
-    ],
-  };
-
-  if (loading) {
-    return (
-      <div className={styles.loadingContainer}>
-        <div className={styles.loadingSpinner}></div>
-        <p>Đang tải dữ liệu...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={styles.errorContainer}>
-        <p>Lỗi: {error}</p>
-        <button onClick={fetchDashboardData}>Thử lại</button>
-      </div>
-    );
-  }
 
   return (
-    <div className={styles.homeContainer}>
-      <h1 className={styles.pageTitle}>Dashboard</h1>
+    <div className={`${styles.container} ${styles.adminContent}`}>
+      <div className={styles.header}>
+        <h2>
+          <FaChartLine className={styles.headerIcon} /> Tổng quan
+        </h2>
+      </div>
 
-      {/* Stats Cards */}
-      <div className={styles.statsGrid}>
-        <div className={styles.statCard}>
-          <div className={styles.statIcon}>
-            <FaDollarSign />
-          </div>
-          <div className={styles.statContent}>
-            <h3>Tổng Doanh Thu</h3>
-            <p className={styles.statValue}>
-              {dashboardData.totalRevenue?.toLocaleString('vi-VN')} VNĐ
-            </p>
-          </div>
+      <div className={styles.grid}>
+        <div className={styles.card}>
+          <h3>
+            <FaDollarSign className={styles.cardIcon} /> Tổng Doanh thu
+          </h3>
+          <p className={styles.value}>{overview.totalRevenue?.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' })}</p>
+          <Line
+            data={totalIncomeData}
+            options={{
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: { color: "#4A4A4A" },
+                },
+                x: {
+                  ticks: { color: "#4A4A4A" },
+                },
+              },
+              plugins: { legend: { display: false } },
+            }}
+            height={100}
+          />
         </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statIcon}>
-            <FaCar />
-          </div>
-          <div className={styles.statContent}>
-            <h3>Tổng Lượt Đặt</h3>
-            <p className={styles.statValue}>
-              {dashboardData.totalBookings?.toLocaleString('vi-VN')}
-            </p>
-          </div>
-        </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statIcon}>
-            <FaUsers />
-          </div>
-          <div className={styles.statContent}>
-            <h3>Khách Hàng Mới</h3>
-            <p className={styles.statValue}>
-              {/* Placeholder - will be implemented with monthly filter */}
-              0
-            </p>
-          </div>
-        </div>
-
-        <div className={styles.statCard}>
-          <div className={styles.statIcon}>
-            <FaClock />
-          </div>
-          <div className={styles.statContent}>
-            <h3>Xe Phổ Biến</h3>
-            <p className={styles.statValue}>
-              {dashboardData.popularCarDetail?.carModel || 'N/A'}
-            </p>
-          </div>
+        <div className={styles.card}>
+          <h3>
+            <FaCar className={styles.cardIcon} /> Tổng Lượt Đặt
+          </h3>
+          <p className={styles.value}>{overview.totalBookings}</p>
         </div>
       </div>
 
-      {/* Popular Car Section */}
-      {dashboardData.popularCarDetail && (
-        <div className={styles.popularCarSection}>
-          <h2>Xe Phổ Biến Nhất</h2>
-          <div className={styles.popularCarCard}>
-            <div className={styles.carImage}>
-              {dashboardData.popularCarDetail.imageUrl ? (
-                <img 
-                  src={dashboardData.popularCarDetail.imageUrl} 
-                  alt={dashboardData.popularCarDetail.carModel}
-                />
-              ) : (
-                <div className={styles.noImage}>Không có hình ảnh</div>
-              )}
-            </div>
-            <div className={styles.carInfo}>
-              <h3>{dashboardData.popularCarDetail.carModel}</h3>
-              <p><strong>Biển số:</strong> {dashboardData.popularCarDetail.licensePlate}</p>
-              <p><strong>Hãng xe:</strong> {dashboardData.popularCarDetail.brandName}</p>
-              <p><strong>Chủ xe:</strong> {dashboardData.popularCarDetail.supplierName}</p>
-              <p><strong>Số lượt đặt:</strong> {dashboardData.popularCarDetail.bookingCount}</p>
-              <p><strong>Doanh thu:</strong> {dashboardData.popularCarDetail.totalRevenue?.toLocaleString('vi-VN')} VNĐ</p>
-            </div>
+      <div className={`${styles.grid} ${styles.twoCols}`}>
+        <div className={styles.card}>
+          <h3>
+            <FaCar className={styles.cardIcon} /> Xe Phổ Biến
+          </h3>
+          <div className={styles.popularCar}>
+            {overview.popularCarDetail ? (
+              <>
+                <div className={styles.carImage}>
+                  {overview.popularCarDetail.imageUrl && (
+                    <img src={overview.popularCarDetail.imageUrl} alt={overview.popularCarDetail.carModel} style={{ width: 80, height: 50, objectFit: 'cover' }} />
+                  )}
+                </div>
+                <div className={styles.carDetails}>
+                  <p className={styles.carModel}>{overview.popularCarDetail.carModel}</p>
+                  <p className={styles.carLicense}>{overview.popularCarDetail.licensePlate}</p>
+                </div>
+              </>
+            ) : (
+              <div>Không có dữ liệu xe phổ biến</div>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* Charts Section */}
-      <div className={styles.chartsSection}>
-        <div className={styles.chartContainer}>
-          <h2>Doanh Thu Theo Tháng</h2>
-          <Line data={monthlyRevenueData} options={{
-            responsive: true,
-            plugins: {
-              legend: {
-                position: 'top',
-              },
-              title: {
-                display: true,
-                text: 'Biểu đồ doanh thu theo tháng'
-              }
-            }
-          }} />
-        </div>
-
-        <div className={styles.chartContainer}>
-          <h2>Lượt Đặt Theo Tháng</h2>
-          <Line data={monthlyBookingsData} options={{
-            responsive: true,
-            plugins: {
-              legend: {
-                position: 'top',
-              },
-              title: {
-                display: true,
-                text: 'Biểu đồ lượt đặt theo tháng'
-              }
-            }
-          }} />
         </div>
       </div>
     </div>

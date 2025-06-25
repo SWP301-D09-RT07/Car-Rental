@@ -9,6 +9,7 @@ import com.carrental.car_rental.mapper.BookingMapper;
 import com.carrental.car_rental.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,10 @@ import java.time.chrono.ChronoLocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import com.carrental.car_rental.mapper.UserMapper;
+import com.carrental.car_rental.dto.UserDTO;
 
 @Service
 public class BookingService {
@@ -41,6 +46,7 @@ public class BookingService {
     private final BookingFinancialsService financialsService;
     private final PromotionRepository promotionRepository;
     private final PaymentRepository paymentRepository;
+    private final UserMapper userMapper;
 
     private static final int AVAILABLE_STATUS_ID = 11;
     private static final int PENDING_STATUS_ID = 1;
@@ -59,7 +65,9 @@ public class BookingService {
             BookingMapper bookingMapper,
             BookingFinancialsService financialsService,
             PromotionRepository promotionRepository,
-            PaymentRepository paymentRepository) {
+            PaymentRepository paymentRepository,
+            UserMapper userMapper) {
+
         this.bookingRepository = bookingRepository;
         this.carRepository = carRepository;
         this.insuranceRepository = insuranceRepository;
@@ -72,6 +80,7 @@ public class BookingService {
         this.financialsService = financialsService;
         this.promotionRepository = promotionRepository;
         this.paymentRepository = paymentRepository;
+        this.userMapper = userMapper;
     }
 
     public BookingDTO findById(Integer id) {
@@ -446,4 +455,19 @@ public class BookingService {
         return user.getId();
     }
 
+    // Lấy booking gần đây nhất (của hoàng)
+    public List<BookingDTO> findRecentBookings(int size) {
+        return bookingRepository.findAllByIsDeletedFalseOrderByBookingDateDesc(PageRequest.of(0, size))
+            .stream()
+            .map(bookingMapper::toDTO)
+            .collect(Collectors.toList());
+    }
+
+    // Lấy user có booking gần đây nhất (của hoàng)
+    public List<UserDTO> findRecentBookingUsers(int size) {
+        return bookingRepository.findRecentBookingUsers(PageRequest.of(0, size))
+            .stream()
+            .map(userMapper::toDto)
+            .collect(Collectors.toList());
+    }
 }

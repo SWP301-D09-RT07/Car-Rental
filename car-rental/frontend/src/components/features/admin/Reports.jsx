@@ -174,6 +174,9 @@ function Reports() {
             ) : (
               <p className={styles.cardValue}>{reports.popularCar}</p>
             )}
+            <div className={styles.chartContainer}>
+              <Line data={popularCarData} options={lineChartOptions} height={100} />
+            </div>
           </div>
         </div>
 
