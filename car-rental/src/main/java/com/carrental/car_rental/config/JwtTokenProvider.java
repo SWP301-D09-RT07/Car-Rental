@@ -27,10 +27,12 @@ public class JwtTokenProvider {
 
     // Tạo token với username và role
     public String generateToken(String username, String role) {
-        logger.info("Generating JWT for username: {}, role: {}", username, role);
+        // Lưu role với prefix ROLE_ và uppercase để consistent với Spring Security
+        String roleForJWT = "ROLE_" + role.toUpperCase();
+        logger.info("Generating JWT for username: {}, original role: {}, JWT role: {}", username, role, roleForJWT);
         return JWT.create()
                 .withSubject(username)
-                .withClaim("role", role) // Thêm role vào token
+                .withClaim("role", roleForJWT)
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + expirationTime))
                 .sign(Algorithm.HMAC512(secretKey));

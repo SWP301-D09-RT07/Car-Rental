@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Integer> {
@@ -28,6 +29,24 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
 
+    @Query("SELECT b FROM Booking b " +
+           "LEFT JOIN FETCH b.car c " +
+           "LEFT JOIN FETCH b.driver d " +
+           "LEFT JOIN FETCH b.status s " +
+           "LEFT JOIN FETCH b.region r " +
+           "LEFT JOIN FETCH b.customer cu " +
+           "WHERE b.id = :bookingId")
+    Optional<Booking> findByIdWithAllDetails(@Param("bookingId") Integer bookingId);
+
+    @Query("SELECT b FROM Booking b " +
+           "LEFT JOIN FETCH b.car c " +
+           "LEFT JOIN FETCH b.driver d " +
+           "LEFT JOIN FETCH b.status s " +
+           "LEFT JOIN FETCH b.region r " +
+           "WHERE b.customer.id = :customerId " +
+           "ORDER BY b.createdAt DESC")
+    List<Booking> findByCustomerIdWithDetails(@Param("customerId") Integer customerId);
+
     @Query("SELECT COUNT(b) FROM Booking b WHERE b.car.id = :carId AND b.isDeleted = false")
     int countBookingsByCarId(@Param("carId") Integer carId);
 
@@ -35,4 +54,5 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
     List<Booking> findByCarIdAndStatusStatusNameNotAndIsDeletedFalse(
             @Param("carId") Integer carId, 
             @Param("statusName") String statusName);
+
 }

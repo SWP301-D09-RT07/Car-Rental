@@ -38,6 +38,7 @@ api.interceptors.request.use(
     async (config) => {
         console.log('[API Request]', config.method?.toUpperCase(), config.url, config.data);
         const token = localStorage.getItem('token');
+
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -64,6 +65,7 @@ api.interceptors.response.use(
         console.log('[API Response Error] - ExpiresAt:', localStorage.getItem('expiresAt'));
         
         if (error.response?.status === 401) {
+
             console.log('[API Response Error] 401 error detected, but not clearing tokens immediately');
             console.log('[API Response Error] Let the calling code handle the 401 error');
             // Không xóa token ngay lập tức, để code gọi API xử lý
@@ -154,13 +156,27 @@ export const resetPassword = async (email, newPassword) => {
     }
 };
 
+// Sửa changePassword function trong api.js
 export const changePassword = async (currentPassword, newPassword) => {
     if (!currentPassword || !newPassword) throw new Error('Vui lòng cung cấp mật khẩu hiện tại và mật khẩu mới');
+
+    const payload = { currentPassword, newPassword };
+    console.log('🔐 Change password payload:', payload);
+
     try {
-        const response = await api.post('/api/auth/change-password', { currentPassword, newPassword });
+        const response = await api.post('/api/users/change-password', payload);
+        console.log('✅ Change password success:', response.data);
         return response.data;
     } catch (error) {
-        throw new Error(error.response?.data?.message || 'Đổi mật khẩu thất bại');
+        console.error('❌ Change password error:', error);
+        console.error('Error response:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+        // Handle different error formats from backend
+        const errorMessage = error.response?.data?.error ||
+            error.response?.data?.message ||
+            error.message ||
+            'Đổi mật khẩu thất bại';
+        throw new Error(errorMessage);
     }
 };
 
@@ -192,20 +208,48 @@ export const logout = async () => {
 // Quản lý người dùng
 export const getProfile = async () => {
     try {
+        console.log('🔄 Fetching user profile...');
         const response = await api.get('/api/users/profile');
+        console.log('✅ Profile fetched successfully:', response.data);
         return response.data;
     } catch (error) {
-        throw new Error(error.response?.data?.message || 'Lấy thông tin người dùng thất bại');
+        console.error('❌ Profile fetch error:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            headers: error.response?.headers,
+            message: error.message
+        });
+        
+        // Provide more specific error messages based on status code
+        if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.response?.status === 403) {
+            throw new Error('Bạn không có quyền truy cập thông tin này.');
+        } else if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy thông tin người dùng.');
+        } else if (error.response?.status === 500) {
+            throw new Error('Lỗi hệ thống. Vui lòng thử lại sau.');
+        } else {
+            throw new Error(error.response?.data?.message || 'Lấy thông tin người dùng thất bại');
+        }
     }
 };
 
-export const updateProfile = async (userId, userData) => {
-    if (!userId || !userData) throw new Error('Vui lòng cung cấp ID người dùng và dữ liệu cập nhật');
+export const updateProfile = async (userData) => {
+    if (!userData) throw new Error('Vui lòng cung cấp dữ liệu cập nhật');
+    
     try {
-        const response = await api.put(`/api/users/${userId}`, userData);
+        const response = await api.put('/api/users/profile', userData);
         return response.data;
     } catch (error) {
-        throw new Error(error.response?.data?.message || 'Cập nhật hồ sơ thất bại');
+        console.error('Update profile error:', error);
+        // Handle different error formats from backend
+        const errorMessage = error.response?.data?.error || 
+                            error.response?.data?.message || 
+                            error.message || 
+                            'Cập nhật hồ sơ thất bại';
+        throw new Error(errorMessage);
     }
 };
 
@@ -499,12 +543,32 @@ export const updateBooking = async (bookingId, bookingData) => {
 };
 
 export const cancelBooking = async (bookingId) => {
-    if (!bookingId) throw new Error('Vui lòng cung cấp ID đặt xe');
     try {
-        const response = await api.delete(`/api/bookings/${bookingId}`);
+        console.log('🔄 Cancelling booking ID:', bookingId);
+        const response = await api.put(`/api/bookings/${bookingId}/cancel`);
+        console.log('✅ Booking cancelled successfully:', response.data);
         return response.data;
     } catch (error) {
-        throw new Error(error.response?.data?.message || 'Hủy đặt xe thất bại');
+        console.error('❌ Cancel booking error:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            url: error.config?.url
+        });
+        
+        if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.response?.status === 403) {
+            throw new Error('Bạn không có quyền hủy đặt xe này.');
+        } else if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy thông tin đặt xe.');
+        } else if (error.response?.status === 400) {
+            throw new Error(error.response?.data?.error || 'Không thể hủy đặt xe với trạng thái hiện tại.');
+        } else if (error.response?.status === 500) {
+            throw new Error(error.response?.data?.error || 'Lỗi hệ thống khi hủy đặt xe.');
+        } else {
+            throw new Error(error.response?.data?.error || 'Lỗi khi hủy đặt xe');
+        }
     }
 };
 
@@ -685,6 +749,113 @@ export const getSimilarCarsAdvanced = async (carId, page = 0, size = 4) => {
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Lấy danh sách xe tương tự nâng cao thất bại');
+    }
+};
+
+// Test authentication endpoint
+export const testAuth = async () => {
+    try {
+        console.log('🧪 Testing authentication...');
+        const response = await api.get('/api/users/profile');
+        console.log('✅ Auth test successful:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Auth test failed:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            headers: error.response?.headers
+        });
+        throw error;
+    }
+};
+
+
+export const getUserBookingHistory = async () => {
+    try {
+        console.log('🔄 Fetching user booking history...');
+        const response = await api.get('/api/users/profile/bookings');
+        console.log('✅ Booking history fetched successfully:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Booking history fetch error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Lỗi khi tải lịch sử đặt xe');
+    }
+};
+
+// Send email verification
+export const sendEmailVerification = async () => {
+    try {
+        console.log('🔄 Sending email verification...');
+        const response = await api.post('/api/users/send-email-verification');
+        console.log('✅ Email verification sent:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Send email verification error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Lỗi khi gửi email xác thực');
+    }
+};
+
+// Verify email
+export const verifyEmail = async (token) => {
+    try {
+        console.log('🔄 Verifying email...');
+        const response = await api.post('/api/users/verify-email', { token });
+        console.log('✅ Email verified successfully:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Verify email error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Lỗi khi xác thực email');
+    }
+};
+export const getFavoriteCars = async () => {
+    try {
+        console.log('🔄 Fetching favorite cars...');
+        const response = await api.get('/api/users/favorites');
+        console.log('✅ Favorite cars fetched:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Fetch favorites error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Lỗi khi tải xe yêu thích');
+    }
+};
+
+// Get booking details
+export const getBookingDetails = async (bookingId) => {
+    try {
+        console.log('🔄 Fetching booking details for ID:', bookingId);
+        console.log('🔍 Current token:', localStorage.getItem('token') ? 'Present' : 'Missing');
+        console.log('🔍 Current role:', localStorage.getItem('role'));
+        
+        const response = await api.get(`/api/bookings/${bookingId}`);
+        console.log('✅ Booking details fetched:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Fetch booking details error:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            url: error.config?.url,
+            headers: error.config?.headers
+        });
+        
+        // Xử lý các loại lỗi cụ thể
+        if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.response?.status === 403) {
+            const errorData = error.response?.data;
+            if (errorData?.code === 'ACCESS_DENIED') {
+                throw new Error(errorData.error || 'Bạn không có quyền xem chi tiết đặt xe này.');
+            }
+            throw new Error('Bạn không có quyền truy cập.');
+        } else if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy thông tin đặt xe.');
+        } else if (error.response?.status === 500) {
+            const errorMsg = error.response?.data?.error || error.response?.data?.message || 'Lỗi hệ thống';
+            throw new Error(errorMsg);
+        } else {
+            throw new Error(error.response?.data?.error || 'Lỗi khi tải chi tiết đặt xe');
+        }
     }
 };
 

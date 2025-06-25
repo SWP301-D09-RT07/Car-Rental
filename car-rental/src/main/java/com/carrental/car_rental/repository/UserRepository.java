@@ -20,8 +20,8 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByUsernameOrEmail(String username, String email);
     List<User> findByRoleIdAndIsDeletedFalse(Integer roleId);
     List<User> findAllByIsDeletedFalse();
-    List<User> findByCountryCodeAndIsDeletedFalse(CountryCode countryCode);
-    Optional<User> findByUsername(String username);
+    List<User> findByCountryCodeAndIsDeletedFalse(CountryCode countryCode);    Optional<User> findByUsername(String username);
+    Optional<User> findByUsernameAndIsDeletedFalse(String username);
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);
     Optional<User> findByEmail(String email);

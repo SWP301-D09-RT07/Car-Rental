@@ -33,6 +33,7 @@ public class Booking {
     @JoinColumn(name = "car_id", nullable = false)
     private Car car;
 
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "driver_id")
     private Driver driver;
@@ -105,8 +106,13 @@ public class Booking {
     @ColumnDefault("0")
     @Column(name = "is_deleted")
     private Boolean isDeleted;
+    
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = Instant.now();
+    }
 
     @Column(name = "with_driver", nullable = false)
     private Boolean withDriver = false;
-
+    
 }

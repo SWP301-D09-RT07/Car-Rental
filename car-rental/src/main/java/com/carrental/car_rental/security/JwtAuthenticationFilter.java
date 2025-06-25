@@ -36,7 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/regions/",
             "/api/cars/",
             "/api/service-types/",
-            "/api/bookings/",
+            // "/api/bookings/",
             "/api/ratings/",
             "/api/payments/callback"
     );
@@ -60,30 +60,58 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         logger.info("Request path: {}", path);
         String method = request.getMethod();
 
-        // So sánh chính xác endpoint hoặc bắt đầu bằng prefix
-        boolean isPublicEndpoint = PUBLIC_ENDPOINTS.stream()
-            .anyMatch(publicPath -> path.equals(publicPath) || path.startsWith(publicPath));
-        boolean isGetRestrictedEndpoint = (path.startsWith("/api/bookings/") || path.startsWith("/api/ratings/"))
-                && "GET".equalsIgnoreCase(method);
+        
+        // Bỏ qua các endpoint không yêu cầu xác thực
+        boolean isPublicEndpoint = PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
+        
+        // Chỉ cho phép một số endpoint bookings specific là public (GET methods)
+        boolean isGetBookingsPublic = path.startsWith("/api/bookings/") && "GET".equalsIgnoreCase(method) &&
+                (path.matches("/api/bookings/user/\\d+") || 
+                 path.matches("/api/bookings/car/\\d+") || 
+                 path.equals("/api/bookings") ||
+                 path.endsWith("/financials") ||
+                 path.contains("/debug/"));
 
-        if (isPublicEndpoint || isGetRestrictedEndpoint) {
+        if (isPublicEndpoint || isGetBookingsPublic || path.startsWith("/login/oauth2/code/")) {
+
+
+//        // So sánh chính xác endpoint hoặc bắt đầu bằng prefix
+//        boolean isPublicEndpoint = PUBLIC_ENDPOINTS.stream()
+//            .anyMatch(publicPath -> path.equals(publicPath) || path.startsWith(publicPath));
+//        boolean isGetRestrictedEndpoint = (path.startsWith("/api/bookings/") || path.startsWith("/api/ratings/"))
+//                && "GET".equalsIgnoreCase(method);
+//
+//        if (isPublicEndpoint || isGetRestrictedEndpoint) {
+
             filterChain.doFilter(request, response);
             return;
         }
-
+        
+        // Tất cả các endpoint khác cần authentication
         String token = getJwtFromRequest(request);
+        logger.debug("Processing request: {} {}, Token present: {}", method, path, token != null);
+        
         if (token != null && jwtTokenProvider.validateToken(token)) {
-            logger.info("Valid JWT token found for request: {}", path);
+            logger.info("Valid JWT token found for request: {} {}", method, path);
             String username = jwtTokenProvider.getUsernameFromToken(token);
             String role = jwtTokenProvider.getRoleFromToken(token);
+            logger.info("Token details - Username: {}, Role: {}", username, role);
+            
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            logger.info("UserDetails authorities: {}", userDetails.getAuthorities());
+            
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userDetails, null, userDetails.getAuthorities());
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authentication);
+            
+            logger.info("Authentication set in SecurityContext: {}", authentication.getAuthorities());
         } else if (token != null) {
-            logger.debug("No valid JWT token found for request: {}", path);
+            logger.warn("Invalid JWT token found for request: {} {} - Token validation failed", method, path);
+        } else {
+            logger.debug("No JWT token found for request: {} {}", method, path);
         }
+        
         filterChain.doFilter(request, response);
     }
 
