@@ -33,4 +33,9 @@ public class CarDetailsResponseDTO {
     private LocalDateTime updatedAt;
     private List<ImageDTO> images;
     private List<RatingDTO> ratings;
+    private Integer rentalCount;
+
+    // Thêm các trường mới
+    private String transmission;
+    private String describe;
 }

@@ -3,11 +3,11 @@
 import { useState, useContext, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
-import { AuthContext } from "../../context/AuthContext"
+import { AuthContext } from "../../store/AuthContext"
 import { login, register } from "@/services/api"
 
 const LoginRegisterPage = () => {
-  const { login: setAuthData, token, user } = useContext(AuthContext);
+  const { login: setAuthData } = useContext(AuthContext);
   const [isRegisterActive, setRegisterActive] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -49,36 +49,64 @@ const LoginRegisterPage = () => {
     resetRegister();
   };
 
-  useEffect(() => {
-    if (token && user) {
-      if (user.role === 'ADMIN') {
-        navigate('/admin', { replace: true });
-      } else if (user.role === 'SUPPLIER') {
-        navigate('/supplier/dashboard', { replace: true });
-      } else if (user.role === 'CUSTOMER') {
-        navigate('/', { replace: true });
-      } else {
-        navigate('/', { replace: true });
-      }
-    }
-  }, [token, user, navigate]);
-
   const onLoginSubmit = async (data) => {
     setLoading(true);
     setError('');
     try {
+      console.log('[LoginRegister] Attempting login with:', { username: data.username, password: '***' });
       const response = await login(data.username, data.password);
-      console.log('Login response:', response);
+      console.log('[LoginRegister] Login response:', response);
+      console.log('[LoginRegister] Response structure:', {
+        hasToken: !!response.token,
+        tokenLength: response.token ? response.token.length : 0,
+        hasExpiresAt: !!response.expiresAt,
+        expiresAt: response.expiresAt,
+        hasRole: !!response.role,
+        role: response.role,
+        hasUsername: !!response.username,
+        username: response.username
+      });
+      
+      // Đảm bảo role được set đúng
+      const userRole = response.role || 'customer';
+      console.log('[LoginRegister] Setting user role to:', userRole);
+      
       setAuthData(response.token, {
         expiresAt: response.expiresAt,
-        role: response.role || 'customer',
+        role: userRole,
         username: response.username || data.username,
         email: response.email || data.username
       });
+
+      // Lưu email vào localStorage
       localStorage.setItem('userEmail', response.email || data.username);
-      console.log('Token in localStorage after login:', localStorage.getItem('token'));
+      // Lưu username vào localStorage
+      localStorage.setItem('username', response.username || data.username);
+
       showToast('Đăng nhập thành công!', 'success');
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectTo = urlParams.get('redirectTo') || '/';
+
+      console.log('[LoginRegister] Redirect logic:', {
+        role: userRole,
+        redirectTo: redirectTo,
+        willRedirectTo: userRole === 'admin' ? '/admin' : 
+                       userRole === 'supplier' ? '/supplier/dashboard' : 
+                       redirectTo
+      });
+
+      setTimeout(() => {
+        if (userRole === 'admin') {
+          navigate('/admin', { replace: true });
+        } else if (userRole === 'supplier') {
+          navigate('/supplier/dashboard', { replace: true });
+        } else {
+          navigate(redirectTo, { replace: true });
+        }
+      }, 1000);
     } catch (err) {
+      console.error('[LoginRegister] Login error:', err);
       setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.');
       showToast('Đăng nhập thất bại!', 'error');
     } finally {
@@ -95,20 +123,23 @@ const LoginRegisterPage = () => {
         email: data.email,
         password: data.password,
         phone: data.phone,
-        roleId: data.userType === 'renter' ? 1 : 2,
-        statusId: 1,
+        roleId: data.userType === 'renter' ? 3 : 2, // 3 = customer, 2 = supplier
+        statusId: 8,
         countryCode: '+84',
+        preferredLanguage: 'vi',
         userDetail: {
           name: data.username,
           address: 'Unknown',
         },
       };
+      console.log('[LoginRegister] Registering user with data:', { ...userData, password: '***' });
       await register(userData);
       showToast('Đăng ký thành công! Vui lòng đăng nhập.', 'success');
       setTimeout(() => {
         setRegisterActive(false);
       }, 1500);
     } catch (err) {
+      console.error('[LoginRegister] Register error:', err);
       setError(err.message || 'Đăng ký thất bại. Vui lòng thử lại.');
       showToast('Đăng ký thất bại!', 'error');
     } finally {

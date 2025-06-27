@@ -4,27 +4,33 @@ import com.carrental.car_rental.dto.*;
 import com.carrental.car_rental.entity.*;
 import com.carrental.car_rental.mapper.CarMapper;
 import com.carrental.car_rental.mapper.ImageMapper;
+import com.carrental.car_rental.mapper.UserDetailMapper;
+import com.carrental.car_rental.mapper.UserMapper;
 import com.carrental.car_rental.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import java.util.HashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +46,13 @@ public class CarService {
     private final FuelTypeRepository fuelTypeRepository;
     private final RegionRepository regionRepository;
     private final CountryCodeRepository countryCodeRepository;
+
+    @Autowired
+    private UserDetailRepository userDetailRepository;
+    @Autowired
+    private UserDetailMapper userDetailMapper;
+    @Autowired
+    private UserMapper userMapper;
 
     @Transactional(readOnly = true)
     public List<CarDTO> getFeaturedCars(int page, int size) {
@@ -77,15 +90,23 @@ public class CarService {
     }
 
     @Transactional(readOnly = true)
-    public List<CarDTO> searchCars(String pickupLocation, String dropoffLocation, String pickupDate, String dropoffDate, String pickupTime, int page, int size) {
-        logger.info("Tìm kiếm xe với pickupLocation: {}, dropoffLocation: {}, pickupDate: {}, dropoffDate: {}, pickupTime: {}, trang {}, kích thước {}",
-                pickupLocation, dropoffLocation, pickupDate, dropoffDate, pickupTime, page, size);
+    public List<CarDTO> searchCars(String pickupLocation, CountryCode country, String pickupDate, String dropoffDate, String pickupTime, int page, int size) {
+        logger.info("Tìm kiếm xe với pickupLocation: {}, country: {}, pickupDate: {}, dropoffDate: {}, pickupTime: {}, trang {}, kích thước {}",
+                pickupLocation, country, pickupDate, dropoffDate, pickupTime, page, size);
         CarSearchRequestDTO request = new CarSearchRequestDTO();
         request.setStartDate(pickupDate != null ? Instant.parse(pickupDate + "T" + (pickupTime != null ? pickupTime + "Z" : "00:00:00Z")) : null);
         request.setEndDate(dropoffDate != null ? Instant.parse(dropoffDate + "T23:59:59Z") : null);
+        // Lọc region theo country
+        List<Region> regions = regionRepository.findByCountryCodeAndIsDeletedFalse(country);
+        Region matchedRegion = regions.stream()
+            .filter(region -> region.getRegionName().equalsIgnoreCase(pickupLocation))
+            .findFirst().orElse(null);
+        if (matchedRegion == null) {
+            return List.of(); // Không có region phù hợp
+        }
+        request.setRegionId(matchedRegion.getId());
         return searchAvailableCars(request, page, size)
                 .stream()
-                .filter(car -> pickupLocation == null || car.getRegionId().toString().contains(pickupLocation))
                 .collect(Collectors.toList());
     }
 
@@ -140,6 +161,17 @@ public class CarService {
 
         CarDetailsResponseDTO dto = new CarDetailsResponseDTO();
         CarDTO carDTO = mapper.toDTO(car);
+        // LOG: Kiểm tra supplier và userDetail mapping
+        if (carDTO.getSupplier() == null) {
+            logger.warn("[LOG] carDTO.supplier is NULL!");
+        } else {
+            logger.info("[LOG] carDTO.supplier: {}", carDTO.getSupplier());
+            if (carDTO.getSupplier().getUserDetail() == null) {
+                logger.warn("[LOG] carDTO.supplier.userDetail is NULL!");
+            } else {
+                logger.info("[LOG] carDTO.supplier.userDetail: {}", carDTO.getSupplier().getUserDetail());
+            }
+        }
         dto.setCarId(carDTO.getCarId());
         dto.setSupplierId(carDTO.getSupplierId());
         dto.setSupplierEmail(car.getSupplier().getEmail());
@@ -160,6 +192,9 @@ public class CarService {
         dto.setCreatedAt(carDTO.getCreatedAt());
         dto.setUpdatedAt(carDTO.getUpdatedAt());
         dto.setImages(getImagesForCar(carId));
+        dto.setRentalCount(getRentalCountForCar(carId));
+        dto.setDescribe(car.getDescribe());
+        dto.setTransmission(car.getTransmission());
         return dto;
     }
 
@@ -179,6 +214,16 @@ public class CarService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Xe không tồn tại với id: " + id));
         CarDTO dto = mapper.toDTO(car);
         dto.setImages(getImagesForCar(id));
+
+        // Lấy supplier và userDetail
+        if (car.getSupplier() != null) {
+            UserDTO supplierDTO = userMapper.toDto(car.getSupplier());
+            userDetailRepository.findById(car.getSupplier().getId()).ifPresent(userDetail -> {
+                supplierDTO.setUserDetail(userDetailMapper.toDTO(userDetail));
+            });
+            dto.setSupplier(supplierDTO);
+        }
+
         return dto;
     }
 
@@ -503,5 +548,160 @@ public class CarService {
             dto.setImages(getImagesForCar(car.getId()));
             return dto;
         });
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CarDTO> filterCars(
+        String brand,
+        String countryCode,
+        Integer regionId,
+        Short numOfSeats,
+        String priceRange,
+        Short year,
+        String fuelType,
+        int page,
+        int size,
+        String sortBy
+    ) {
+        try {
+            // Create pageable before the lambda
+            Pageable pageable = PageRequest.of(page, size);
+            if (sortBy != null && !sortBy.isEmpty()) {
+                switch (sortBy) {
+                    case "price-low" -> pageable = PageRequest.of(page, size, Sort.by("dailyRate").ascending());
+                    case "price-high" -> pageable = PageRequest.of(page, size, Sort.by("dailyRate").descending());
+                    case "name" -> pageable = PageRequest.of(page, size, Sort.by("model").ascending());
+                    default -> pageable = PageRequest.of(page, size, Sort.by("carId").descending());
+                }
+            }
+            
+            // Tạo specification cho việc lọc
+            Specification<Car> spec = (root, query, cb) -> {
+                List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+                
+                // Lọc theo brand
+                if (brand != null && !brand.isEmpty()) {
+                    predicates.add(cb.equal(root.get("brand").get("brandName"), brand));
+                }
+                
+                // Lọc theo country code và region
+                if (countryCode != null && !countryCode.isEmpty()) {
+                    // Nếu có regionId, lọc theo regionId
+                    if (regionId != null) {
+                        predicates.add(cb.equal(root.get("region").get("id"), regionId));
+                    } else {
+                        // Nếu không có regionId, lọc theo countryCode
+                        predicates.add(cb.equal(root.get("region").get("countryCode").get("countryCode"), countryCode));
+                    }
+                }
+                
+                // Lọc theo số chỗ ngồi
+                if (numOfSeats != null) {
+                    predicates.add(cb.equal(root.get("numOfSeats"), numOfSeats));
+                }
+                
+                // Lọc theo khoảng giá
+                if (priceRange != null && !priceRange.isEmpty()) {
+                    String[] range = priceRange.split("-");
+                    if (range.length == 2) {
+                        BigDecimal minPrice = new BigDecimal(range[0].trim());
+                        BigDecimal maxPrice = new BigDecimal(range[1].trim());
+                        predicates.add(cb.between(root.get("dailyRate"), minPrice, maxPrice));
+                    }
+                }
+                
+                // Lọc theo năm sản xuất
+                if (year != null) {
+                    predicates.add(cb.equal(root.get("year"), year));
+                }
+                
+                // Lọc theo loại nhiên liệu
+                if (fuelType != null && !fuelType.isEmpty()) {
+                    predicates.add(cb.equal(root.get("fuelType").get("fuelTypeName"), fuelType));
+                }
+                
+                // Chỉ fetch join khi query là select (không phải count)
+                if (query.getResultType() != Long.class) {
+                    root.fetch("brand", jakarta.persistence.criteria.JoinType.LEFT);
+                    root.fetch("region", jakarta.persistence.criteria.JoinType.LEFT);
+                    root.fetch("fuelType", jakarta.persistence.criteria.JoinType.LEFT);
+                    root.fetch("images", jakarta.persistence.criteria.JoinType.LEFT);
+                }
+                
+                return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+            };
+            
+            return repository.findAll(spec, pageable).map(car -> {
+                CarDTO dto = mapper.toDTO(car);
+                dto.setImages(getImagesForCar(car.getId()));
+                return dto;
+            });
+        } catch (Exception e) {
+            logger.error("Error filtering cars: ", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to filter cars", e);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CarDTO> findCars(String searchQuery, int page, int size) {
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+            
+            Specification<Car> spec = (root, query, cb) -> {
+                if (searchQuery == null || searchQuery.trim().isEmpty()) {
+                    return cb.conjunction(); // Trả về tất cả xe khi không có từ khóa tìm kiếm
+                }
+                
+                String searchPattern = "%" + searchQuery.toLowerCase() + "%";
+                
+                return cb.or(
+                    cb.like(cb.lower(root.get("model")), searchPattern),
+                    cb.like(cb.lower(root.get("brand").get("brandName")), searchPattern)
+                );
+            };
+            
+            return repository.findAll(spec, pageable).map(car -> {
+                CarDTO dto = mapper.toDTO(car);
+                dto.setImages(getImagesForCar(car.getId()));
+                return dto;
+            });
+        } catch (Exception e) {
+            logger.error("Error searching cars: ", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to search cars", e);
+        }
+    }
+
+    public int getRentalCountForCar(Integer carId) {
+        return bookingRepository.countBookingsByCarId(carId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getBookedDates(Integer carId) {
+        logger.info("Lấy ngày đã đặt cho xe với carId: {}", carId);
+        try {
+            // Lấy tất cả booking của xe này với status không phải CANCELLED
+            List<Booking> bookings = bookingRepository.findByCarIdAndStatusStatusNameNotAndIsDeletedFalse(
+                carId, "cancelled");
+            
+            List<String> bookedDates = new ArrayList<>();
+            
+            for (Booking booking : bookings) {
+                LocalDate startDate = booking.getStartDate();
+                LocalDate endDate = booking.getEndDate();
+                
+                // Thêm tất cả ngày từ startDate đến endDate
+                LocalDate currentDate = startDate;
+                while (!currentDate.isAfter(endDate)) {
+                    bookedDates.add(currentDate.toString());
+                    currentDate = currentDate.plusDays(1);
+                }
+            }
+            
+            logger.info("Tìm thấy {} ngày đã đặt cho xe {}", bookedDates.size(), carId);
+            return bookedDates;
+        } catch (Exception e) {
+            logger.error("Lỗi khi lấy ngày đã đặt cho xe {}: {}", carId, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi khi lấy ngày đã đặt", e);
+        }
     }
 }

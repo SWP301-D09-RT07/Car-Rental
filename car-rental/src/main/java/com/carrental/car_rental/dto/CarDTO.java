@@ -14,6 +14,7 @@ import java.util.List;
 public class CarDTO {
     private Integer carId;
     private Integer supplierId;
+    private UserDTO supplier; // Thêm thông tin chi tiết chủ xe
     private String licensePlate;
     private String model;
     private Short year;
@@ -33,5 +34,9 @@ public class CarDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ImageDTO> images;
+    private Integer rentalCount;
 
+    // Thêm các trường mới
+    private String transmission;
+    private String describe;
 }

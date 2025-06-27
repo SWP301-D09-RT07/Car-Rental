@@ -1,12 +1,17 @@
 package com.carrental.car_rental.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.math.BigDecimal;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class BookingDTO {
     private Integer bookingId;
     private Integer userId; // Maps to Booking.customer_id
@@ -47,8 +52,8 @@ public class BookingDTO {
     private LocalDate endDate;
     // private Instant bookingInstant;
     // private Instant createdInstant;
-//    public Boolean getIsSelfDrive() {
-//        return isSelfDrive != null ? isSelfDrive : (driverId == null);
-//    }
-   // public void setIsSelfDrive(Boolean isSelfDrive) { this.isSelfDrive = isSelfDrive; }
+    public Boolean getIsSelfDrive() { 
+        return isSelfDrive != null ? isSelfDrive : (driverId == null); 
+    }
+    public void setIsSelfDrive(Boolean isSelfDrive) { this.isSelfDrive = isSelfDrive; }
 }

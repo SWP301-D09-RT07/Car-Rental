@@ -17,7 +17,7 @@ public class BookingConfirmationDTO {
     private LocalDateTime pickupDateTime;
 
     @NotNull(message = "Dropoff date is required")
-    private LocalDateTime dropoffDate;
+    private LocalDateTime dropoffDateTime;
 
     @NotBlank(message = "Pickup location is required")
     private String pickupLocation;
@@ -31,6 +31,8 @@ public class BookingConfirmationDTO {
     private Boolean agreeTerms;
 
     private Boolean delivery;
+    private Boolean withDriver;
+    private Boolean deliveryRequested;
 
     private Integer bookingId; // Returned after confirmation
     private PriceBreakdownDTO priceBreakdown; // Returned after confirmation

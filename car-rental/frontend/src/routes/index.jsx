@@ -11,27 +11,25 @@ import PaymentPage from '../pages/payments/PaymentPage/PaymentPage';
 import LoginRegister from '../pages/Auth/LoginRegister';
 import FavoritePage from '../pages/favorites/FavoritePage/FavoritePage';
 import ProfilePage from '../pages/profile/ProfilePage/ProfilePage';
-import SearchPage from "@/pages/cars/SearchPage/SearchPage";
+import SearchPage from "../pages/cars/SearchPage/SearchPage";
 import PaymentFailedPage from '../pages/payments/PaymentFailedPage';
 
 // Components
 import { ProtectedRoute } from '../components/features/auth/ProtectedRoute.jsx';
 
 // Admin Pages
-import AdminHome from '../components/features/admin/Admin/Home';
-import Bookings from '../components/features/admin/Admin/Bookings';
-import CarListings from '../components/features/admin/Admin/CarListings';
-import Payments from '../components/features/admin/Admin/Payments';
-import Reports from '../components/features/admin/Admin/Reports';
-import Users from '../components/features/admin/Admin/Users';
+import AdminHome from '../components/features/admin/Home';
+import Reports from '../components/features/admin/Reports';
+import Users from '../components/features/admin/Users';
+import Sidebar from '../components/features/admin/Sidebar';
 
-// (Có thể import Sidebar nếu muốn)
-// import Sidebar from '../components/features/admin/Sidebar';
+// Supplier Pages
+import SupplierCarDashboard from '../components/Supplier/SupplierCarDashboard';
 
 // Admin Layout Wrapper
 const AdminLayout = ({ children }) => (
     <div className="admin-layout" style={{ display: 'flex', minHeight: '100vh' }}>
-        {/* <Sidebar /> */}
+         <Sidebar />
         <div style={{ flex: 1 }}>{children}</div>
     </div>
 );
@@ -48,6 +46,8 @@ const AppRoutes = () => {
                     user ? (
                         user.role === 'admin' ? (
                             <Navigate to="/admin" replace />
+                        ) : user.role === 'supplier' ? (
+                            <Navigate to="/supplier/dashboard" replace />
                         ) : (
                             <HomePage />
                         )
@@ -108,6 +108,56 @@ const AppRoutes = () => {
                 }
             />
 
+            {/* Supplier routes - Tất cả đều sử dụng SupplierCarDashboard */}
+            <Route
+                path="/supplier"
+                element={
+                    <ProtectedRoute requiredRole="supplier">
+                        <Navigate to="/supplier/dashboard" replace />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/supplier/dashboard"
+                element={
+                    <ProtectedRoute requiredRole="supplier">
+                        <SupplierCarDashboard />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/supplier/cars"
+                element={
+                    <ProtectedRoute requiredRole="supplier">
+                        <Navigate to="/supplier/dashboard" replace />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/supplier/bookings"
+                element={
+                    <ProtectedRoute requiredRole="supplier">
+                        <Navigate to="/supplier/dashboard" replace />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/supplier/reports"
+                element={
+                    <ProtectedRoute requiredRole="supplier">
+                        <Navigate to="/supplier/dashboard" replace />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/supplier/profile"
+                element={
+                    <ProtectedRoute requiredRole="supplier">
+                        <Navigate to="/supplier/dashboard" replace />
+                    </ProtectedRoute>
+                }
+            />
+
             {/* Admin routes bọc bởi AdminLayout */}
             <Route
                 path="/admin"
@@ -115,36 +165,6 @@ const AppRoutes = () => {
                     <ProtectedRoute requiredRole="admin">
                         <AdminLayout>
                             <AdminHome />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/bookings"
-                element={
-                    <ProtectedRoute requiredRole="admin">
-                        <AdminLayout>
-                            <Bookings />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/car-listings"
-                element={
-                    <ProtectedRoute requiredRole="admin">
-                        <AdminLayout>
-                            <CarListings />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/payments"
-                element={
-                    <ProtectedRoute requiredRole="admin">
-                        <AdminLayout>
-                            <Payments />
                         </AdminLayout>
                     </ProtectedRoute>
                 }

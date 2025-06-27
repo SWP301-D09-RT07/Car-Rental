@@ -24,5 +24,6 @@ public class UserDTO {
     private String preferredLanguage;
     private Instant createdAt;
     private Instant updatedAt;
+    private Instant lastLogin;
     private UserDetailDTO userDetail;
 }

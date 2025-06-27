@@ -77,4 +77,7 @@ public class User {
     @Column(name = "is_deleted")
     private Boolean isDeleted;
 
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
+    private UserDetail userDetail;
+
 }

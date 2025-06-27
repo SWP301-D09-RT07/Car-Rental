@@ -5,10 +5,11 @@ import com.carrental.car_rental.entity.Car;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring", uses = {CommonMapper.class, ImageMapper.class})
+@Mapper(componentModel = "spring", uses = {CommonMapper.class, ImageMapper.class, UserMapper.class})
 public interface CarMapper {
     @Mapping(source = "id", target = "carId")
     @Mapping(source = "supplier.id", target = "supplierId")
+    @Mapping(source = "supplier", target = "supplier") // Map thông tin chi tiết chủ xe
     @Mapping(source = "brand.id", target = "carBrandId")
     @Mapping(source = "brand.brandName", target = "brandName")
     @Mapping(source = "licensePlate", target = "licensePlate")
@@ -24,10 +25,13 @@ public interface CarMapper {
     @Mapping(source = "status.id", target = "statusId")
     @Mapping(source = "status.statusName", target = "statusName")
     @Mapping(source = "features", target = "features")
+    @Mapping(source = "transmission", target = "transmission")
+    @Mapping(source = "describe", target = "describe")
     @Mapping(source = "image", target = "image") // Ánh xạ từ getter image
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "instantToLocalDateTime")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "instantToLocalDateTime")
     @Mapping(source = "images", target = "images")
+    @Mapping(target = "rentalCount", ignore = true) // Ignore rentalCount vì không có trong entity
     CarDTO toDTO(Car entity);
 
     @Mapping(source = "carId", target = "id")
@@ -44,6 +48,8 @@ public interface CarMapper {
     @Mapping(source = "fuelTypeId", target = "fuelType.id")
     @Mapping(source = "statusId", target = "status.id")
     @Mapping(source = "features", target = "features")
+    @Mapping(source = "transmission", target = "transmission")
+    @Mapping(source = "describe", target = "describe")
     @Mapping(source = "images", target = "images")
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "localDateTimeToInstant")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "localDateTimeToInstant")

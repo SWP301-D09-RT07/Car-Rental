@@ -106,7 +106,7 @@ public class Booking {
     @ColumnDefault("0")
     @Column(name = "is_deleted")
     private Boolean isDeleted;
-
+    
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = Instant.now();
@@ -114,5 +114,5 @@ public class Booking {
 
     @Column(name = "with_driver", nullable = false)
     private Boolean withDriver = false;
-
+    
 }

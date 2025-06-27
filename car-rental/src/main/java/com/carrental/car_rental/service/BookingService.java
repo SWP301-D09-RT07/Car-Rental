@@ -96,12 +96,12 @@ public class BookingService {
         logger.info("Fetching booking by transactionId: {}", transactionId);
         Payment payment = paymentRepository.findByTransactionIdAndIsDeletedFalse(transactionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment with transactionId " + transactionId + " not found."));
-
+        
         Booking booking = payment.getBooking();
         if (booking == null || booking.getIsDeleted()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking associated with payment " + transactionId + " not found or has been deleted.");
         }
-
+        
         return bookingMapper.toDTO(booking);
     }
 
@@ -134,7 +134,7 @@ public class BookingService {
     @Transactional
     public BookingDTO save(BookingDTO dto) {
         logger.info("Saving new booking with DTO: carId={}, pickupLocation={}, dropoffLocation={}, pickupDateTime={}, dropoffDateTime={}",
-                dto.getCarId(), dto.getPickupLocation(), dto.getDropoffLocation(), dto.getPickupDateTime(), dto.getDropoffDateTime());
+            dto.getCarId(), dto.getPickupLocation(), dto.getDropoffLocation(), dto.getPickupDateTime(), dto.getDropoffDateTime());
 
         // Validate required fields
         if (dto.getCarId() == null) {
@@ -162,11 +162,11 @@ public class BookingService {
 
         // Check if car is available for the specified dates
         List<Booking> conflictingBookings = bookingRepository.findByCarIdAndOverlappingDates(
-                dto.getCarId(), dto.getPickupDateTime().toLocalDate(), dto.getDropoffDateTime().toLocalDate());
-
+            dto.getCarId(), dto.getPickupDateTime().toLocalDate(), dto.getDropoffDateTime().toLocalDate());
+        
         if (!conflictingBookings.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Car is not available for the specified dates. Please choose different dates.");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Car is not available for the specified dates. Please choose different dates.");
         }
 
         // Create booking entity
@@ -182,26 +182,26 @@ public class BookingService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Default status not found")));
         booking.setRegion(car.getRegion());
         booking.setWithDriver(dto.getWithDriver() != null ? dto.getWithDriver() : false);
-
+        
         // Tính toán deposit amount nếu không có trong DTO
         BigDecimal depositAmount = dto.getDepositAmount();
         if (depositAmount == null) {
             // Tính toán deposit amount dựa trên daily rate và số ngày thuê
             long days = java.time.temporal.ChronoUnit.DAYS.between(
-                    dto.getPickupDateTime().toLocalDate(),
-                    dto.getDropoffDateTime().toLocalDate()
+                dto.getPickupDateTime().toLocalDate(), 
+                dto.getDropoffDateTime().toLocalDate()
             );
             if (days == 0) days = 1; // Tối thiểu 1 ngày
-
+            
             BigDecimal dailyRate = car.getDailyRate();
             BigDecimal totalAmount = dailyRate.multiply(BigDecimal.valueOf(days));
             depositAmount = totalAmount.multiply(BigDecimal.valueOf(0.3)); // 30% deposit
-
-            logger.info("Calculated deposit amount: {} for {} days at daily rate: {}",
-                    depositAmount, days, dailyRate);
+            
+            logger.info("Calculated deposit amount: {} for {} days at daily rate: {}", 
+                depositAmount, days, dailyRate);
         }
         booking.setDepositAmount(depositAmount);
-
+        
         // Set seat number from car
         booking.setSeatNumber(car.getNumOfSeats());
         booking.setIsDeleted(false);
@@ -289,7 +289,7 @@ public class BookingService {
 
     public BookingConfirmationDTO confirmBooking(BookingConfirmationDTO dto) {
         logger.info("Confirming booking for car ID: {}, pickupDateTime={}, dropoffDateTime={}",
-                dto.getCarId(), dto.getPickupDateTime(), dto.getDropoffDateTime());
+            dto.getCarId(), dto.getPickupDateTime(), dto.getDropoffDateTime());
 
         if (!dto.getAgreeTerms()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You must agree to the terms");
@@ -398,31 +398,31 @@ public class BookingService {
     @Transactional
     public BookingDTO cancelBooking(Integer bookingId) {
         logger.info("Cancelling booking with id: {}", bookingId);
-
+        
         try {
             // Tìm booking
             Booking booking = bookingRepository.findById(bookingId)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy booking với ID: " + bookingId));
-
+            
             // Kiểm tra trạng thái có thể hủy
             String currentStatus = booking.getStatus().getStatusName();
             if (!"confirmed".equals(currentStatus) && !"pending".equals(currentStatus)) {
                 throw new RuntimeException("Không thể hủy booking với trạng thái: " + currentStatus);
             }
-
+            
             // Tìm cancelled status - DÙNG ID thay vì tạo mới
             Status cancelledStatus = statusRepository.findById(CANCELLED_STATUS_ID)
                     .orElseThrow(() -> new RuntimeException("Lỗi hệ thống: Không tìm thấy trạng thái cancelled"));
-
+            
             // Cập nhật trạng thái
             booking.setStatus(cancelledStatus);
-
+            
             // Lưu booking
             Booking savedBooking = bookingRepository.save(booking);
-
+            
             logger.info("Successfully cancelled booking: {}", bookingId);
             return bookingMapper.toDTO(savedBooking);
-
+            
         } catch (Exception e) {
             logger.error("Error cancelling booking: {}", bookingId, e);
             throw new RuntimeException("Không thể hủy đặt xe: " + e.getMessage());
@@ -449,8 +449,8 @@ public class BookingService {
         logger.info("Getting userId for username: {}", username);
         User user = userRepository.findByUsernameOrEmail(username, username)
                 .filter(u -> !u.getIsDeleted())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "User not found with username: " + username));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                    "User not found with username: " + username));
         logger.info("Found userId: {} for username: {}", user.getId(), username);
         return user.getId();
     }
@@ -458,16 +458,16 @@ public class BookingService {
     // Lấy booking gần đây nhất (của hoàng)
     public List<BookingDTO> findRecentBookings(int size) {
         return bookingRepository.findAllByIsDeletedFalseOrderByBookingDateDesc(PageRequest.of(0, size))
-                .stream()
-                .map(bookingMapper::toDTO)
-                .collect(Collectors.toList());
+            .stream()
+            .map(bookingMapper::toDTO)
+            .collect(Collectors.toList());
     }
 
     // Lấy user có booking gần đây nhất (của hoàng)
     public List<UserDTO> findRecentBookingUsers(int size) {
         return bookingRepository.findRecentBookingUsers(PageRequest.of(0, size))
-                .stream()
-                .map(userMapper::toDto)
-                .collect(Collectors.toList());
+            .stream()
+            .map(userMapper::toDto)
+            .collect(Collectors.toList());
     }
 }

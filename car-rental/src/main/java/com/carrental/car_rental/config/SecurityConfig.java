@@ -29,7 +29,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
@@ -56,20 +56,19 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
+                .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/login/oauth2/code/**", "/oauth2/authorization/**").permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-email", "/oauth2/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/cars/**", "/api/languages/**", "/api/country-codes/**",
                                 "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**",
                                 "/api/cars/*/features", "/api/service-types/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/ratings", "/api/ratings/summary", "/api/ratings/**").permitAll()
-                        .requestMatchers("/api/payments/callback", "/api/payments/test", "/api/payments/test-cash").permitAll()
+                        .requestMatchers("/api/payments/callback", "/api/payments/test", "/api/payments/test-cash", "/api/payments/momo-callback").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/bookings/**").permitAll()
 
                         .requestMatchers("/api/admin/**").hasRole("admin")
                         .requestMatchers("/api/customer/**").hasRole("customer")
                         .requestMatchers("/api/users/**").authenticated()
-
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2
@@ -78,19 +77,22 @@ public class SecurityConfig {
                 )
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
+                            logger.error("Authentication failed for path: {}, error: {}", request.getRequestURI(), authException.getMessage());
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
                             response.setContentType("application/json");
                             response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\"}");
                         })
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        
+        logger.info("SecurityFilterChain configured successfully");
         return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(frontendUrl, "http://localhost:8080", "http://localhost:5174", "http://localhost:5173"));
+        configuration.setAllowedOrigins(List.of(frontendUrl, "http://localhost:8080"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

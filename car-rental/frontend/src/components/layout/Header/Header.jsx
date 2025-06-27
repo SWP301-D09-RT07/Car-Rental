@@ -109,21 +109,34 @@ const Header = ({
                                         <p className="text-sm font-semibold text-gray-900">Xin chào!</p>
                                         <p className="text-xs text-gray-500">{user?.username || localStorage.getItem('username') || "user@example.com"}</p>
                                     </div>
-                                    {[
-                                        { icon: FaUser, text: "Hồ sơ của tôi", path: "/profile" },
-                                        { icon: FaCalendarAlt, text: "Lịch sử thuê xe", path: "/my-bookings" },
-                                        { icon: FaStore, text: "Quản lý xe", path: "/provider-dashboard", color: "text-blue-600" },
-                                    ].map((item, index) => (
+                                    {user?.role === 'supplier' && (
                                         <Link
-                                            key={index}
-                                            to={item.path}
-                                            className={`flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 ${item.color || "text-gray-700 hover:text-blue-600"}`}
+                                            to="/supplier/dashboard"
+                                            className="flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 text-blue-600"
                                             onClick={() => setIsUserDropdownOpen(false)}
                                         >
-                                            <item.icon className="mr-3 text-gray-400" />
-                                            {item.text}
+                                            <FaCar className="mr-3 text-blue-400" />
+                                            Quản lý xe
                                         </Link>
-                                    ))}
+                                    )}
+                                    <Link
+                                        to={user?.role === 'supplier' ? "/supplier/profile" : "/profile"}
+                                        className="flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 text-gray-700 hover:text-blue-600"
+                                        onClick={() => setIsUserDropdownOpen(false)}
+                                    >
+                                        <FaUser className="mr-3 text-gray-400" />
+                                        Hồ sơ của tôi
+                                    </Link>
+                                    {user?.role === 'customer' && (
+                                        <Link
+                                            to="/my-bookings"
+                                            className="flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 text-gray-700 hover:text-blue-600"
+                                            onClick={() => setIsUserDropdownOpen(false)}
+                                        >
+                                            <FaCalendarAlt className="mr-3 text-gray-400" />
+                                            Lịch sử thuê xe
+                                        </Link>
+                                    )}
                                     <div className="border-t border-blue-100 mt-2 pt-2">
                                         <button
                                             onClick={() => {
@@ -194,18 +207,38 @@ const Header = ({
                         <div className="pt-4 border-t border-blue-100 space-y-2">
                             {isAuthenticated ? (
                                 <>
+                                    {user?.role === 'supplier' && (
+                                        <Link
+                                            to="/supplier/dashboard"
+                                            className="flex items-center text-gray-700 p-4 hover:bg-blue-50 hover:text-blue-600 rounded-xl space-x-3 transition-all"
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                        >
+                                            <FaCar className="text-lg" />
+                                            <span>Quản lý xe</span>
+                                        </Link>
+                                    )}
                                     <Link
-                                        to="/profile"
+                                        to={user?.role === 'supplier' ? "/supplier/profile" : "/profile"}
                                         className="flex items-center text-gray-700 p-4 hover:bg-blue-50 hover:text-blue-600 rounded-xl space-x-3 transition-all"
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     >
                                         <FaUser className="text-lg" />
                                         <span>Hồ sơ của tôi</span>
                                     </Link>
+                                    {user?.role === 'customer' && (
+                                        <Link
+                                            to="/my-bookings"
+                                            className="flex items-center text-gray-700 p-4 hover:bg-blue-50 hover:text-blue-600 rounded-xl space-x-3 transition-all"
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                        >
+                                            <FaCalendarAlt className="text-lg" />
+                                            <span>Lịch sử thuê xe</span>
+                                        </Link>
+                                    )}
                                     <button
                                         onClick={() => {
-                                            handleLogout();
                                             setIsMobileMenuOpen(false);
+                                            handleLogout();
                                         }}
                                         className="flex items-center w-full text-left text-red-600 p-4 hover:bg-red-50 rounded-xl space-x-3 transition-all"
                                     >

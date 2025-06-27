@@ -5,6 +5,7 @@ import com.carrental.car_rental.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,11 +15,19 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface CarRepository extends JpaRepository<Car, Integer> {
-    @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.isDeleted = false AND c.status.id = 11")
+public interface CarRepository extends JpaRepository<Car, Integer>, JpaSpecificationExecutor<Car> {
+    @Query("SELECT c FROM Rating r " +
+        "JOIN r.car c " +
+        "WHERE c.isDeleted = false AND c.status.id = 11 AND r.isDeleted = false " +
+        "GROUP BY c " +
+        "ORDER BY AVG(r.ratingScore) DESC")
     Page<Car> findFeaturedCars(Pageable pageable);
 
-    @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.isDeleted = false AND c.status.id = 11")
+    @Query("SELECT c FROM Booking b " +
+        "JOIN b.car c " +
+        "WHERE c.isDeleted = false AND c.status.id = 11 " +
+        "GROUP BY c " +
+        "ORDER BY COUNT(b.id) DESC")
     Page<Car> findPopularCars(Pageable pageable);
 
     @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.isDeleted = false")
@@ -42,10 +51,10 @@ public interface CarRepository extends JpaRepository<Car, Integer> {
     @Query(value = "EXEC sp_GetAvailableCars :startDate, :endDate", nativeQuery = true)
     List<Car> findAvailableCars(Instant startDate, Instant endDate);
 
-    @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status LEFT JOIN FETCH c.images i WHERE c.id = :id AND c.isDeleted = false AND (i.isDeleted = false OR i.isDeleted IS NULL)")
+    @Query("SELECT c FROM Car c JOIN FETCH c.supplier s LEFT JOIN FETCH s.userDetail JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status LEFT JOIN FETCH c.images i WHERE c.id = :id AND c.isDeleted = false AND (i.isDeleted = false OR i.isDeleted IS NULL)")
     Optional<Car> findByIdWithRelations(@Param("id") Integer id);
 
-    @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.isDeleted = false")
+    @Query("SELECT c FROM Car c JOIN FETCH c.supplier JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.isDeleted = false")
     Page<Car> findAllWithRelations(Pageable pageable);
 
     @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.region.id = :regionId AND c.isDeleted = false")
@@ -118,7 +127,7 @@ public interface CarRepository extends JpaRepository<Car, Integer> {
     );
 
     long countBySupplierAndIsDeletedFalse(User supplier);
-    
+
     @Query("SELECT COUNT(c) FROM Car c WHERE c.supplier = :supplier AND c.status.statusName = :status AND c.isDeleted = false")
     long countBySupplierAndStatusAndIsDeletedFalse(@Param("supplier") User supplier, @Param("status") String status);
 
@@ -127,11 +136,11 @@ public interface CarRepository extends JpaRepository<Car, Integer> {
     List<Car> findBySupplierAndIsDeletedFalse(User supplier);
 
     @Query("SELECT c FROM Car c " +
-           "LEFT JOIN FETCH c.brand " +
-           "LEFT JOIN FETCH c.fuelType " +
-           "LEFT JOIN FETCH c.region " +
-           "LEFT JOIN FETCH c.status " +
-           "LEFT JOIN FETCH c.images " +
-           "WHERE c.supplier = :supplier AND c.isDeleted = false")
+            "LEFT JOIN FETCH c.brand " +
+            "LEFT JOIN FETCH c.fuelType " +
+            "LEFT JOIN FETCH c.region " +
+            "LEFT JOIN FETCH c.status " +
+            "LEFT JOIN FETCH c.images " +
+            "WHERE c.supplier = :supplier AND c.isDeleted = false")
     List<Car> findBySupplierAndIsDeletedFalseWithAllRelations(@Param("supplier") User supplier);
 }
