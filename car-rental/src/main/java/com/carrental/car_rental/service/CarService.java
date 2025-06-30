@@ -162,15 +162,15 @@ public class CarService {
         CarDetailsResponseDTO dto = new CarDetailsResponseDTO();
         CarDTO carDTO = mapper.toDTO(car);
         // LOG: Kiểm tra supplier và userDetail mapping
-        if (carDTO.getSupplier() == null) {
-            logger.warn("[LOG] carDTO.supplier is NULL!");
-        } else {
+        if (carDTO.getSupplier() != null) {
             logger.info("[LOG] carDTO.supplier: {}", carDTO.getSupplier());
-            if (carDTO.getSupplier().getUserDetail() == null) {
-                logger.warn("[LOG] carDTO.supplier.userDetail is NULL!");
-            } else {
+            if (carDTO.getSupplier().getUserDetail() != null) {
                 logger.info("[LOG] carDTO.supplier.userDetail: {}", carDTO.getSupplier().getUserDetail());
+            } else {
+                logger.warn("[LOG] carDTO.supplier.userDetail is NULL!");
             }
+        } else {
+            logger.warn("[LOG] carDTO.supplier is NULL!");
         }
         dto.setCarId(carDTO.getCarId());
         dto.setSupplierId(carDTO.getSupplierId());

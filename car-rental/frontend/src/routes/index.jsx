@@ -13,6 +13,8 @@ import FavoritePage from '../pages/favorites/FavoritePage/FavoritePage';
 import ProfilePage from '../pages/profile/ProfilePage/ProfilePage';
 import SearchPage from "../pages/cars/SearchPage/SearchPage";
 import PaymentFailedPage from '../pages/payments/PaymentFailedPage';
+import OwnerRegistrationPage from '../pages/owner/OwnerRegistrationPage';
+import OwnerRegistrationSuccessPage from '../pages/owner/OwnerRegistrationSuccessPage';
 
 // Components
 import { ProtectedRoute } from '../components/features/auth/ProtectedRoute.jsx';
@@ -22,6 +24,7 @@ import AdminHome from '../components/features/admin/Home';
 import Reports from '../components/features/admin/Reports';
 import Users from '../components/features/admin/Users';
 import Sidebar from '../components/features/admin/Sidebar';
+import OwnerRequests from '../components/features/admin/OwnerRequests';
 
 // Supplier Pages
 import SupplierCarDashboard from '../components/Supplier/SupplierCarDashboard';
@@ -189,6 +192,18 @@ const AppRoutes = () => {
                     </ProtectedRoute>
                 }
             />
+            <Route
+                path="/admin/owner-requests"
+                element={
+                    <ProtectedRoute requiredRole="admin">
+                        <AdminLayout>
+                            <OwnerRequests />
+                        </AdminLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route path="/owner-registration" element={<OwnerRegistrationPage />} />
+            <Route path="/owner-registration-success" element={<OwnerRegistrationSuccessPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );

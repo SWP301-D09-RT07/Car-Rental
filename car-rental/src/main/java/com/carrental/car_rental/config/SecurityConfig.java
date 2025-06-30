@@ -59,6 +59,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/login/oauth2/code/**", "/oauth2/authorization/**").permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-email", "/oauth2/**").permitAll()
+                        .requestMatchers("/api/registration-requests", "/api/registration-requests/**", "/uploads/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/cars/**", "/api/languages/**", "/api/country-codes/**",
                                 "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**",
                                 "/api/cars/*/features", "/api/service-types/**").permitAll()

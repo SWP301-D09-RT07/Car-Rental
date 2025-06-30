@@ -529,7 +529,7 @@ export const createBooking = async (bookingData) => {
             const activeBookings = userBookings.filter(b => 
                 b.status !== 'CANCELLED' && b.status !== 'COMPLETED'
             );
-            if (activeBookings.length >= 3) {
+            if (activeBookings.length >= 10) {
                 throw new Error('Bạn đã đạt giới hạn số lần đặt xe (tối đa 3 lần)');
             }
         }
@@ -1080,6 +1080,57 @@ export const getSupplierRecentBookings = async () => {
 export const getSupplierMonthlyStats = async () => {
     const res = await api.get('/api/supplier/dashboard/monthly-stats');
     return res.data;
+};
+
+export const getNextBookingId = async () => {
+    try {
+        const response = await api.get('/api/bookings/next-id');
+        return response.data.nextBookingId;
+    } catch (error) {
+        console.error('Error fetching next booking ID:', error);
+        throw new Error(error.response?.data?.message || 'Không thể lấy booking ID tiếp theo');
+    }
+};
+
+export const getUserById = async (userId) => {
+    if (!userId) throw new Error('Vui lòng cung cấp ID người dùng');
+    try {
+      const response = await api.get(`/api/users/public/${userId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Lấy thông tin người dùng thất bại');
+    }
+  };
+
+/**
+ * Gửi form đăng ký chủ xe (có upload file) lên backend
+ * @param {Object} data - { fullName, idNumber, address, phoneNumber, email, carDocuments, businessLicense, driverLicense }
+ * @returns {Promise<any>}
+ */
+export const createOwnerRegistrationRequest = async (data) => {
+    const formData = new FormData();
+    formData.append('fullName', data.fullName);
+    formData.append('idNumber', data.idNumber);
+    formData.append('address', data.address);
+    formData.append('phoneNumber', data.phoneNumber);
+    formData.append('email', data.email);
+    formData.append('carDocuments', data.carDocuments);
+    formData.append('businessLicense', data.businessLicense);
+    formData.append('driverLicense', data.driverLicense);
+    try {
+        const response = await api.post(
+            `/api/registration-requests`,
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            }
+        );
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Gửi yêu cầu đăng ký chủ xe thất bại');
+    }
 };
 
 export default api;

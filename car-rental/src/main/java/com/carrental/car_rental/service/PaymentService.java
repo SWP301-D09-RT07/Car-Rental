@@ -4,6 +4,7 @@ import com.carrental.car_rental.config.VNPayConfig;
 import com.carrental.car_rental.config.MoMoConfig;
 import com.carrental.car_rental.dto.PaymentDTO;
 import com.carrental.car_rental.dto.PaymentResponseDTO;
+import com.carrental.car_rental.dto.BookingDTO;
 import com.carrental.car_rental.entity.Booking;
 import com.carrental.car_rental.entity.Payment;
 import com.carrental.car_rental.entity.Region;
@@ -24,12 +25,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.carrental.car_rental.service.BookingFinancialsService;
+import com.carrental.car_rental.entity.User;
+import com.carrental.car_rental.repository.UserRepository;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -52,7 +58,10 @@ public class PaymentService {
     public final StatusRepository statusRepository;
     private final VNPayConfig vnPayConfig;
     public final MoMoConfig moMoConfig;
+    private final BookingService bookingService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final BookingFinancialsService bookingFinancialsService;
+    private final UserRepository userRepository;
 
     @Value("${email.from}")
     private String fromEmail;
@@ -202,26 +211,20 @@ public class PaymentService {
             response.setRedirectUrl(payUrl);
             response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
             return response;
-        } else {
-            // Thanh toán tiền mặt
-            String paymentId = "PAY_" + System.nanoTime();
+        } else if ("cash".equals(dto.getPaymentMethod())) {
+            // Xử lý thanh toán tiền mặt
+            String paymentId = "CASH_" + System.nanoTime();
             payment.setTransactionId(paymentId);
-            payment.setPaymentStatus(paidStatus);
-            
+            payment.setPaymentStatus(paidStatus); // Tiền mặt được coi là đã thanh toán ngay
+            payment.setPaymentMethod("cash");
             Payment savedPayment = repository.save(payment);
-            
-            // Gửi email xác nhận (không làm crash nếu lỗi)
+
+            // Gửi email xác nhận cho thanh toán tiền mặt
             try {
                 sendBookingConfirmationEmail(savedPayment);
-                logger.info("Confirmation email sent successfully for cash payment, booking ID: {}", dto.getBookingId());
-            } catch (MessagingException e) {
-                logger.error("Failed to send confirmation email for cash payment, booking ID: {}. Error: {}", 
-                    dto.getBookingId(), e.getMessage());
-                // Không throw exception vì thanh toán đã thành công
             } catch (Exception e) {
-                logger.error("Unexpected error sending confirmation email for cash payment, booking ID: {}. Error: {}", 
-                    dto.getBookingId(), e.getMessage());
-                // Không throw exception vì thanh toán đã thành công
+                logger.error("Failed to send confirmation email for cash payment", e);
+                // Không throw exception vì payment đã được tạo thành công
             }
 
             response.setPaymentId(savedPayment.getId());
@@ -640,5 +643,171 @@ public class PaymentService {
             payment.setPaymentMethod("momo");
             repository.save(payment);
         }
+    }
+
+    @Transactional
+    public PaymentResponseDTO processPaymentWithBooking(PaymentDTO dto, HttpServletRequest request) {
+        logger.info("Processing payment with booking creation for car ID: {}", dto.getCarId());
+        
+        // Validate payment method
+        if (!List.of("vnpay", "cash", "momo").contains(dto.getPaymentMethod())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ thanh toán qua VNPay, tiền mặt hoặc MoMo.");
+        }
+        if (dto.getAmount() == null || dto.getAmount().intValue() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số tiền thanh toán phải lớn hơn 0.");
+        }
+        if (dto.getCurrency() == null || !dto.getCurrency().equals("VND")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ thanh toán bằng VND");
+        }
+        
+        // Validate booking data
+        if (dto.getCarId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Car ID is required");
+        }
+        // Lấy userId từ token đăng nhập
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        Integer userId = user.getId();
+        if (dto.getPickupDateTime() == null || dto.getDropoffDateTime() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pickup and dropoff dates are required");
+        }
+        if (dto.getPickupDateTime().isAfter(dto.getDropoffDateTime())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pickup date cannot be after dropoff date");
+        }
+
+        // Create booking first
+        BookingDTO bookingDTO = new BookingDTO();
+        bookingDTO.setCarId(dto.getCarId());
+        bookingDTO.setUserId(userId);
+        bookingDTO.setPickupDateTime(dto.getPickupDateTime());
+        bookingDTO.setDropoffDateTime(dto.getDropoffDateTime());
+        bookingDTO.setPickupLocation(dto.getPickupLocation());
+        bookingDTO.setDropoffLocation(dto.getDropoffLocation());
+        bookingDTO.setSeatNumber(dto.getSeatNumber());
+        bookingDTO.setWithDriver(dto.getWithDriver());
+        bookingDTO.setDepositAmount(dto.getAmount()); // Set deposit amount from payment
+
+        logger.info("Creating booking with DTO: {}", bookingDTO);
+        BookingDTO savedBooking = bookingService.save(bookingDTO);
+        logger.info("Booking created successfully with ID: {}", savedBooking.getBookingId());
+
+        // Tạo BookingFinancial ngay sau khi tạo booking
+        try {
+            bookingFinancialsService.createOrUpdateFinancials(savedBooking);
+            logger.info("Created BookingFinancials for booking ID: {}", savedBooking.getBookingId());
+        } catch (Exception e) {
+            logger.error("Error creating BookingFinancials for booking ID: {}", savedBooking.getBookingId(), e);
+            // Không throw để không ảnh hưởng flow payment
+        }
+
+        // Get the created booking entity
+        Booking booking = bookingRepository.findById(savedBooking.getBookingId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve created booking"));
+
+        // Xử lý trường hợp có nhiều Region với cùng currency
+        Region region;
+        try {
+            region = regionRepository.findByCurrencyAndIsDeletedFalse(dto.getCurrency())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Region with currency VND not found"));
+        } catch (Exception e) {
+            // Nếu có nhiều kết quả, lấy Region đầu tiên
+            List<Region> regions = regionRepository.findAll().stream()
+                    .filter(r -> r.getCurrency().equals(dto.getCurrency()) && !r.getIsDeleted())
+                    .toList();
+            if (regions.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Region with currency VND not found");
+            }
+            region = regions.get(0);
+            logger.info("Multiple regions found for currency {}, using first one: {}", dto.getCurrency(), region.getRegionName());
+        }
+        
+        Status pendingStatus = statusRepository.findByStatusName("pending")
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status 'pending' not found"));
+        Status paidStatus = statusRepository.findByStatusName("paid")
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status 'paid' not found"));
+
+        // Create payment
+        Payment payment = new Payment();
+        payment.setBooking(booking);
+        payment.setRegion(region);
+        payment.setAmount(dto.getAmount());
+        payment.setPaymentMethod(dto.getPaymentMethod());
+        payment.setIsDeleted(false);
+        payment.setPaymentDate(Instant.now());
+        payment.setPaymentType(dto.getPaymentType() != null ? dto.getPaymentType() : "deposit");
+
+        PaymentResponseDTO response = new PaymentResponseDTO();
+        
+        if ("vnpay".equals(dto.getPaymentMethod())) {
+            String paymentId = "PAY_" + System.nanoTime();
+            payment.setTransactionId(paymentId);
+            payment.setPaymentStatus(pendingStatus);
+            payment.setPaymentMethod("vnpay");
+
+            try {
+                String redirectUrl = createVnpayPaymentUrl(request, paymentId, dto.getAmount().longValue(), savedBooking.getBookingId());
+                Payment savedPayment = repository.save(payment);
+
+                response.setPaymentId(savedPayment.getId());
+                response.setBookingId(savedPayment.getBooking().getId());
+                response.setAmount(savedPayment.getAmount());
+                response.setCurrency(savedPayment.getRegion().getCurrency());
+                response.setTransactionId(savedPayment.getTransactionId());
+                response.setPaymentMethod(savedPayment.getPaymentMethod());
+                response.setStatus(savedPayment.getPaymentStatus().getStatusName());
+                response.setRedirectUrl(redirectUrl);
+                response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+            } catch (UnsupportedEncodingException e) {
+                logger.error("Failed to create VNPay payment URL", e);
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tạo URL thanh toán VNPay");
+            }
+        } else if ("momo".equals(dto.getPaymentMethod())) {
+            String orderId = moMoConfig.partnerCode + System.currentTimeMillis();
+            payment.setTransactionId(orderId);
+            payment.setPaymentStatus(pendingStatus);
+            payment.setPaymentMethod("momo");
+            Payment savedPayment = repository.save(payment);
+
+            String payUrl = createMomoPaymentUrlWithOrderId(savedPayment, orderId);
+
+            response.setPaymentId(savedPayment.getId());
+            response.setBookingId(savedPayment.getBooking().getId());
+            response.setAmount(savedPayment.getAmount());
+            response.setCurrency(savedPayment.getRegion().getCurrency());
+            response.setTransactionId(savedPayment.getTransactionId());
+            response.setPaymentMethod(savedPayment.getPaymentMethod());
+            response.setStatus(savedPayment.getPaymentStatus().getStatusName());
+            response.setRedirectUrl(payUrl);
+            response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+        } else if ("cash".equals(dto.getPaymentMethod())) {
+            // Xử lý thanh toán tiền mặt
+            String paymentId = "CASH_" + System.nanoTime();
+            payment.setTransactionId(paymentId);
+            payment.setPaymentStatus(paidStatus); // Tiền mặt được coi là đã thanh toán ngay
+            payment.setPaymentMethod("cash");
+            Payment savedPayment = repository.save(payment);
+
+            // Gửi email xác nhận cho thanh toán tiền mặt
+            try {
+                sendBookingConfirmationEmail(savedPayment);
+            } catch (Exception e) {
+                logger.error("Failed to send confirmation email for cash payment", e);
+                // Không throw exception vì payment đã được tạo thành công
+            }
+
+            response.setPaymentId(savedPayment.getId());
+            response.setBookingId(savedPayment.getBooking().getId());
+            response.setAmount(savedPayment.getAmount());
+            response.setCurrency(savedPayment.getRegion().getCurrency());
+            response.setTransactionId(savedPayment.getTransactionId());
+            response.setPaymentMethod(savedPayment.getPaymentMethod());
+            response.setStatus(savedPayment.getPaymentStatus().getStatusName());
+            response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+        }
+
+        logger.info("Payment with booking processed successfully. Booking ID: {}, Payment ID: {}", 
+                   response.getBookingId(), response.getPaymentId());
+        return response;
     }
 }

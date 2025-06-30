@@ -334,10 +334,22 @@ public class BookingController {
         logger.info("Test auth endpoint called by user: {}", username);
         return ResponseEntity.ok("Authenticated as: " + username);
     }
+
+    @GetMapping("/next-id")
+    public ResponseEntity<Map<String, Integer>> getNextBookingId() {
+        logger.info("Request to get next booking ID");
+        try {
+            Integer nextId = bookingService.getNextBookingId();
+            return ResponseEntity.ok(Map.of("nextBookingId", nextId));
+        } catch (Exception e) {
+            logger.error("Error getting next booking ID: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     @GetMapping("/recent")
     public ResponseEntity<List<BookingDTO>> getRecentBookings(@RequestParam(defaultValue = "5") int size) {
         List<BookingDTO> bookings = bookingService.findRecentBookings(size);
         return ResponseEntity.ok(bookings);
-
     }
 }

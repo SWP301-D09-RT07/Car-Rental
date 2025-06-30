@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useContext, useEffect } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useLocation } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { AuthContext } from "../../store/AuthContext"
 import { login, register } from "@/services/api"
 
 const LoginRegisterPage = () => {
   const { login: setAuthData } = useContext(AuthContext);
+  const location = useLocation();
   const [isRegisterActive, setRegisterActive] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -133,7 +134,17 @@ const LoginRegisterPage = () => {
         },
       };
       console.log('[LoginRegister] Registering user with data:', { ...userData, password: '***' });
+      if (userData.roleId === 2) {
+        // Nếu là chủ xe, chỉ chuyển sang trang đăng ký chủ xe, KHÔNG gọi API đăng ký user
+        showToast('Vui lòng hoàn thiện hồ sơ chủ xe!', 'success');
+        setTimeout(() => {
+          navigate('/owner-registration', { state: { email: data.email, username: data.username } });
+        }, 1000);
+        return;
+      }
+      // Nếu là khách thuê, đăng ký tài khoản user như cũ
       await register(userData);
+
       showToast('Đăng ký thành công! Vui lòng đăng nhập.', 'success');
       setTimeout(() => {
         setRegisterActive(false);
@@ -172,6 +183,12 @@ const LoginRegisterPage = () => {
       el.style.animationDelay = `${index * 0.5}s`;
     });
   }, []);
+
+  useEffect(() => {
+    if (location.state && location.state.showRegister) {
+      setRegisterActive(true);
+    }
+  }, [location.state]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 relative overflow-hidden">

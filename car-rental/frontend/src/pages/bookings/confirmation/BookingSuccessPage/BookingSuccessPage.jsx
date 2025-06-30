@@ -3,120 +3,413 @@
 import { useEffect, useState } from "react"
 import { useLocation, useNavigate, Link, useSearchParams } from "react-router-dom"
 import { getBookingByTransactionId, getBookingById } from "@/services/api"
+import {
+  FaCheckCircle,
+  FaDownload,
+  FaHome,
+  FaSearch,
+  FaCar,
+  FaCalendarAlt,
+  FaMapMarkerAlt,
+  FaUser,
+  FaPhone,
+  FaEnvelope,
+  FaHeadset,
+  FaStar,
+  FaGift,
+  FaArrowLeft,
+  FaCarSide,
+  FaShieldAlt,
+  FaHeart,
+  FaFileAlt,
+  FaCreditCard,
+  FaTimesCircle,
+  FaExclamationTriangle,
+  FaInfoCircle,
+} from "react-icons/fa"
+
+// --- HEADER (đồng bộ với BookingConfirmationPage.jsx/PaymentPage.jsx) ---
+const ProgressSteps = ({ currentStep = 4 }) => {
+  const steps = [
+    { id: 1, name: "Chọn xe", icon: FaCar },
+    { id: 2, name: "Xác nhận", icon: FaFileAlt },
+    { id: 3, name: "Thanh toán", icon: FaCreditCard },
+    { id: 4, name: "Hoàn tất", icon: FaCheckCircle },
+  ]
+  return (
+    <div className="hidden md:flex items-center justify-center">
+      <div className="flex items-center space-x-4">
+        {steps.map((step, index) => {
+          const Icon = step.icon
+          const isActive = step.id === currentStep
+          const isCompleted = step.id < currentStep
+          return (
+            <div key={step.id} className="flex items-center">
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 transform ${
+                    isCompleted
+                      ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg scale-110"
+                      : isActive
+                        ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-xl scale-125 animate-pulse"
+                        : "bg-gray-200 text-gray-400 hover:bg-gray-300"
+                  }`}
+                >
+                  {isCompleted ? <FaCheckCircle className="text-lg" /> : <Icon className="text-lg" />}
+                </div>
+                <div
+                  className={`mt-3 text-sm font-semibold transition-colors duration-300 ${
+                    isActive ? "text-blue-600" : isCompleted ? "text-green-600" : "text-gray-400"
+                  }`}
+                >
+                  {step.name}
+                </div>
+              </div>
+              {index < steps.length - 1 && (
+                <div
+                  className={`w-16 h-1 mx-4 rounded-full transition-all duration-500 ${
+                    isCompleted ? "bg-gradient-to-r from-green-500 to-emerald-500" : "bg-gray-200"
+                  }`}
+                ></div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+const PageHeader = ({ currentStep = 4, backLink = "/", backText = "Về trang chủ" }) => (
+  <header className="bg-white/95 backdrop-blur-xl shadow-lg border-b border-gray-100 sticky top-0 z-50">
+    <div className="container mx-auto px-4 py-6">
+      <div className="flex items-center justify-between">
+        <Link
+          to={backLink}
+          className="flex items-center text-gray-700 hover:text-blue-600 transition-all duration-300 group"
+        >
+          <div className="w-12 h-12 flex items-center justify-center mr-4 bg-gray-100 rounded-2xl group-hover:bg-blue-100 transition-all duration-300 group-hover:scale-110">
+            <FaArrowLeft className="text-lg" />
+          </div>
+          <span className="font-semibold hidden sm:block">{backText}</span>
+        </Link>
+        <ProgressSteps currentStep={currentStep} />
+        <Link to="/" className="flex items-center group">
+          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-3 rounded-2xl mr-3 group-hover:scale-110 transition-all duration-300 shadow-xl group-hover:shadow-2xl">
+            <FaCarSide className="text-xl text-white" />
+          </div>
+          <div>
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              DriveLuxe
+            </span>
+            <p className="text-xs text-gray-500 -mt-1">Premium Car Rental</p>
+          </div>
+        </Link>
+      </div>
+    </div>
+  </header>
+)
+
+// --- FOOTER (đồng bộ với BookingConfirmationPage.jsx/PaymentPage.jsx) ---
+const PageFooter = () => {
+  return (
+    <footer className="bg-white/95 backdrop-blur-xl border-t border-gray-200 mt-16">
+      <div className="container mx-auto px-4 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+          <div className="md:col-span-1">
+            <Link to="/" className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white">
+                <FaCar />
+              </div>
+              <span className="font-bold text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                RentCar
+              </span>
+            </Link>
+            <p className="text-gray-600 mb-6">
+              Dịch vụ thuê xe uy tín, an toàn và tiện lợi. Mang đến trải nghiệm tuyệt vời cho mọi chuyến đi.
+            </p>
+            <div className="flex items-center gap-4 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <FaShieldAlt className="text-green-600" />
+                <span>Bảo hiểm toàn diện</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900 mb-6">Liên kết nhanh</h3>
+            <ul className="space-y-3 text-gray-600">
+              <li>
+                <Link to="/" className="hover:text-blue-600 transition-colors">
+                  Trang chủ
+                </Link>
+              </li>
+              <li>
+                <Link to="/search" className="hover:text-blue-600 transition-colors">
+                  Tìm kiếm xe
+                </Link>
+              </li>
+              <li>
+                <Link to="/favorites" className="hover:text-blue-600 transition-colors">
+                  Xe yêu thích
+                </Link>
+              </li>
+              <li>
+                <Link to="/bookings" className="hover:text-blue-600 transition-colors">
+                  Đặt xe của tôi
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900 mb-6">Hỗ trợ</h3>
+            <ul className="space-y-3 text-gray-600">
+              <li>
+                <Link to="/help" className="hover:text-blue-600 transition-colors">
+                  Trung tâm trợ giúp
+                </Link>
+              </li>
+              <li>
+                <Link to="/terms" className="hover:text-blue-600 transition-colors">
+                  Điều khoản dịch vụ
+                </Link>
+              </li>
+              <li>
+                <Link to="/privacy" className="hover:text-blue-600 transition-colors">
+                  Chính sách bảo mật
+                </Link>
+              </li>
+              <li>
+                <Link to="/contact" className="hover:text-blue-600 transition-colors">
+                  Liên hệ
+                </Link>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900 mb-6">Liên hệ</h3>
+            <div className="space-y-3 text-gray-600">
+              <div className="flex items-center gap-3">
+                <FaHeadset className="text-blue-600" />
+                <span>Hotline: 1900 1234</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <FaEnvelope className="text-blue-600" />
+                <span>support@rentcar.com</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <FaMapMarkerAlt className="text-blue-600" />
+                <span>123 Đường ABC, Quận 1, TP.HCM</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="border-t border-gray-200 pt-8 flex flex-col md:flex-row items-center justify-between">
+          <p className="text-gray-600">© 2024 RentCar. Tất cả quyền được bảo lưu.</p>
+          <div className="flex items-center gap-2 text-gray-600 mt-4 md:mt-0">
+            <span>Made with</span>
+            <FaHeart className="text-red-500" />
+            <span>in Vietnam</span>
+          </div>
+        </div>
+      </div>
+    </footer>
+  )
+}
+
+// --- LoadingSpinner (đồng bộ với các trang booking) ---
+const LoadingSpinner = ({ size = "medium", color = "blue", text }) => {
+  const sizeClasses = {
+    small: "w-4 h-4",
+    medium: "w-8 h-8",
+    large: "w-12 h-12",
+  }
+  const colorClasses = {
+    blue: "border-blue-600",
+    white: "border-white",
+    gray: "border-gray-600",
+  }
+  return (
+    <div className="flex flex-col items-center justify-center">
+      <div
+        className={`animate-spin rounded-full border-2 border-t-transparent ${sizeClasses[size]} ${colorClasses[color]}`}
+      >
+        <div className="sr-only">Đang tải...</div>
+      </div>
+      {text && <p className="mt-3 text-gray-600 text-sm font-medium">{text}</p>}
+    </div>
+  )
+}
+
+// --- ErrorMessage (đồng bộ với các trang booking) ---
+const ErrorMessage = ({ message, type = "error", onClose, className = "" }) => {
+  const typeStyles = {
+    error: "from-red-50 to-pink-50 border-red-200 text-red-700",
+    warning: "from-yellow-50 to-orange-50 border-yellow-200 text-yellow-700",
+    success: "from-green-50 to-emerald-50 border-green-200 text-green-700",
+    info: "from-blue-50 to-purple-50 border-blue-200 text-blue-700",
+  }
+  const typeIcons = {
+    error: FaTimesCircle,
+    warning: FaExclamationTriangle,
+    success: FaCheckCircle,
+    info: FaInfoCircle,
+  }
+  const Icon = typeIcons[type]
+  return (
+    <div
+      className={`bg-gradient-to-r ${typeStyles[type]} border-2 px-6 py-4 rounded-2xl shadow-lg animate-in slide-in-from-top duration-500 ${className}`}
+    >
+      <div className="flex items-center">
+        <Icon className="mr-4 flex-shrink-0 text-xl" />
+        <span className="flex-1 font-medium">{message}</span>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="ml-4 hover:opacity-70 transition-opacity duration-200 p-1 rounded-full hover:bg-white/20"
+            aria-label="Đóng thông báo"
+          >
+            <FaTimesCircle className="text-lg" />
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const BookingSuccessPage = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { priceBreakdown, withDriver, deliveryRequested, customerInfo } =
-    location.state || {}
+  const {
+    priceBreakdown,
+    withDriver,
+    deliveryRequested,
+    customerInfo,
+    paymentMethod,
+    bookingId: stateBookingId,
+    paymentId: statePaymentId,
+    amount: stateAmount,
+    bookingData,
+  } = location.state || {}
+
   const [bookingDetails, setBookingDetails] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showConfetti, setShowConfetti] = useState(true)
 
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        const paymentStatus = params.get('payment_status');
-        const txnRef = params.get('txn_ref');
-        const bookingIdFromUrl = params.get('booking_id');
-        console.log('[BookingSuccessPage] Mounted. payment_status:', paymentStatus, 'txn_ref:', txnRef, 'booking_id:', bookingIdFromUrl);
-        const fetchBookingDetails = async () => {
-            try {
-                setIsLoading(true)
-                setError(null)
+  useEffect(() => {
+    const fetchBookingDetails = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
 
-        const transactionId = searchParams.get('txn_ref');
-        let bookingDataFromApi = null;
-        let bookingId = null;
+        const transactionId = searchParams.get("txn_ref")
+        const bookingIdFromUrl = searchParams.get("booking_id")
+        let bookingDataFromApi = null
 
         if (transactionId) {
           try {
-            console.log(`Fetching booking details for transaction ID: ${transactionId}`)
             bookingDataFromApi = await getBookingByTransactionId(transactionId)
-            console.log("Booking details fetched successfully:", bookingDataFromApi)
-            bookingId = bookingDataFromApi.bookingId
           } catch (apiError) {
-            console.error('API Error fetching booking details by transaction ID:', apiError)
-            setError('Không tìm thấy thông tin đặt xe. Mã giao dịch có thể không hợp lệ.')
+            console.error("API Error fetching booking details by transaction ID:", apiError)
+            setError("Không tìm thấy thông tin đặt xe. Mã giao dịch có thể không hợp lệ.")
             setIsLoading(false)
             return
           }
         } else if (bookingIdFromUrl) {
           try {
-            console.log(`Fetching booking details for booking ID: ${bookingIdFromUrl}`)
             bookingDataFromApi = await getBookingById(bookingIdFromUrl)
-            console.log("Booking details fetched by bookingId:", bookingDataFromApi)
-            bookingId = bookingIdFromUrl
           } catch (apiError) {
-            console.error('API Error fetching booking details by bookingId:', apiError)
-            setError('Không tìm thấy thông tin đặt xe. Mã đặt xe có thể không hợp lệ.')
+            console.error("API Error fetching booking details by bookingId:", apiError)
+            setError("Không tìm thấy thông tin đặt xe. Mã đặt xe có thể không hợp lệ.")
             setIsLoading(false)
             return
           }
         }
 
+        // Ưu tiên lấy từ state nếu có, fallback sang API
+        const state = location.state || {}
+        const bookingDataState = state.bookingData || {}
+        const carState = bookingDataState.car || state.car || {}
+        const priceBreakdownState = state.priceBreakdown || {}
+        const customerInfoState = state.customerInfo || {}
+        const withDriverState = state.withDriver
+        const deliveryRequestedState = state.deliveryRequested
+        const paymentMethodState = state.paymentMethod
+
+        let pickupDate, dropoffDate
         if (bookingDataFromApi) {
-          const pickupDate = new Date(bookingDataFromApi.pickupDateTime).toLocaleString("vi-VN", {
-            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+          pickupDate = new Date(bookingDataFromApi.pickupDateTime).toLocaleString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
           })
-          const dropoffDate = new Date(bookingDataFromApi.dropoffDateTime).toLocaleString("vi-VN", {
-            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+          dropoffDate = new Date(bookingDataFromApi.dropoffDateTime).toLocaleString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
           })
-
-          setBookingDetails({
-            bookingId: bookingDataFromApi.bookingId,
-            paymentId: transactionId || bookingDataFromApi.paymentId || 'N/A',
-            amount: bookingDataFromApi.depositAmount || bookingDataFromApi.amount || 0,
-            carModel: bookingDataFromApi.car?.model || 'Không xác định',
-            pickupLocation: bookingDataFromApi.pickupLocation,
-            dropoffLocation: bookingDataFromApi.dropoffLocation,
-            pickupDate,
-            dropoffDate,
-            customerName: bookingDataFromApi.customer?.fullName || bookingDataFromApi.customer?.username || 'Không xác định',
-            customerEmail: bookingDataFromApi.customer?.email || 'Không xác định',
-            customerPhone: bookingDataFromApi.customer?.phone || 'Không xác định',
-            totalAmount: bookingDataFromApi.totalAmount || bookingDataFromApi.priceBreakdown?.total || 0,
-            depositAmount: bookingDataFromApi.depositAmount || bookingDataFromApi.priceBreakdown?.deposit || 0,
-            withDriver: bookingDataFromApi.withDriver,
-            deliveryRequested: bookingDataFromApi.deliveryRequested,
+        } else if (bookingDataState.pickupDateTime) {
+          pickupDate = new Date(bookingDataState.pickupDateTime).toLocaleString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
           })
-        } else if (location.state) {
-          // Fallback to location.state for cash payments or other flows
-          const { bookingId, paymentId, amount, bookingData } = location.state
-
-          const pickupDate = new Date(bookingData?.pickupDateTime || new Date()).toLocaleString("vi-VN", {
-            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
-          })
-
-          const dropoffDate = new Date(bookingData?.dropoffDateTime || new Date()).toLocaleString("vi-VN", {
-            day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
-          })
-
-                setBookingDetails({
-            bookingId: bookingId || 'N/A',
-            paymentId: paymentId || 'N/A',
-                    amount: amount || (priceBreakdown?.deposit || 0),
-            carModel: bookingData?.car?.model || 'Không xác định',
-            pickupLocation: bookingData?.pickupLocation || customerInfo?.pickupAddress || 'Không xác định',
-            dropoffLocation: bookingData?.dropoffLocation || customerInfo?.dropoffAddress || 'Không xác định',
-                    pickupDate: pickupDate,
-                    dropoffDate: dropoffDate,
-            customerName: customerInfo?.fullName || bookingData?.user?.fullName || bookingData?.user?.username || 'Không xác định',
-            customerEmail: customerInfo?.email || bookingData?.user?.email || 'Không xác định',
-            customerPhone: customerInfo?.phone || bookingData?.user?.phone || 'Không xác định',
-                    totalAmount: priceBreakdown?.total || 0,
-                    depositAmount: priceBreakdown?.deposit || 0,
-            withDriver: withDriver || bookingData?.withDriver || false,
-            deliveryRequested: deliveryRequested || bookingData?.deliveryRequested || false,
+          dropoffDate = new Date(bookingDataState.dropoffDateTime).toLocaleString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
           })
         } else {
-            setError('Không thể tải thông tin đặt xe. Vui lòng kiểm tra lại email của bạn hoặc liên hệ hỗ trợ.')
+          pickupDate = dropoffDate = "Không xác định"
         }
-            } catch (err) {
-        console.error('Error in fetchBookingDetails:', err)
-        setError('Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.')
-            } finally {
+
+        setBookingDetails({
+          bookingId:
+            state.bookingId || state.booking_id || bookingDataFromApi?.bookingId || bookingIdFromUrl || "N/A",
+          paymentId:
+            state.paymentId || state.payment_id || transactionId || bookingDataFromApi?.paymentId || "N/A",
+          amount:
+            state.amount || priceBreakdownState.deposit || bookingDataFromApi?.depositAmount || bookingDataFromApi?.amount || 0,
+          carModel:
+            carState.model || bookingDataFromApi?.car?.model || "Không xác định",
+          pickupLocation:
+            bookingDataState.pickupLocation || bookingDataFromApi?.pickupLocation || customerInfoState.pickupAddress || "Không xác định",
+          dropoffLocation:
+            bookingDataState.dropoffLocation || bookingDataFromApi?.dropoffLocation || customerInfoState.dropoffAddress || "Không xác định",
+          pickupDate,
+          dropoffDate,
+          customerName:
+            customerInfoState.fullName || bookingDataFromApi?.customer?.fullName || bookingDataFromApi?.customer?.username || "Không xác định",
+          customerEmail:
+            customerInfoState.email || bookingDataFromApi?.customer?.email || "Không xác định",
+          customerPhone:
+            customerInfoState.phone || bookingDataFromApi?.customer?.phone || "Không xác định",
+          totalAmount:
+            priceBreakdownState.total || bookingDataFromApi?.totalAmount || bookingDataFromApi?.priceBreakdown?.total || 0,
+          depositAmount:
+            priceBreakdownState.deposit || bookingDataFromApi?.depositAmount || bookingDataFromApi?.priceBreakdown?.deposit || 0,
+          withDriver:
+            withDriverState !== undefined ? withDriverState : bookingDataFromApi?.withDriver,
+          deliveryRequested:
+            deliveryRequestedState !== undefined ? deliveryRequestedState : bookingDataFromApi?.deliveryRequested,
+          paymentMethod: paymentMethodState || bookingDataFromApi?.paymentMethod,
+          priceBreakdown: priceBreakdownState || bookingDataFromApi?.priceBreakdown,
+          customerInfo: customerInfoState,
+          bookingData: bookingDataState,
+        })
+      } catch (err) {
+        console.error("Error in fetchBookingDetails:", err)
+        setError("Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.")
+      } finally {
         setIsLoading(false)
       }
     }
@@ -128,7 +421,6 @@ const BookingSuccessPage = () => {
   }, [location.state, navigate, searchParams])
 
   const downloadBookingConfirmation = () => {
-    // Create a simple text file with booking details
     const content = `
 XÁCNHẬN ĐẶT XE - RENTCAR
 ========================
@@ -155,7 +447,7 @@ ${bookingDetails.deliveryRequested ? "✓ Giao xe tận nơi" : ""}
 
 Liên hệ hỗ trợ: 1900 1234
 Email: support@rentcar.com
-        `
+    `
 
     const blob = new Blob([content], { type: "text/plain" })
     const url = URL.createObjectURL(blob)
@@ -168,39 +460,39 @@ Email: support@rentcar.com
     URL.revokeObjectURL(url)
   }
 
-    if (isLoading) {
-        return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Đang tải thông tin đặt xe...</p>
-        </div>
-            </div>
-    )
-    }
-
-    if (error) {
-        return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 flex items-center justify-center">
-        <div className="text-center bg-white rounded-2xl p-8 shadow-xl max-w-md mx-4">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i className="ri-error-warning-line text-2xl text-red-500"></i>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Lỗi tải thông tin</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-300"
-          >
-            <i className="ri-home-line"></i>
-            Về trang chủ
-          </Link>
-                </div>
-            </div>
-    )
-    }
-
+  if (isLoading) {
     return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <PageHeader title="Đang tải..." subtitle="Vui lòng chờ trong giây lát" showProgress={false} />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <LoadingSpinner size="large" text="Đang tải thông tin đặt xe..." />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50">
+        <PageHeader title="Lỗi" subtitle="Không thể tải thông tin đặt xe" showProgress={false} />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <ErrorMessage message={error} type="error" />
+          <div className="mt-6">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-300"
+            >
+              <FaHome />
+              Về trang chủ
+            </Link>
+          </div>
+        </div>
+        <PageFooter />
+      </div>
+    )
+  }
+
+  return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 relative overflow-hidden">
       {/* Confetti Animation */}
       {showConfetti && (
@@ -231,59 +523,34 @@ Email: support@rentcar.com
           className="absolute bottom-20 left-20 w-24 h-24 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full opacity-20 animate-pulse"
           style={{ animationDelay: "2s" }}
         ></div>
-                    </div>
-                    
-      {/* Header */}
-      <header className="relative z-20 bg-white/80 backdrop-blur-md border-b border-gray-200/50 sticky top-0">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent"
-          >
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white">
-              <i className="ri-car-line"></i>
-                        </div>
-            RentCar
-          </Link>
-          <nav className="hidden md:flex items-center gap-6">
-            <Link to="/" className="text-gray-600 hover:text-blue-600 transition-colors">
-              Trang chủ
-            </Link>
-            <Link to="/search" className="text-gray-600 hover:text-blue-600 transition-colors">
-              Tìm kiếm
-            </Link>
-            <Link to="/favorites" className="text-gray-600 hover:text-blue-600 transition-colors">
-              Yêu thích
-            </Link>
-          </nav>
-                        </div>
-      </header>
+      </div>
 
-      {/* Main Content */}
-      <main className="relative z-20 max-w-6xl mx-auto px-4 py-8">
+      <PageHeader currentStep={4} backLink="/" backText="Về trang chủ" />
+
+      <main className="relative z-20 container mx-auto px-4 py-8">
         {/* Success Header */}
         <div className="text-center mb-12">
-          <div className="w-24 h-24 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-            <i className="ri-check-line text-4xl text-white"></i>
-                        </div>
+          <div className="w-24 h-24 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse shadow-2xl">
+            <FaCheckCircle className="text-4xl text-white" />
+          </div>
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-4">
             Đặt xe thành công!
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Cảm ơn bạn đã sử dụng dịch vụ của RentCar. Chúng tôi đã gửi email xác nhận đến địa chỉ email của bạn.
+            Chúng tôi đã gửi email xác nhận đến địa chỉ email của bạn. Vui lòng kiểm tra hộp thư để xem chi tiết.
           </p>
-                    </div>
+        </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Left Column - Booking Details */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Booking Summary */}
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-200/50">
+            {/* Enhanced Booking Summary */}
+            <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-gray-100">
               <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <i className="ri-file-list-3-line text-blue-600"></i>
+                <FaCar className="text-blue-600" />
                 Thông tin đặt xe
               </h2>
-              <div className="grid md:grid-cols-2 gap-4">
+              <div className="grid md:grid-cols-2 gap-4 mb-6">
                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4">
                   <div className="text-sm text-gray-600 mb-1">Mã đặt xe</div>
                   <div className="text-xl font-bold text-blue-600">#{bookingDetails.bookingId}</div>
@@ -291,107 +558,107 @@ Email: support@rentcar.com
                 <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4">
                   <div className="text-sm text-gray-600 mb-1">Mã thanh toán</div>
                   <div className="text-lg font-semibold text-green-600">{bookingDetails.paymentId}</div>
-                                </div>
+                </div>
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-4">
                   <div className="text-sm text-gray-600 mb-1">Đã thanh toán</div>
                   <div className="text-xl font-bold text-purple-600">{bookingDetails.amount.toLocaleString()} VND</div>
-                            </div>
+                </div>
                 <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-4">
                   <div className="text-sm text-gray-600 mb-1">Tổng giá trị</div>
                   <div className="text-xl font-bold text-orange-600">
                     {bookingDetails.totalAmount.toLocaleString()} VND
-                                </div>
-                            </div>
-                                </div>
-                            </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-            {/* Car & Trip Details */}
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-200/50">
+            {/* Enhanced Car & Trip Details */}
+            <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-gray-100">
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <i className="ri-car-line text-blue-600"></i>
+                <FaCalendarAlt className="text-blue-600" />
                 Chi tiết chuyến đi
               </h3>
               <div className="space-y-4">
                 <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl">
                   <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <i className="ri-car-line text-blue-600"></i>
+                    <FaCar className="text-blue-600" />
                   </div>
-                                <div>
+                  <div>
                     <div className="text-sm text-gray-600">Xe</div>
                     <div className="font-semibold text-gray-900">{bookingDetails.carModel}</div>
-                                </div>
-                            </div>
+                  </div>
+                </div>
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                      <i className="ri-map-pin-line text-green-600"></i>
-                            </div>
-                                <div>
+                      <FaMapMarkerAlt className="text-green-600" />
+                    </div>
+                    <div>
                       <div className="text-sm text-gray-600">Nhận xe</div>
                       <div className="font-semibold text-gray-900">{bookingDetails.pickupLocation}</div>
                       <div className="text-sm text-gray-500">{bookingDetails.pickupDate}</div>
-                                </div>
-                            </div>
+                    </div>
+                  </div>
 
                   <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl">
                     <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                      <i className="ri-map-pin-line text-red-600"></i>
-                            </div>
-                                <div>
+                      <FaMapMarkerAlt className="text-red-600" />
+                    </div>
+                    <div>
                       <div className="text-sm text-gray-600">Trả xe</div>
                       <div className="font-semibold text-gray-900">{bookingDetails.dropoffLocation}</div>
                       <div className="text-sm text-gray-500">{bookingDetails.dropoffDate}</div>
-                                </div>
-                            </div>
-                        </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Additional Services */}
-                        {(bookingDetails.withDriver || bookingDetails.deliveryRequested) && (
+                {(bookingDetails.withDriver || bookingDetails.deliveryRequested) && (
                   <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-4">
                     <div className="text-sm text-gray-600 mb-2">Dịch vụ bổ sung</div>
                     <div className="space-y-1">
-                                    {bookingDetails.withDriver && (
+                      {bookingDetails.withDriver && (
                         <div className="flex items-center gap-2 text-green-600">
-                          <i className="ri-check-line"></i>
+                          <FaCheckCircle />
                           <span>Thuê tài xế</span>
                         </div>
-                                    )}
-                                    {bookingDetails.deliveryRequested && (
+                      )}
+                      {bookingDetails.deliveryRequested && (
                         <div className="flex items-center gap-2 text-green-600">
-                          <i className="ri-check-line"></i>
+                          <FaCheckCircle />
                           <span>Giao xe tận nơi</span>
-                            </div>
-                        )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Customer Info */}
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-200/50">
+            {/* Enhanced Customer Info */}
+            <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-gray-100">
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <i className="ri-user-line text-blue-600"></i>
+                <FaUser className="text-blue-600" />
                 Thông tin khách hàng
               </h3>
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                  <i className="ri-user-line text-gray-600"></i>
+                  <FaUser className="text-gray-600" />
                   <div>
                     <div className="text-sm text-gray-600">Tên</div>
                     <div className="font-semibold">{bookingDetails.customerName}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                  <i className="ri-mail-line text-gray-600"></i>
+                  <FaEnvelope className="text-gray-600" />
                   <div>
                     <div className="text-sm text-gray-600">Email</div>
                     <div className="font-semibold">{bookingDetails.customerEmail}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
-                  <i className="ri-phone-line text-gray-600"></i>
+                  <FaPhone className="text-gray-600" />
                   <div>
                     <div className="text-sm text-gray-600">Điện thoại</div>
                     <div className="font-semibold">{bookingDetails.customerPhone}</div>
@@ -399,85 +666,97 @@ Email: support@rentcar.com
                 </div>
               </div>
             </div>
-                    </div>
+          </div>
 
           {/* Right Column - Next Steps & Actions */}
           <div className="space-y-6">
-            {/* Next Steps */}
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-200/50">
+            {/* Enhanced Next Steps */}
+            <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-gray-100">
               <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <i className="ri-roadmap-line text-blue-600"></i>
+                <FaCheckCircle className="text-blue-600" />
                 Bước tiếp theo
               </h3>
               <div className="space-y-4">
                 {[
-                  { icon: "ri-mail-check-line", text: "Kiểm tra email xác nhận", color: "text-green-600" },
-                  { icon: "ri-file-list-line", text: "Chuẩn bị giấy tờ (CMND, GPLX)", color: "text-blue-600" },
-                  { icon: "ri-phone-line", text: "Liên hệ nếu có thay đổi", color: "text-purple-600" },
-                  { icon: "ri-time-line", text: "Đến đúng giờ nhận xe", color: "text-orange-600" },
+                  { icon: "📧", text: "Kiểm tra email xác nhận", color: "text-green-600", completed: false },
+                  { icon: "📄", text: "Chuẩn bị giấy tờ (CMND, GPLX)", color: "text-blue-600", completed: false },
+                  { icon: "📞", text: "Liên hệ nếu có thay đổi", color: "text-purple-600", completed: false },
+                  { icon: "⏰", text: "Đến đúng giờ nhận xe", color: "text-orange-600", completed: false },
                 ].map((step, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <div className={`w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center ${step.color}`}>
-                      <i className={step.icon}></i>
+                  <div
+                    key={index}
+                    className={`flex items-center gap-3 p-3 rounded-lg bg-gray-50`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center bg-gray-100`}
+                    >
+                      <span className="text-lg">{step.icon}</span>
                     </div>
-                    <span className="text-gray-700">{step.text}</span>
+                    <span className={`text-gray-700`}>{step.text}</span>
                   </div>
                 ))}
               </div>
-                    </div>
+            </div>
 
-            {/* Contact Support */}
+            {/* Enhanced Contact Support */}
             <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-6 text-white">
               <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <i className="ri-customer-service-2-line"></i>
+                <FaHeadset />
                 Hỗ trợ 24/7
               </h3>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <i className="ri-phone-line"></i>
-                                <span>Hotline: 1900 1234</span>
-                            </div>
+                  <FaPhone />
+                  <span>Hotline: 1900 1234</span>
+                </div>
                 <div className="flex items-center gap-3">
-                  <i className="ri-mail-line"></i>
+                  <FaEnvelope />
                   <span>support@rentcar.com</span>
-                            </div>
-                        </div>
-                    </div>
+                </div>
+                <div className="text-sm opacity-90">Chúng tôi luôn sẵn sàng hỗ trợ bạn mọi lúc, mọi nơi</div>
+              </div>
+            </div>
 
-            {/* Actions */}
+            {/* Enhanced Actions */}
             <div className="space-y-3">
               <button
                 onClick={downloadBookingConfirmation}
                 className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
               >
-                <i className="ri-download-line"></i>
+                <FaDownload />
                 Tải xác nhận đặt xe
               </button>
               <Link
                 to="/"
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
               >
-                <i className="ri-home-line"></i>
-                            Về trang chủ
-                        </Link>
+                <FaHome />
+                Về trang chủ
+              </Link>
               <Link
                 to="/search"
                 className="w-full border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-medium hover:border-blue-500 hover:text-blue-600 transition-all duration-300 flex items-center justify-center gap-2"
               >
-                <i className="ri-search-line"></i>
-                            Đặt xe khác
-                        </Link>
-                    </div>
-                </div>
+                <FaSearch />
+                Đặt xe khác
+              </Link>
             </div>
+
+            {/* Promotional banner */}
+            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl p-4 text-white">
+              <div className="flex items-center gap-3">
+                <FaGift className="text-2xl" />
+                <div>
+                  <div className="font-bold">Ưu đãi đặc biệt!</div>
+                  <div className="text-sm opacity-90">Giảm 10% cho lần đặt xe tiếp theo</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-20 bg-white/80 backdrop-blur-md border-t border-gray-200/50 mt-16">
-        <div className="max-w-7xl mx-auto px-4 py-8 text-center">
-          <p className="text-gray-600">© 2025 RentCar. All rights reserved.</p>
-        </div>
-      </footer>
+      <PageFooter />
     </div>
   )
 }

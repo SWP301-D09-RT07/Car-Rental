@@ -455,4 +455,17 @@ public class UserController {
         List<UserDTO> users = bookingService.findRecentBookingUsers(size);
         return ResponseEntity.ok(users);
     }
+
+    // --- PUBLIC ENDPOINT: Lấy thông tin user public theo ID (không cần xác thực) ---
+    @GetMapping("/public/{id}")
+    public ResponseEntity<?> getUserPublic(@PathVariable Integer id) {
+        try {
+            UserDTO userDTO = userService.findById(id);
+            return ResponseEntity.ok(userDTO);
+        } catch (Exception e) {
+            logger.error("Lỗi khi lấy thông tin user public ID: {} - {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(createErrorResponse("Không tìm thấy người dùng với ID: " + id));
+        }
+    }
 }

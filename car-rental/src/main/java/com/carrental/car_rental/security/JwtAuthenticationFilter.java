@@ -39,7 +39,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/bookings/",
             "/api/ratings/",
             "/api/payments/callback",
-            "/api/payments/momo-callback"
+            "/api/payments/momo-callback",
+            "/api/registration-requests",
+            "/api/registration-requests/",
+            "/uploads/"
     );
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;

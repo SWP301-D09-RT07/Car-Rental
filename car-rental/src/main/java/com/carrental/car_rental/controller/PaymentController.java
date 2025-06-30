@@ -62,6 +62,23 @@ public class PaymentController {
         }
     }
 
+    @PostMapping("/with-booking")
+    public ResponseEntity<PaymentResponseDTO> createPaymentWithBooking(@Valid @RequestBody PaymentDTO dto, HttpServletRequest request) {
+        logger.info("Request to create payment with booking for car ID: {}", dto.getCarId());
+        try {
+            PaymentResponseDTO response = service.processPaymentWithBooking(dto, request);
+            logger.info("Payment with booking processed successfully. Booking ID: {}, Payment ID: {}", 
+                       response.getBookingId(), response.getPaymentId());
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid payment/booking data: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        } catch (Exception e) {
+            logger.error("Error processing payment with booking: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<PaymentDTO> updatePayment(@PathVariable Integer id, @Valid @RequestBody PaymentDTO dto) {
         logger.info("Request to update payment with ID: {}", id);

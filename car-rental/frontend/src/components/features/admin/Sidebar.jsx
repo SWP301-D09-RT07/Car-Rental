@@ -49,6 +49,11 @@ export const Sidebar = () => {
                             </Link>
                         </li>
                     ))}
+                    <li className={`${styles.navItem} ${location.pathname === "/admin/owner-requests" ? styles.active : ""}`}>
+                        <Link to="/admin/owner-requests" className={styles.navLink}>
+                            Đơn đăng ký chủ xe
+                        </Link>
+                    </li>
                 </ul>
             </nav>
         </div>

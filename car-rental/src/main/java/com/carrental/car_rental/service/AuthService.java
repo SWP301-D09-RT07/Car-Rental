@@ -87,7 +87,7 @@ public class AuthService {
             String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().getRoleName());
             long expiresAt = jwtTokenProvider.getExpirationDateFromToken(token).getTime();
             logger.info("Đăng nhập thành công cho username: {}", authRequest.getUsername());
-            return new AuthResponse(token, expiresAt, user.getRole().getRoleName(), user.getUsername());
+            return new AuthResponse(token, expiresAt, user.getRole().getRoleName(), user.getUsername(), user.getId());
         } catch (AuthenticationException e) {
             logger.warn("Đăng nhập thất bại: {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tên người dùng hoặc mật khẩu không đúng");
@@ -216,7 +216,7 @@ public class AuthService {
             String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().getRoleName());
             long expiresAt = jwtTokenProvider.getExpirationDateFromToken(token).getTime();
             logger.info("Đăng nhập Google thành công cho email: {}", email);
-            return new AuthResponse(token, expiresAt, user.getRole().getRoleName(), user.getUsername());
+            return new AuthResponse(token, expiresAt, user.getRole().getRoleName(), user.getUsername(), user.getId());
         } catch (ResponseStatusException e) {
             logger.error("Lỗi xử lý đăng nhập Google: {}", e.getMessage());
             throw e;

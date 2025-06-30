@@ -1034,7 +1034,19 @@ const SearchPage = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
-            <Header />
+            <Header
+                isAuthenticated={!!localStorage.getItem("token")}
+                userEmail={localStorage.getItem("userEmail")}
+                isUserDropdownOpen={isUserDropdownOpen}
+                setIsUserDropdownOpen={setIsUserDropdownOpen}
+                handleLogout={() => {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("userEmail");
+                    window.location.href = "/login";
+                }}
+                isMobileMenuOpen={isMobileMenuOpen}
+                setIsMobileMenuOpen={setIsMobileMenuOpen}
+            />
             <main className="pt-24 pb-16">
                 {/* Enhanced Hero Section */}
                 <section className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white py-16">

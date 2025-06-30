@@ -122,4 +122,7 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
             "LEFT JOIN FETCH b.status " +
             "WHERE c.supplier = :supplier")
     List<Booking> findByCar_SupplierWithAllRelations(@Param("supplier") com.carrental.car_rental.entity.User supplier);
+
+    @Query("SELECT COALESCE(MAX(b.id), 0) + 1 FROM Booking b")
+    Integer getNextBookingId();
 }

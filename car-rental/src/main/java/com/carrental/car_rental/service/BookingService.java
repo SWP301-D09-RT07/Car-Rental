@@ -466,8 +466,12 @@ public class BookingService {
     // Lấy user có booking gần đây nhất (của hoàng)
     public List<UserDTO> findRecentBookingUsers(int size) {
         return bookingRepository.findRecentBookingUsers(PageRequest.of(0, size))
-            .stream()
-            .map(userMapper::toDto)
-            .collect(Collectors.toList());
+                .stream()
+                .map(userMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    public Integer getNextBookingId() {
+        return bookingRepository.getNextBookingId();
     }
 }

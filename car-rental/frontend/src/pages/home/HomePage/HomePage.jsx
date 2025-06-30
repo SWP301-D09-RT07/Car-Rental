@@ -710,6 +710,7 @@ const HomePage = () => {
                                 autoplay={{ delay: 3000, disableOnInteraction: false }}
                                 slidesPerView={6}
                                 spaceBetween={30}
+                                loop={true}
                                 breakpoints={{
                                     320: { slidesPerView: 2, spaceBetween: 15 },
                                     640: { slidesPerView: 3, spaceBetween: 20 },
@@ -796,6 +797,7 @@ const HomePage = () => {
                                     </button>
                                     <Swiper
                                         modules={[Pagination, Autoplay, Navigation]}
+                                        loop={true}
                                         pagination={{
                                             clickable: true,
                                             bulletClass: "swiper-pagination-bullet !bg-blue-600",
@@ -883,6 +885,7 @@ const HomePage = () => {
                                     </button>
                                     <Swiper
                                         modules={[Pagination, Autoplay, Navigation]}
+                                        loop={true}
                                         pagination={{
                                             clickable: true,
                                             bulletClass: "swiper-pagination-bullet !bg-emerald-600",

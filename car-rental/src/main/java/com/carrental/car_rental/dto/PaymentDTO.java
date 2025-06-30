@@ -5,7 +5,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 @NoArgsConstructor
@@ -19,5 +21,19 @@ public class PaymentDTO {
     private String paymentMethod;
     private String statusName;
     private LocalDateTime paymentDate;
-    private String paymentType; // Thêm trường này
+    private String paymentType; // "deposit", "full_payment", "refund"
+    
+    // Booking-related fields for creating temporary booking
+    private Integer carId;
+    private LocalDateTime pickupDateTime;
+    private LocalDateTime dropoffDateTime;
+    private String pickupLocation;
+    private String dropoffLocation;
+    private Short seatNumber;
+    private Boolean withDriver;
+    private Boolean deliveryRequested;
+    
+    // User information
+    private Integer userId;
+    private Map<String, Object> customerInfo;
 }
