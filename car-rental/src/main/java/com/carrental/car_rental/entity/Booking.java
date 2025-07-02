@@ -107,6 +107,28 @@ public class Booking {
     @Column(name = "is_deleted")
     private Boolean isDeleted;
     
+   @ColumnDefault("0")
+    @Column(name = "supplier_delivery_confirm", nullable = false)
+    private Boolean supplierDeliveryConfirm = false; 
+    
+    @ColumnDefault("0")
+    @Column(name = "customer_receive_confirm", nullable = false)
+    private Boolean customerReceiveConfirm = false; 
+
+    @ColumnDefault("0")
+    @Column(name = "customer_return_confirm", nullable = false)
+    private Boolean customerReturnConfirm = false; 
+    
+    @ColumnDefault("0")
+    @Column(name = "supplier_return_confirm", nullable = false)
+    private Boolean supplierReturnConfirm = false;
+
+    @Column(name = "delivery_confirm_time")
+    private Instant deliveryConfirmTime;
+
+    @Column(name = "return_confirm_time")
+    private Instant returnConfirmTime;
+        
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = Instant.now();

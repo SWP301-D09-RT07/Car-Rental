@@ -2070,3 +2070,106 @@ VALUES
     (71, N'/images/FORD_EVEREST_1.jpg', N'Hình chính Ford Everest', 1);
 GO
 
+ALTER TABLE Rating 
+ADD is_anonymous BIT NOT NULL DEFAULT 0;
+
+use CarRentalDB
+-- Thêm booking với status completed (status_id = 4)
+INSERT INTO Booking (
+    customer_id,
+    car_id,
+    driver_id,
+    with_driver,
+    region_id,
+    booking_date,
+    start_date,
+    end_date,
+    pickup_location,
+    dropoff_location,
+    status_id,
+    seat_number,
+    deposit_amount,
+    promo_id,
+    extension_days,
+    extension_status_id,
+    created_at,
+    updated_at,
+    is_deleted
+) VALUES (
+    61,                                    -- customer_id (user có ID = 1)
+    1,                                    -- car_id (xe có ID = 1)
+    NULL,                                 -- driver_id (xe tự lái)
+    0,                                    -- with_driver = false
+    1,                                    -- region_id (khu vực có ID = 1)
+    '2025-06-15 10:00:00',               -- booking_date (ngày đặt)
+    '2025-06-20',                        -- start_date (ngày bắt đầu thuê)
+    '2025-06-22',                        -- end_date (ngày kết thúc thuê)
+    N'Sân bay Tân Sơn Nhất',            -- pickup_location
+    N'Quận 1, TP.HCM',                  -- dropoff_location
+    4,                                    -- status_id = 4 (completed)
+    5,                                    -- seat_number (5 chỗ)
+    5000000.00,                          -- deposit_amount (5 triệu)
+    NULL,                                -- promo_id (không có promotion)
+    0,                                    -- extension_days
+    NULL,                                -- extension_status_id
+    '2024-06-15 10:00:00',               -- created_at
+    '2024-06-22 18:00:00',               -- updated_at (cập nhật khi hoàn thành)
+    0                                     -- is_deleted = false
+);
+
+ALTER TABLE Booking
+ADD supplier_delivery_confirm BIT DEFAULT 0,
+    customer_receive_confirm BIT DEFAULT 0,
+    customer_return_confirm BIT DEFAULT 0,
+    supplier_return_confirm BIT DEFAULT 0,
+    delivery_confirm_time DATETIME,
+    return_confirm_time DATETIME;
+
+INSERT INTO Status (status_name, description, is_deleted)
+VALUES ('rejected', N'bị từ chối', 0);
+
+-- ✅ Insert Payment record cho booking_id = 19 với payment_type = 'full_payment'
+INSERT INTO Payment (
+    booking_id,
+    amount,
+    region_id,
+    transaction_id,
+    payment_method,
+    payment_status_id,
+    payment_date,
+    payment_type,
+    is_deleted
+) VALUES (
+    19,                           -- booking_id
+    5000000.00,                   -- amount (5 triệu VND)
+    1,                            -- region_id (cần check region_id thực tế)
+    'TXN_' + CAST(NEWID() AS VARCHAR(36)), -- transaction_id (random)
+    'vnpay',                      -- payment_method ('vnpay' hoặc 'cash')
+    15,                           -- payment_status_id (15 = paid)
+    GETDATE(),                    -- payment_date
+    'full_payment',               -- payment_type
+    0                             -- is_deleted
+);
+
+-- ✅ Xóa constraint UNIQUE hiện tại
+ALTER TABLE Payment 
+DROP CONSTRAINT UQ_Booking_Payment;
+-- ✅ Tạo constraint UNIQUE cho booking_id + payment_type
+-- Mỗi booking chỉ có thể có 1 payment record cho mỗi loại (deposit, full_payment, refund)
+ALTER TABLE Payment 
+ADD CONSTRAINT UQ_Booking_Payment_Type UNIQUE (booking_id, payment_type);
+table status
+-- ✅ Update tất cả giá trị NULL thành FALSE cho các trường boolean
+UPDATE booking 
+SET 
+    supplier_delivery_confirm = ISNULL(supplier_delivery_confirm, 0),
+    customer_receive_confirm = ISNULL(customer_receive_confirm, 0),
+    customer_return_confirm = ISNULL(customer_return_confirm, 0),
+    supplier_return_confirm = ISNULL(supplier_return_confirm, 0)
+WHERE 
+    supplier_delivery_confirm IS NULL 
+    OR customer_receive_confirm IS NULL 
+    OR customer_return_confirm IS NULL 
+    OR supplier_return_confirm IS NULL;
+
+

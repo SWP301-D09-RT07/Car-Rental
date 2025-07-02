@@ -449,7 +449,8 @@ const BookingConfirmationPage = () => {
         pickupAddress: contactInfo.pickupAddress,
         dropoffAddress: contactInfo.dropoffAddress,
         withDriver: withDriver,
-        deliveryRequested: deliveryRequested
+        deliveryRequested: deliveryRequested,
+
       })
       
       const bookingPayload = {
@@ -460,6 +461,7 @@ const BookingConfirmationPage = () => {
         dropoffDateTime: bookingData.dropoffDateTime,
         withDriver: withDriver,
         deliveryRequested: deliveryRequested,
+        seatNumber: car?.numOfSeats
       };
       
       console.log('[BookingConfirm] Gọi createBooking với:', bookingPayload);

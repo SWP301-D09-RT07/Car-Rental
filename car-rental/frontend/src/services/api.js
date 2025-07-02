@@ -633,45 +633,8 @@ export const uploadDamageReport = async (file, description, carId) => {
     }
 };
 
-// Quản lý đánh giá
-export const getRatingsByCarId = async (carId) => {
-    if (!carId) throw new Error('Vui lòng cung cấp ID xe');
-    try {
-        const response = await api.get('/api/ratings', { params: { carId } });
-        return response.data;
-    } catch (error) {
-        throw new Error(error.response?.data?.message || 'Lấy đánh giá xe thất bại');
-    }
-};
 
-export const getRatingSummaryByCarId = async (carId) => {
-    if (!carId) throw new Error('Vui lòng cung cấp ID xe');
-    try {
-        const response = await api.get('/api/ratings/summary', { params: { carId } });
-        return response.data;
-    } catch (error) {
-        throw new Error(error.response?.data?.message || 'Lấy tổng quan đánh giá xe thất bại');
-    }
-};
 
-export const createRating = async (ratingData) => {
-    if (!ratingData.carId || !ratingData.rating) throw new Error('Vui lòng cung cấp ID xe và đánh giá');
-    try {
-        const response = await api.post('/api/ratings', ratingData);
-        return response.data;
-    } catch (error) {
-        throw new Error(error.response?.data?.message || 'Tạo đánh giá thất bại');
-    }
-};
-
-export const postReview = async (url, data) => {
-    try {
-        const response = await api.post(url, data);
-        return response.data;
-    } catch (error) {
-        throw new Error(error.response?.data?.message || 'Gửi đánh giá thất bại');
-    }
-};
 
 // Quản lý lịch sử thuê xe
 export const getRentalHistory = async (carId) => {
@@ -774,12 +737,47 @@ export const testAuth = async () => {
 export const getUserBookingHistory = async () => {
     try {
         console.log('🔄 Fetching user booking history...');
+        
+        // ✅ SỬA: Gọi endpoint UserController thay vì BookingController
         const response = await api.get('/api/users/profile/bookings');
+        
         console.log('✅ Booking history fetched successfully:', response.data);
+        
+        // ✅ Debug payment info
+        if (response.data.success && response.data.data) {
+            console.log(`📊 Total bookings: ${response.data.total}`);
+            response.data.data.forEach((booking, index) => {
+                console.log(`📋 Booking ${index + 1}:`, {
+                    bookingId: booking.bookingId,
+                    carModel: booking.carModel,
+                    statusName: booking.statusName,
+                    paymentStatus: booking.paymentStatus,
+                    paymentType: booking.paymentType,
+                    paymentAmount: booking.paymentAmount,
+                    paymentDate: booking.paymentDate
+                });
+            });
+        }
+        
         return response.data;
     } catch (error) {
-        console.error('❌ Booking history fetch error:', error.response?.data || error.message);
-        throw new Error(error.response?.data?.error || 'Lỗi khi tải lịch sử đặt xe');
+        console.error('❌ Booking history fetch error:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            url: error.config?.url,
+            message: error.message
+        });
+        
+        if (error.response?.status === 401) {
+            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        } else if (error.response?.status === 403) {
+            throw new Error('Bạn không có quyền truy cập.');
+        } else if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy thông tin người dùng.');
+        } else {
+            throw new Error(error.response?.data?.error || 'Lỗi khi tải lịch sử đặt xe');
+        }
     }
 };
 
@@ -829,6 +827,16 @@ export const getBookingDetails = async (bookingId) => {
         
         const response = await api.get(`/api/bookings/${bookingId}`);
         console.log('✅ Booking details fetched:', response.data);
+        if (response.data.success && response.data.data) {
+            const booking = response.data.data;
+            console.log('💰 Booking details payment info:', {
+                bookingId: booking.bookingId,
+                paymentStatus: booking.paymentStatus,
+                paymentType: booking.paymentType,
+                paymentAmount: booking.paymentAmount,
+                paymentDate: booking.paymentDate
+            });
+        }
         return response.data;
     } catch (error) {
         console.error('❌ Fetch booking details error:', {
@@ -914,6 +922,108 @@ export const ensureBookingFinancials = async (bookingId) => {
     } catch (error) {
         console.error('[API] ensureBookingFinancials error:', error.response?.status, error.response?.data);
         throw new Error(error.response?.data?.message || 'Đảm bảo thông tin tài chính thất bại');
+    }
+};
+
+//Rating apis
+
+// ...existing code...
+
+// Rating APIs
+export const getAllRatings = async () => {
+    const cacheKey = 'all-ratings';
+    if (cache.has(cacheKey)) {
+        return cache.get(cacheKey);
+    }
+    
+    try {
+        const response = await api.get('/api/ratings');
+        cache.set(cacheKey, response.data);
+        setTimeout(() => cache.delete(cacheKey), 60000); // Cache 1 phút
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching all ratings:', error);
+        throw new Error(error.response?.data?.message || 'Không thể tải danh sách đánh giá');
+    }
+};
+
+export const getRatingsByCarId = async (carId) => {
+    const cacheKey = `ratings-car-${carId}`;
+    if (cache.has(cacheKey)) {
+        return cache.get(cacheKey);
+    }
+    
+    try {
+        const response = await api.get(`/api/ratings?carId=${carId}`);
+        cache.set(cacheKey, response.data);
+        setTimeout(() => cache.delete(cacheKey), 30000); // Cache 30 giây
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching ratings for car ${carId}:`, error);
+        throw new Error(error.response?.data?.message || 'Không thể tải đánh giá của xe');
+    }
+};
+
+export const createRating = async (ratingData) => {
+    try {
+        const response = await api.post('/api/ratings', ratingData);
+        
+        // Invalidate cache
+        invalidateCache('all-ratings');
+        invalidateCache(`ratings-car-${ratingData.carId}`);
+        
+        return response.data;
+    } catch (error) {
+        console.error('Error creating rating:', error);
+        throw new Error(error.response?.data?.message || 'Không thể tạo đánh giá');
+    }
+};
+
+export const getRatingSummaryByCarId = async (carId) => {
+    try {
+        const response = await api.get(`/api/ratings/summary?carId=${carId}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching rating summary for car ${carId}:`, error);
+        throw new Error(error.response?.data?.message || 'Không thể tải thống kê đánh giá');
+    }
+};
+
+// ✅ API cho customer confirm
+export const confirmDelivery = async (bookingId) => {
+    try {
+        console.log('🔄 Confirming delivery for booking:', bookingId);
+        const response = await api.put(`/api/bookings/${bookingId}/confirm-delivery`);
+        console.log('✅ Delivery confirmed:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Confirm delivery error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Không thể xác nhận nhận xe');
+    }
+};
+
+export const confirmReturn = async (bookingId) => {
+    try {
+        console.log('🔄 Confirming return for booking:', bookingId);
+        const response = await api.put(`/api/bookings/${bookingId}/confirm-return`);
+        console.log('✅ Return confirmed:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Confirm return error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Không thể xác nhận trả xe');
+    }
+};
+
+// ✅ API cho thanh toán tiền nhận xe
+export const createPaymentForPickup = async (bookingId, paymentData) => {
+    try {
+        console.log('🔄 Creating pickup payment for booking:', bookingId);
+        const response = await api.post(`/api/payments/pickup/${bookingId}`, paymentData);
+        console.log('✅ Pickup payment created:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Create pickup payment error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Không thể tạo thanh toán nhận xe');
     }
 };
 

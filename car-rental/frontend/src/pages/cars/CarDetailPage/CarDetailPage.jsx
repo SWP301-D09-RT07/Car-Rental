@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
-import { getCarById, getRatingsByCarId, createBooking, post, searchCars } from "@/services/api.js"
+import { getCarById, getRatingsByCarId, createBooking, post, searchCars, getRatingSummaryByCarId } from "@/services/api.js"
 import {
   FaCarSide,
   FaUser,
@@ -43,6 +43,7 @@ import { toast } from "react-toastify"
 import { useAuth } from "@/hooks/useAuth.js"
 import Header from '@/components/layout/Header/Header';
 import Footer from '@/components/layout/Footer/Footer';
+import TestimonialCarousel from '../../../components/Rating/TestimonialCarousel';
 
 // Enhanced Loading Spinner Component
 const LoadingSpinner = ({ size = "medium", color = "blue" }) => {
@@ -142,7 +143,7 @@ const FeatureIcon = ({ feature }) => {
 const CarDetailPage = () => {
   const { carId } = useParams()
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated,user } = useAuth()
   const [car, setCar] = useState(null)
   const [ratings, setRatings] = useState([])
   const [similarCars, setSimilarCars] = useState([])
@@ -166,6 +167,9 @@ const CarDetailPage = () => {
   const [showGalleryModal, setShowGalleryModal] = useState(false)
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
+  const [carRatings, setCarRatings] = useState([])
+  const [ratingSummary, setRatingSummary] = useState([])
+  const [calculatedRating, setCalculatedRating] = useState(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -174,29 +178,37 @@ const CarDetailPage = () => {
         const carData = await getCarById(carId)
         setCar(carData)
 
+        // Fetch ratings for this car
+        const ratingsResponse = await getRatingsByCarId(carId)
+        setCarRatings(ratingsResponse)
+
+        // Fetch rating summary
+        const summaryResponse = await getRatingSummaryByCarId(carId)
+        setRatingSummary(summaryResponse)
+
         const ratingsPromise = isAuthenticated ? getRatingsByCarId(carId) : Promise.resolve([]);
         const similarCarsPromise = searchCars({
-            brand: carData?.brandName,
-            priceRange: `${carData?.dailyRate * 0.8}-${carData?.dailyRate * 1.2}`,
-            excludeId: carId,
-            size: 4,
+          brand: carData?.brandName,
+          priceRange: `${carData?.dailyRate * 0.8}-${carData?.dailyRate * 1.2}`,
+          excludeId: carId,
+          size: 4,
         });
 
         const [ratingsResult, similarCarsResult] = await Promise.allSettled([
-            ratingsPromise,
-            similarCarsPromise,
+          ratingsPromise,
+          similarCarsPromise,
         ]);
 
         if (ratingsResult.status === 'fulfilled') {
-            setRatings(ratingsResult.value);
+          setRatings(ratingsResult.value);
         } else {
-            console.error("Failed to fetch ratings:", ratingsResult.reason);
+          console.error("Failed to fetch ratings:", ratingsResult.reason);
         }
 
         if (similarCarsResult.status === 'fulfilled') {
-            setSimilarCars(similarCarsResult.value.content || []);
+          setSimilarCars(similarCarsResult.value.content || []);
         } else {
-            console.error("Failed to fetch similar cars:", similarCarsResult.reason);
+          console.error("Failed to fetch similar cars:", similarCarsResult.reason);
         }
       } catch (err) {
         setError(err.message || "Không thể tải thông tin xe")
@@ -206,25 +218,83 @@ const CarDetailPage = () => {
     }
     fetchData()
   }, [carId, isAuthenticated])
-
-  const handleSubmitReview = async () => {
-    if (!rating || !comment) {
-      toast.error("Vui lòng chọn sao và viết bình luận.")
-      return
+  
+  useEffect(() => {
+  if (carRatings.length > 0) {
+    const avgRating = carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length
+    setCalculatedRating(avgRating)
+    
+    // Cập nhật car object với rating mới tính
+    if (car && (!car.averageRating || car.averageRating === 0)) {
+      setCar(prev => ({
+        ...prev,
+        averageRating: avgRating
+      }))
     }
-    try {
-      await post("/api/ratings", { carId, rating, comment })
-      setRating(0)
-      setComment("")
-      const ratingsData = await getRatingsByCarId(carId)
-      setRatings(ratingsData)
-      setError(null)
-      toast.success("Đánh giá của bạn đã được gửi thành công!")
-      setShowReviewForm(false)
-    } catch (err) {
-      toast.error(err.message || "Không thể gửi đánh giá")
-    }
+  } else {
+    setCalculatedRating(null)
   }
+}, [carRatings, car])
+  const [isAnonymous, setIsAnonymous] = useState(false)
+  const getDisplayRating = () => {
+  if (car?.averageRating && car?.averageRating > 0) {
+    return car.averageRating
+  }
+  if (calculatedRating) {
+    return calculatedRating
+  }
+  if (carRatings.length > 0) {
+    return carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length
+  }
+  return 0
+}
+  // Tìm hàm handleSubmitReview (khoảng dòng 250) và thay thế:
+const handleSubmitReview = async () => {
+  if (!rating || !comment.trim()) {
+    toast.error("Vui lòng nhập đầy đủ đánh giá và bình luận")
+    return
+  }
+
+  if (!isAuthenticated || !user) {
+    toast.error("Bạn cần đăng nhập để đánh giá")
+    return
+  }
+
+  try {
+    const reviewData = {
+      carId: Number(carId),
+      customerId: user?.id || user?.userId, // Thử cả hai trường hợp
+      ratingScore: rating,
+      comment: comment.trim(),
+      isAnonymous: isAnonymous,
+      ratingDate: new Date().toISOString()
+    }
+
+    console.log('Submitting review data:', reviewData) // Debug log
+
+    // Sử dụng createRating từ api.js
+    const response = await post('/api/ratings', reviewData)
+
+    toast.success("Đánh giá của bạn đã được gửi thành công!")
+
+    // Reset form
+    setRating(0)
+    setComment("")
+    setIsAnonymous(false)
+    setShowReviewForm(false)
+
+    // Refresh ratings
+    const updatedRatings = await getRatingsByCarId(carId)
+    setCarRatings(updatedRatings)
+
+    // Refresh car data to get new average rating
+    const updatedCar = await getCarById(carId)
+    setCar(updatedCar)
+  } catch (err) {
+    console.error('Error submitting review:', err)
+    toast.error(err.message || "Có lỗi xảy ra khi gửi đánh giá")
+  }
+}
 
   const handleBookingChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -350,9 +420,8 @@ const CarDetailPage = () => {
               <button
                 key={idx}
                 onClick={() => setModalImageIndex(idx)}
-                className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                  modalImageIndex === idx ? "border-blue-500 scale-110" : "border-transparent opacity-60"
-                }`}
+                className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${modalImageIndex === idx ? "border-blue-500 scale-110" : "border-transparent opacity-60"
+                  }`}
               >
                 <img
                   src={img.imageUrl || "https://via.placeholder.com/100"}
@@ -448,11 +517,10 @@ const CarDetailPage = () => {
     return (
       <button
         onClick={toggleFavorite}
-        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors duration-300 ${
-          isFavorite
-            ? "bg-red-100 text-red-500 hover:bg-red-50 hover:text-red-600"
-            : "bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-500"
-        } shadow-lg hover:scale-110`}
+        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors duration-300 ${isFavorite
+          ? "bg-red-100 text-red-500 hover:bg-red-50 hover:text-red-600"
+          : "bg-white text-gray-600 hover:bg-blue-50 hover:text-blue-500"
+          } shadow-lg hover:scale-110`}
       >
         <FaHeart className="mx-auto" />
       </button>
@@ -501,15 +569,29 @@ const CarDetailPage = () => {
 
                 {/* Enhanced Info Row */}
                 <div className="flex flex-wrap items-center gap-6 text-gray-600">
-                  <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
-                    <StarRating rating={car.averageRating || 4.8} />
-                    <span className="ml-2 font-bold text-gray-800">{car.averageRating || 4.8}</span>
-                    <span className="ml-1 text-sm">/5.0</span>
-                  </div>
-                  <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
-                    <FaComments className="mr-2 text-blue-500" />
-                    <span className="font-medium">{ratings.length} đánh giá</span>
-                  </div>
+                  {car.averageRating && car.averageRating > 0 ? (
+                    <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
+                      <StarRating rating={car.averageRating} />
+                      <span className="ml-2 font-bold text-gray-800">{car.averageRating.toFixed(1)}</span>
+                      <span className="ml-1 text-sm">/5.0</span>
+                    </div>
+                  ) : carRatings.length > 0 ? (
+                    <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
+                      <StarRating rating={carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length} />
+                      <span className="ml-2 font-bold text-gray-800">
+                        {(carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length).toFixed(1)}
+                      </span>
+                      <span className="ml-1 text-sm">/5.0</span>
+                    </div>
+                  ) : null}
+
+                  {carRatings.length > 0 && (
+                    <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
+                      <FaComments className="mr-2 text-blue-500" />
+                      <span className="font-medium">{carRatings.length} đánh giá</span>
+                    </div>
+                  )}
+
                   <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
                     <FaMapMarkerAlt className="mr-2 text-red-500" />
                     <span className="font-medium">{car.location || "TP. Hồ Chí Minh"}</span>
@@ -667,11 +749,10 @@ const CarDetailPage = () => {
                   <button
                     key={idx}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`flex-shrink-0 w-20 h-16 rounded-xl overflow-hidden border-3 transition-all duration-300 ${
-                      activeImageIndex === idx
-                        ? "border-blue-500 shadow-xl scale-110 ring-2 ring-blue-200"
-                        : "border-transparent opacity-70 hover:opacity-100 hover:scale-105"
-                    }`}
+                    className={`flex-shrink-0 w-20 h-16 rounded-xl overflow-hidden border-3 transition-all duration-300 ${activeImageIndex === idx
+                      ? "border-blue-500 shadow-xl scale-110 ring-2 ring-blue-200"
+                      : "border-transparent opacity-70 hover:opacity-100 hover:scale-105"
+                      }`}
                   >
                     <img
                       src={img.imageUrl || "https://via.placeholder.com/80x64"}
@@ -688,11 +769,10 @@ const CarDetailPage = () => {
                   <button
                     key={idx}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      activeImageIndex === idx
-                        ? "bg-gradient-to-r from-blue-500 to-purple-500 w-10 shadow-lg"
-                        : "bg-gray-300 w-2 hover:bg-gray-400"
-                    }`}
+                    className={`h-2 rounded-full transition-all duration-300 ${activeImageIndex === idx
+                      ? "bg-gradient-to-r from-blue-500 to-purple-500 w-10 shadow-lg"
+                      : "bg-gray-300 w-2 hover:bg-gray-400"
+                      }`}
                   ></button>
                 ))}
               </div>
@@ -829,144 +909,109 @@ const CarDetailPage = () => {
               </div>
             </div>
 
-            {/* Reviews */}
+            {/* Reviews - Gộp thành 1 phần duy nhất */}
             <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl mb-8 border border-gray-100">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  Đánh giá
+                  Đánh giá từ khách hàng
                 </h2>
-                <button
-                  onClick={() => setShowReviewForm(!showReviewForm)}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-xl font-medium transition-all duration-300 text-sm flex items-center"
-                >
-                  <FaStar className="mr-2" />
-                  Viết đánh giá
-                </button>
               </div>
 
-              <div className="flex flex-col md:flex-row gap-6 mb-8">
-                <div className="md:w-1/3 bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl text-center">
-                  <div className="text-5xl font-bold text-gray-800 mb-2">{car.averageRating || "4.8"}</div>
-                  <div className="flex justify-center mb-2">
-                    <StarRating rating={car.averageRating || 4.8} size="medium" />
-                  </div>
-                  <div className="text-gray-600">{ratings.length} đánh giá</div>
-                </div>
-
-                <div className="md:w-2/3">
-                  <div className="space-y-2">
-                    {[5, 4, 3, 2, 1].map((star) => {
-                      const count = ratings.filter((r) => Math.round(r.rating) === star).length
-                      const percentage = ratings.length > 0 ? (count / ratings.length) * 100 : 0
-                      return (
-                        <div key={star} className="flex items-center gap-3">
-                          <div className="flex items-center w-24">
-                            <span className="mr-1">{star}</span>
-                            <FaStar className="text-yellow-400" />
-                          </div>
-                          <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
-                              style={{ width: `${percentage}%` }}
-                            ></div>
-                          </div>
-                          <div className="w-12 text-right text-sm text-gray-600">{percentage.toFixed(0)}%</div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Review Form */}
-              {showReviewForm && (
-                <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl mb-8 animate-in slide-in-from-top duration-300">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Viết đánh giá của bạn</h3>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Đánh giá của bạn</label>
-                    <div className="flex gap-2">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setRating(star)}
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            rating >= star ? "bg-yellow-400 text-white" : "bg-gray-200 text-gray-400 hover:bg-gray-300"
-                          } transition-colors`}
-                        >
-                          <FaStar />
-                        </button>
-                      ))}
+              {carRatings.length > 0 ? (
+                <>
+                  {/* Rating Summary */}
+                  <div className="flex flex-col md:flex-row gap-6 mb-8">
+                    <div className="md:w-1/3 bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl text-center">
+                      <div className="text-5xl font-bold text-gray-800 mb-2">
+                        {car.averageRating && car.averageRating > 0
+                          ? car.averageRating.toFixed(1)
+                          : carRatings.length > 0
+                            ? (carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length).toFixed(1)
+                            : "Chưa có"
+                        }
+                      </div>
+                      <div className="flex justify-center mb-2">
+                        <StarRating rating={
+                          car.averageRating && car.averageRating > 0
+                            ? car.averageRating
+                            : carRatings.length > 0
+                              ? carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length
+                              : 0
+                        } size="medium" />
+                      </div>
+                      <div className="text-gray-600">{carRatings.length} đánh giá</div>
                     </div>
-                  </div>
-                  <div className="mb-4">
-                    <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-2">
-                      Bình luận
-                    </label>
-                    <textarea
-                      id="comment"
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      placeholder="Chia sẻ trải nghiệm của bạn với xe này..."
-                      className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      rows="4"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowReviewForm(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSubmitReview}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2 rounded-xl font-medium transition-all duration-300"
-                      disabled={!rating || !comment}
-                    >
-                      Gửi đánh giá
-                    </button>
-                  </div>
-                </div>
-              )}
 
-              {/* Reviews List */}
-              <div className="space-y-6">
-                {ratings.length > 0 ? (
-                  ratings.map((r, index) => (
-                    <div key={index} className="border-b border-gray-200 pb-6 last:border-0">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full flex items-center justify-center text-white font-bold">
-                          {r.userName?.charAt(0) || "U"}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h4 className="font-semibold text-gray-800">{r.userName || "Người dùng ẩn danh"}</h4>
-                              <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <StarRating rating={r.rating} />
-                                <span>•</span>
-                                <span>{new Date(r.createdAt || Date.now()).toLocaleDateString()}</span>
+                    <div className="md:w-2/3">
+                      <div className="space-y-2">
+                        {[5, 4, 3, 2, 1].map((star) => {
+                          const count = carRatings.filter((r) => Math.round(r.ratingScore) === star).length
+                          const percentage = carRatings.length > 0 ? (count / carRatings.length) * 100 : 0
+
+                          return (
+                            <div key={star} className="flex items-center gap-3">
+                              <span className="text-sm font-medium text-gray-600 w-12">{star} sao</span>
+                              <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-gradient-to-r from-yellow-400 to-orange-400 h-2 rounded-full transition-all duration-500"
+                                  style={{ width: `${percentage}%` }}
+                                />
                               </div>
+                              <span className="text-sm text-gray-500 w-12">{count}</span>
                             </div>
-                          </div>
-                          <p className="mt-2 text-gray-700">{r.comment || "Không có bình luận"}</p>
-                        </div>
+                          )
+                        })}
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <FaComments className="text-gray-400 text-2xl" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-800 mb-1">Chưa có đánh giá nào</h3>
-                    <p className="text-gray-600">Hãy là người đầu tiên đánh giá xe này</p>
                   </div>
-                )}
-              </div>
+
+                  {/* Horizontal Reviews Carousel - Luôn hiển thị */}
+                  <div className="mb-8">
+  {/* <div className="flex justify-between items-center mb-6">
+    <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+      Đánh giá từ khách hàng ({carRatings.length})
+    </h3>
+    
+    Quick stats
+    <div className="hidden md:flex items-center gap-4 text-sm text-gray-600">
+      <div className="flex items-center">
+        <FaStar className="text-yellow-400 mr-1" />
+        <span>Trung bình: {getDisplayRating().toFixed(1)}/5</span>
+      </div>
+      <div>
+        {carRatings.filter(r => r.ratingScore >= 4).length} đánh giá tích cực
+      </div>
+    </div>
+  </div> */}
+  
+  <TestimonialCarousel carId={carId} 
+  ratings={carRatings} 
+  loading={loading}  
+  error={error} />
+</div>
+
+{/* Enhanced View All Button */}
+{carRatings.length > 6 && (
+  <div className="text-center bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
+    <p className="text-gray-600 mb-4">
+      Còn {carRatings.length - 6} đánh giá khác từ khách hàng
+    </p>
+    <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg">
+      Xem tất cả {carRatings.length} đánh giá
+      <FaArrowRight className="ml-2 inline" />
+    </button>
+  </div>
+)}
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FaComments className="text-gray-400 text-2xl" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">Chưa có đánh giá nào</h3>
+                  <p className="text-gray-600 mb-6">Xe này chưa có đánh giá từ khách hàng</p>
+                </div>
+              )}
             </div>
 
             {/* Terms */}
@@ -1400,10 +1445,12 @@ const CarDetailPage = () => {
                 </div>
                 <div className="p-4">
                   <h3 className="font-bold text-lg mb-2 text-gray-800">{similarCar.model}</h3>
-                  <div className="flex items-center text-sm text-gray-600 mb-3">
-                    <StarRating rating={similarCar.averageRating || 4.8} />
-                    <span className="ml-2">{similarCar.averageRating || 4.8}</span>
-                  </div>
+                  {similarCar.averageRating && similarCar.averageRating > 0 && (
+                    <div className="flex items-center text-sm text-gray-600 mb-3">
+                      <StarRating rating={similarCar.averageRating} />
+                      <span className="ml-2">{similarCar.averageRating.toFixed(1)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <div>
                       <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -1412,7 +1459,7 @@ const CarDetailPage = () => {
                       <div className="text-xs text-gray-500">/ ngày</div>
                     </div>
                     <Link
-                      to={`/cars/${similarCar.id}`}
+                      to={`/cars/${similarCar.carId}`}
                       className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105"
                     >
                       Xem chi tiết

@@ -52,5 +52,7 @@ public class Rating {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "car_id")
     private Car car;
-
+    
+    @Column(name = "is_anonymous", columnDefinition = "bit default 0")
+    private Boolean isAnonymous;
 }

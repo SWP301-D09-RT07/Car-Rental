@@ -34,8 +34,9 @@ public class CarDTO {
     private LocalDateTime updatedAt;
     private List<ImageDTO> images;
     private Integer rentalCount;
-
+ 
     // Thêm các trường mới
     private String transmission;
     private String describe;
+    private Double averageRating;
 }
