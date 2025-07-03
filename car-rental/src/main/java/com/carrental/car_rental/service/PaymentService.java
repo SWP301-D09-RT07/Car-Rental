@@ -854,4 +854,59 @@ public class PaymentService {
                    response.getBookingId(), response.getPaymentId());
         return response;
     }
+
+//    @Transactional
+//public PaymentResponseDTO createPickupPayment(PaymentDTO paymentDTO, Integer userId) {
+//    try {
+//        // ✅ Validate booking
+//        Booking booking = bookingRepository.findById(paymentDTO.getBookingId())
+//            .orElseThrow(() -> new RuntimeException("Booking not found"));
+//
+//        if (!booking.getCustomer().getId().equals(userId)) {
+//            throw new RuntimeException("Unauthorized access to booking");
+//        }
+//
+//        // ✅ CHECK: Phải có deposit payment trước
+//        boolean hasDeposit = paymentRepository.existsByBookingIdAndPaymentTypeAndIsDeleted(
+//            booking.getId(), "deposit", false);
+//
+//        if (!hasDeposit) {
+//            throw new RuntimeException("No deposit payment found");
+//        }
+//
+//        // ✅ CHECK: Chưa có full_payment
+//        boolean hasFullPayment = paymentRepository.existsByBookingIdAndPaymentTypeAndIsDeleted(
+//            booking.getId(), "full_payment", false);
+//
+//        if (hasFullPayment) {
+//            throw new RuntimeException("Booking already has full payment");
+//        }
+//
+//        // ✅ CREATE payment record mới cho full_payment
+//        Payment fullPayment = new Payment();
+//        fullPayment.setBookingId(booking.getId());
+//        fullPayment.setAmount(paymentDTO.getAmount());
+//        fullPayment.setRegionId(1); // Có thể lấy từ booking
+//        fullPayment.setTransactionId("TXN_FULL_" + System.currentTimeMillis());
+//        fullPayment.setPaymentMethod(paymentDTO.getPaymentMethod());
+//        fullPayment.setPaymentStatusId(15); // Paid status
+//        fullPayment.setPaymentDate(new Date());
+//        fullPayment.setPaymentType("full_payment");
+//        fullPayment.setIsDeleted(false);
+//
+//        paymentRepository.save(fullPayment);
+//
+//        // ✅ Create VNPay URL...
+//        String vnpayUrl = vnpayService.createPaymentUrl(paymentDTO);
+//
+//        return PaymentResponseDTO.builder()
+//            .paymentId(fullPayment.getPaymentId())
+//            .redirectUrl(vnpayUrl)
+//            .build();
+//
+//    } catch (Exception e) {
+//        logger.error("Error creating pickup payment: {}", e.getMessage());
+//        throw new RuntimeException("Cannot create pickup payment: " + e.getMessage());
+//    }
+//}
 }

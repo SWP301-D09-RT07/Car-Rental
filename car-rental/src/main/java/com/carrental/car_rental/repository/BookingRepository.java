@@ -60,6 +60,7 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
     // Lấy booking gần đây nhất (của hoàng)
     List<Booking> findAllByIsDeletedFalseOrderByBookingDateDesc(Pageable pageable);
 
+
     @Query("SELECT DISTINCT b.customer FROM Booking b WHERE b.isDeleted = false ORDER BY b.bookingDate DESC")
     List<User> findRecentBookingUsers(Pageable pageable);
 
@@ -125,4 +126,11 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
 
     @Query("SELECT COALESCE(MAX(b.id), 0) + 1 FROM Booking b")
     Integer getNextBookingId();
+
+    // Sửa method này - sử dụng status.statusName thay vì status
+    @Query("SELECT COUNT(b) > 0 FROM Booking b WHERE b.customer.id = :customerId AND b.car.id = :carId AND b.status.statusName = :statusName AND b.isDeleted = false")
+    boolean existsByCustomerIdAndCarIdAndStatusName(@Param("customerId") Integer customerId, 
+                                                   @Param("carId") Integer carId, 
+                                                   @Param("statusName") String statusName);
+
 }

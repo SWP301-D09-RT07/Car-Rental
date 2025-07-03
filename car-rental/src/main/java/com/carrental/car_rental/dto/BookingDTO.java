@@ -3,11 +3,15 @@ package com.carrental.car_rental.dto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.carrental.car_rental.entity.Booking;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Data
 @NoArgsConstructor
@@ -50,10 +54,125 @@ public class BookingDTO {
     private String regionName;
     private LocalDate startDate;
     private LocalDate endDate;
+
+    private Boolean supplierDeliveryConfirm;
+    private Boolean customerReceiveConfirm;
+    private Boolean customerReturnConfirm;
+    private Boolean supplierReturnConfirm;
+    private LocalDateTime deliveryConfirmTime;
+    private LocalDateTime returnConfirmTime;
     // private Instant bookingInstant;
     // private Instant createdInstant;
+
+    private String paymentStatus; // "paid", "pending", "failed"
+    private String paymentType;   // "deposit", "full_payment", "refund"
+    private BigDecimal paymentAmount;
+    private LocalDateTime paymentDate;
+    private List<PaymentDTO> paymentDetails = new ArrayList<>();
     public Boolean getIsSelfDrive() { 
         return isSelfDrive != null ? isSelfDrive : (driverId == null); 
     }
     public void setIsSelfDrive(Boolean isSelfDrive) { this.isSelfDrive = isSelfDrive; }
+    
+     @JsonProperty("hasRated")
+    private Boolean hasRated; // Computed field - không map từ entity
+    
+    // getter/setter
+    public Boolean getHasRated() {
+        return hasRated;
+    }
+    // ✅ THÊM: Payment flags
+    private Boolean hasFullPayment = false;
+    private Boolean hasDeposit = false;
+    
+    public void setHasRated(Boolean hasRated) {
+        this.hasRated = hasRated;
+    }
+
+      public boolean canCustomerConfirmDelivery() {
+        return "confirmed".equals(statusName) && 
+               Boolean.TRUE.equals(supplierDeliveryConfirm) && 
+               !Boolean.TRUE.equals(customerReceiveConfirm) &&
+               "paid".equals(paymentStatus); // ✅ Chỉ cho phép khi đã thanh toán
+    }
+    
+    public boolean canCustomerConfirmReturn() {
+        return "in_progress".equals(statusName) && 
+               !Boolean.TRUE.equals(customerReturnConfirm);
+    }
+    
+    public boolean isDeliveryCompleted() {
+        return Boolean.TRUE.equals(supplierDeliveryConfirm) && 
+               Boolean.TRUE.equals(customerReceiveConfirm);
+    }
+    
+    public boolean isReturnCompleted() {
+        return Boolean.TRUE.equals(customerReturnConfirm) && 
+               Boolean.TRUE.equals(supplierReturnConfirm);
+    }
+
+      public boolean isPaid() {
+        return "paid".equals(paymentStatus);
+    }
+    
+    public boolean isDepositPaid() {
+        return "paid".equals(paymentStatus) && "deposit".equals(paymentType);
+    }
+    
+    public boolean isFullyPaid() {
+        return "paid".equals(paymentStatus) && "full_payment".equals(paymentType);
+    }
+
+    public Boolean getHasFullPayment() {
+        return hasFullPayment != null ? hasFullPayment : false;
+    }
+    
+    public void setHasFullPayment(Boolean hasFullPayment) {
+        this.hasFullPayment = hasFullPayment;
+    }
+    
+    public Boolean getHasDeposit() {
+        return hasDeposit != null ? hasDeposit : false;
+    }
+    
+    public void setHasDeposit(Boolean hasDeposit) {
+        this.hasDeposit = hasDeposit;
+    }
+
+     public List<PaymentDTO> getPaymentDetails() {
+        return paymentDetails != null ? paymentDetails : new ArrayList<>();
+    }
+    
+    public void setPaymentDetails(List<PaymentDTO> paymentDetails) {
+        this.paymentDetails = paymentDetails;
+    }
+    
+    // ✅ THÊM: Helper methods để get payment riêng biệt
+    public PaymentDTO getDepositPayment() {
+        return paymentDetails.stream()
+            .filter(p -> "deposit".equals(p.getPaymentType()))
+            .findFirst()
+            .orElse(null);
+    }
+    
+    public PaymentDTO getFullPayment() {
+        return paymentDetails.stream()
+            .filter(p -> "full_payment".equals(p.getPaymentType()))
+            .findFirst()
+            .orElse(null);
+    }
+    
+    public PaymentDTO getRefundPayment() {
+        return paymentDetails.stream()
+            .filter(p -> "refund".equals(p.getPaymentType()))
+            .findFirst()
+            .orElse(null);
+    }
+    
+    // ✅ THÊM: Helper để tính tổng đã trả (deposit + full_payment)
+    public BigDecimal getTotalPaidAmount() {
+        BigDecimal deposit = getDepositPayment() != null ? getDepositPayment().getAmount() : BigDecimal.ZERO;
+        BigDecimal fullPayment = getFullPayment() != null ? getFullPayment().getAmount() : BigDecimal.ZERO;
+        return deposit.add(fullPayment);
+    }
 }

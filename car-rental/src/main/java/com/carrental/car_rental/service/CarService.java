@@ -46,6 +46,7 @@ public class CarService {
     private final FuelTypeRepository fuelTypeRepository;
     private final RegionRepository regionRepository;
     private final CountryCodeRepository countryCodeRepository;
+    private final RatingRepository ratingRepository; // Thêm dependency này
 
     @Autowired
     private UserDetailRepository userDetailRepository;
@@ -65,6 +66,7 @@ public class CarService {
                     .map(car -> {
                         CarDTO dto = mapper.toDTO(car);
                         dto.setImages(getImagesForCar(car.getId()));
+                        setAverageRating(dto); // Thêm dòng này
                         return dto;
                     })
                     .collect(Collectors.toList());
@@ -84,6 +86,7 @@ public class CarService {
                 .map(car -> {
                     CarDTO dto = mapper.toDTO(car);
                     dto.setImages(getImagesForCar(car.getId()));
+                    setAverageRating(dto); // Thêm dòng này
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -134,6 +137,7 @@ public class CarService {
                             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Xe không tồn tại: " + car.getId()));
                     CarDTO dto = mapper.toDTO(fullCar);
                     dto.setImages(getImagesForCar(fullCar.getId()));
+                    setAverageRating(dto); // Thêm dòng này
                     return dto;
                 })
                 .filter(car -> isCarAvailable(car.getCarId(), startDate, endDate))
@@ -223,7 +227,10 @@ public class CarService {
             });
             dto.setSupplier(supplierDTO);
         }
-
+        
+        // Tính và set averageRating thực tế
+        Double avgRating = calculateAverageRating(id);
+        dto.setAverageRating(avgRating);
         return dto;
     }
 
@@ -238,6 +245,11 @@ public class CarService {
         return cars.map(car -> {
             CarDTO dto = mapper.toDTO(car);
             dto.setImages(getImagesForCar(car.getId()));
+            
+            // Tính và set averageRating cho từng xe
+            Double avgRating = calculateAverageRating(car.getId());
+            dto.setAverageRating(avgRating);
+            
             return dto;
         });
     }
@@ -249,6 +261,7 @@ public class CarService {
                 .map(car -> {
                     CarDTO dto = mapper.toDTO(car);
                     dto.setImages(getImagesForCar(car.getId()));
+                    setAverageRating(dto); // Thêm dòng này
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -261,6 +274,7 @@ public class CarService {
                 .map(car -> {
                     CarDTO dto = mapper.toDTO(car);
                     dto.setImages(getImagesForCar(car.getId()));
+                    setAverageRating(dto); // Thêm dòng này
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -492,7 +506,11 @@ public class CarService {
             pageable
         );
 
-        return similarCars.map(mapper::toDTO);
+        return similarCars.map(carEntity -> {
+            CarDTO dto = mapper.toDTO(carEntity);
+            setAverageRating(dto); // Thêm dòng này
+            return dto;
+        });
     }
 
     public CarSpecificationsDTO getCarSpecifications(Integer carId) {
@@ -546,6 +564,7 @@ public class CarService {
         return similarCars.map(car -> {
             CarDTO dto = mapper.toDTO(car);
             dto.setImages(getImagesForCar(car.getId()));
+            setAverageRating(dto); // Thêm dòng này
             return dto;
         });
     }
@@ -634,6 +653,7 @@ public class CarService {
             return repository.findAll(spec, pageable).map(car -> {
                 CarDTO dto = mapper.toDTO(car);
                 dto.setImages(getImagesForCar(car.getId()));
+                setAverageRating(dto); // Thêm dòng này
                 return dto;
             });
         } catch (Exception e) {
@@ -663,6 +683,7 @@ public class CarService {
             return repository.findAll(spec, pageable).map(car -> {
                 CarDTO dto = mapper.toDTO(car);
                 dto.setImages(getImagesForCar(car.getId()));
+                setAverageRating(dto); // Thêm dòng này
                 return dto;
             });
         } catch (Exception e) {
@@ -671,9 +692,14 @@ public class CarService {
         }
     }
 
-    public int getRentalCountForCar(Integer carId) {
-        return bookingRepository.countBookingsByCarId(carId);
+    // Đảm bảo method setAverageRating đúng format (đã có nhưng kiểm tra lại):
+    private void setAverageRating(CarDTO carDTO) {
+    if (carDTO.getCarId() != null) {
+        Double avgRating = calculateAverageRating(carDTO.getCarId());
+        carDTO.setAverageRating(avgRating);
     }
+}
+
 
     @Transactional(readOnly = true)
     public List<String> getBookedDates(Integer carId) {
@@ -681,14 +707,14 @@ public class CarService {
         try {
             // Lấy tất cả booking của xe này với status không phải CANCELLED
             List<Booking> bookings = bookingRepository.findByCarIdAndStatusStatusNameNotAndIsDeletedFalse(
-                carId, "cancelled");
-            
+                    carId, "cancelled");
+
             List<String> bookedDates = new ArrayList<>();
-            
+
             for (Booking booking : bookings) {
                 LocalDate startDate = booking.getStartDate();
                 LocalDate endDate = booking.getEndDate();
-                
+
                 // Thêm tất cả ngày từ startDate đến endDate
                 LocalDate currentDate = startDate;
                 while (!currentDate.isAfter(endDate)) {
@@ -696,7 +722,7 @@ public class CarService {
                     currentDate = currentDate.plusDays(1);
                 }
             }
-            
+
             logger.info("Tìm thấy {} ngày đã đặt cho xe {}", bookedDates.size(), carId);
             return bookedDates;
         } catch (Exception e) {
@@ -704,4 +730,30 @@ public class CarService {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi khi lấy ngày đã đặt", e);
         }
     }
+
+public Double calculateAverageRating(Integer carId) {
+    try {
+        List<Rating> ratings = ratingRepository.findByCarIdAndIsDeletedFalse(carId);
+        if (ratings.isEmpty()) {
+            return null; // Hoặc 0.0 nếu muốn hiển thị 0
+        }
+        
+        double sum = ratings.stream()
+                .mapToDouble(rating -> rating.getRatingScore())
+                .sum();
+        
+        return Math.round((sum / ratings.size()) * 10.0) / 10.0; // Làm tròn 1 chữ số thập phân
+    } catch (Exception e) {
+        logger.error("Lỗi khi tính averageRating cho carId {}: {}", carId, e.getMessage());
+        return null;
+    }
+}
+private Integer getRentalCountForCar(Integer carId) {
+    try {
+        return bookingRepository.countBookingsByCarId(carId);
+    } catch (Exception e) {
+        logger.error("Lỗi khi lấy rental count cho carId {}: {}", carId, e.getMessage());
+        return 0;
+    }
+}
 }

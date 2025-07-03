@@ -4,9 +4,6 @@ import com.carrental.car_rental.dto.BookingConfirmationDTO;
 import com.carrental.car_rental.dto.BookingDTO;
 import com.carrental.car_rental.dto.BookingFinancialsDTO;
 import com.carrental.car_rental.dto.PriceBreakdownDTO;
-
-import com.carrental.car_rental.dto.UserDTO;
-
 import com.carrental.car_rental.service.BookingService;
 import com.carrental.car_rental.service.BookingFinancialsService;
 import org.slf4j.Logger;
@@ -18,10 +15,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-
-import org.springframework.data.domain.PageRequest;
-
-
 import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
@@ -333,23 +326,5 @@ public class BookingController {
         String username = authentication.getName();
         logger.info("Test auth endpoint called by user: {}", username);
         return ResponseEntity.ok("Authenticated as: " + username);
-    }
-
-    @GetMapping("/next-id")
-    public ResponseEntity<Map<String, Integer>> getNextBookingId() {
-        logger.info("Request to get next booking ID");
-        try {
-            Integer nextId = bookingService.getNextBookingId();
-            return ResponseEntity.ok(Map.of("nextBookingId", nextId));
-        } catch (Exception e) {
-            logger.error("Error getting next booking ID: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    @GetMapping("/recent")
-    public ResponseEntity<List<BookingDTO>> getRecentBookings(@RequestParam(defaultValue = "5") int size) {
-        List<BookingDTO> bookings = bookingService.findRecentBookings(size);
-        return ResponseEntity.ok(bookings);
     }
 }

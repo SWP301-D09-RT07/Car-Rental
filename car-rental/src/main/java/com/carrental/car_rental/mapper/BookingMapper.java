@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -135,6 +136,9 @@ public interface BookingMapper {
     @Mapping(target = "withDriver", source = "withDriver")
     @Mapping(target = "deliveryRequested", constant = "false")
     @Mapping(target = "estimatedOvertimeHours", constant = "0")
+
+    @Mapping(source = "deliveryConfirmTime", target = "deliveryConfirmTime", qualifiedByName = "instantToLocalDateTime")
+    @Mapping(source = "returnConfirmTime", target = "returnConfirmTime", qualifiedByName = "instantToLocalDateTime")
     BookingDTO toDTO(Booking entity);
 
     @Mapping(source = "bookingId", target = "id")
@@ -155,6 +159,9 @@ public interface BookingMapper {
     @Mapping(source = "dropoffDateTime", target = "endDate", qualifiedByName = "localDateTimeToLocalDate")
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "localDateTimeToInstant")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "localDateTimeToInstant")
+
+    @Mapping(source = "deliveryConfirmTime", target = "deliveryConfirmTime", qualifiedByName = "localDateTimeToInstant")
+    @Mapping(source = "returnConfirmTime", target = "returnConfirmTime", qualifiedByName = "localDateTimeToInstant")
     Booking toEntity(BookingDTO dto);
 
     @Named("localDateToLocalDateTime")
@@ -163,6 +170,11 @@ public interface BookingMapper {
     }
 
     @Named("localDateTimeToLocalDate")
+    default LocalDate localDateTimeToLocalDate(LocalDateTime localDateTime) {
+        return localDateTime != null ? localDateTime.toLocalDate() : null;
+    }
+    
+     @Named("localDateTimeToLocalDate")
     default LocalDate localDateTimeToLocalDate(LocalDateTime localDateTime) {
         return localDateTime != null ? localDateTime.toLocalDate() : null;
     }

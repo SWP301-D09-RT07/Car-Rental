@@ -842,6 +842,7 @@ const BookingConfirmationPage = () => {
         dropoffAddress: contactInfo.dropoffAddress,
         withDriver: withDriver,
         deliveryRequested: deliveryRequested,
+
       })
 
       const bookingInfo = {
@@ -852,7 +853,25 @@ const BookingConfirmationPage = () => {
         dropoffDateTime: bookingData.dropoffDateTime,
         withDriver: withDriver,
         deliveryRequested: deliveryRequested,
-        seatNumber: car?.numOfSeats,
+        seatNumber: car?.numOfSeats
+      };
+      
+      console.log('[BookingConfirm] Gọi createBooking với:', bookingPayload);
+      console.log('[BookingConfirm] Token:', localStorage.getItem('token') ? 'Có' : 'Không có');
+      console.log('[BookingConfirm] Base URL:', import.meta.env.VITE_API_URL || 'http://localhost:8080');
+      
+      const bookingResponse = await createBooking(bookingPayload)
+      console.log('[BookingConfirm] bookingResponse:', bookingResponse);
+      
+      console.log('[BookingConfirm] Auth state after createBooking:');
+      console.log('[BookingConfirm] - Token:', localStorage.getItem('token') ? 'Có' : 'Không có');
+      console.log('[BookingConfirm] - Username:', localStorage.getItem('username'));
+      console.log('[BookingConfirm] - Role:', localStorage.getItem('role'));
+      console.log('[BookingConfirm] - ExpiresAt:', localStorage.getItem('expiresAt'));
+      
+      if (!bookingResponse || !bookingResponse.bookingId) {
+        throw new Error("Không nhận được ID đặt xe từ server")
+
       }
 
       localStorage.setItem("lastBookingInfo", JSON.stringify(bookingInfo))

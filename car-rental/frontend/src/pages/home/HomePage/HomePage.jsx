@@ -51,13 +51,14 @@ import "swiper/css"
 import "swiper/css/pagination"
 import "swiper/css/effect-fade"
 import { toast } from "react-toastify"
-import api, { getCarBrands, getRegions, loginWithGoogle, logout } from "../../../services/api"
+import api, { getCarBrands, getRegions, loginWithGoogle, logout, getAllRatings } from "../../../services/api"
 import { useAuth } from "@/hooks/useAuth"
 import CarCard from '@/components/features/cars/CarCard/CarCard';
 import BookingModal from '@/components/features/cars/BookingModal';
 import Header from '@/components/layout/Header/Header';
 import Footer from '@/components/layout/Footer/Footer';
 import { getItem } from '@/utils/auth';
+import TestimonialCarousel from '@/components/Rating/TestimonialCarousel';
 
 // Images
 const bg1 = "/images/bg_1.jpg"
@@ -140,23 +141,23 @@ const getTimePlusHours = (timeStr, hours) => {
 }
 
 const brandLogoMap = {
-  'VinFast': '/images/logo-vinfast-1.png',
-  'Hyundai': '/images/logo-hyundai.jpg',
-  'Suzuki': '/images/logo-Suzuki.jpg',
-  'Mitsubishi': '/images/Mitsubishi_logo.svg',
-  'MG': '/images/logo-MG.jpg',
-  'Mercedes': '/images/logo-Mercedes.jpg',
-  'Mazda': '/images/logo-Mazda.webp',
-  'KIA': '/images/logo-KIA-1.jpg',
-  'Toyota': '/images/logo-Toyota.png',
-  'Ford': '/images/logo-ford.jpg',
-  'Honda': '/images/logo-honda.webp',
-  // Thêm các brand khác nếu có
+    'VinFast': '/images/logo-vinfast-1.png',
+    'Hyundai': '/images/logo-hyundai.jpg',
+    'Suzuki': '/images/logo-Suzuki.jpg',
+    'Mitsubishi': '/images/Mitsubishi_logo.svg',
+    'MG': '/images/logo-MG.jpg',
+    'Mercedes': '/images/logo-Mercedes.jpg',
+    'Mazda': '/images/logo-Mazda.webp',
+    'KIA': '/images/logo-KIA-1.jpg',
+    'Toyota': '/images/logo-Toyota.png',
+    'Ford': '/images/logo-ford.jpg',
+    'Honda': '/images/logo-honda.webp',
+    // Thêm các brand khác nếu có
 };
 
 function getBrandLogo(brandName) {
-  // Nếu không có thì trả về ảnh mặc định
-  return brandLogoMap[brandName] || '/images/default-brand-logo.jpg';
+    // Nếu không có thì trả về ảnh mặc định
+    return brandLogoMap[brandName] || '/images/default-brand-logo.jpg';
 }
 // Enhanced Loading Spinner Component
 const LoadingSpinner = ({ size = "medium", color = "blue" }) => {
@@ -241,6 +242,7 @@ const HomePage = () => {
     const [userEmail, setUserEmail] = useState("");
     const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
     const [selectedCar, setSelectedCar] = useState(null);
+    const [testimonials, setTestimonials] = useState([])
 
     // Swiper refs for navigation
     const brandSwiperRef = React.useRef(null);
@@ -282,6 +284,25 @@ const HomePage = () => {
         }
 
         fetchData()
+    }, [])
+
+    // Fetch testimonials
+    useEffect(() => {
+        const fetchTestimonials = async () => {
+            try {
+                const response = await getAllRatings()
+                // Lấy những rating có điểm cao và có comment
+                const goodRatings = response
+                    .filter(rating => rating.ratingScore >= 4 && rating.comment)
+                    .sort((a, b) => new Date(b.ratingDate) - new Date(a.ratingDate))
+                    .slice(0, 10) // Lấy 10 rating mới nhất
+                setTestimonials(goodRatings)
+            } catch (error) {
+                console.error('Error fetching testimonials:', error)
+            }
+        }
+
+        fetchTestimonials()
     }, [])
 
     // Auto-slide hero
@@ -398,15 +419,15 @@ const HomePage = () => {
             // Thay vì tạo booking ngay, chuyển đến trang confirmation với thông tin
             setIsBookingModalOpen(false);
             setSelectedCar(null);
-            
+
             // Chuyển đến trang confirmation với booking data
-            navigate('/bookings/confirmation', { 
-                state: { 
+            navigate('/bookings/confirmation', {
+                state: {
                     bookingData: {
                         ...bookingData,
                         car: selectedCar // Thêm thông tin xe
                     }
-                } 
+                }
             });
         } catch (err) {
             toast.error(err.message || 'Không thể tạo đặt chỗ');
@@ -586,29 +607,29 @@ const HomePage = () => {
 
                                 {/* Giờ nhận */}
                                 <div>
-                                  <label htmlFor="pickupTime" className="block text-sm font-bold text-gray-700 mb-3 flex items-center">
-                                    <div className="bg-amber-100 p-2 rounded-lg mr-3">
-                                      <FaClock className="text-amber-600" />
-                                    </div>
-                                    Giờ nhận
-                                  </label>
-                                  <select
-                                    id="pickupTime"
-                                    name="pickupTime"
-                                    value={formData.pickupTime}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="w-full px-4 py-4 border-2 border-amber-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-amber-50/50 hover:bg-white transition-all duration-300 text-sm font-medium"
-                                  >
-                                    {Array.from({ length: 16 }, (_, i) => {
-                                      const hour = (7 + i).toString().padStart(2, '0');
-                                      return (
-                                        <option key={hour} value={`${hour}:00`}>
-                                          {hour}:00
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
+                                    <label htmlFor="pickupTime" className="block text-sm font-bold text-gray-700 mb-3 flex items-center">
+                                        <div className="bg-amber-100 p-2 rounded-lg mr-3">
+                                            <FaClock className="text-amber-600" />
+                                        </div>
+                                        Giờ nhận
+                                    </label>
+                                    <select
+                                        id="pickupTime"
+                                        name="pickupTime"
+                                        value={formData.pickupTime}
+                                        onChange={handleInputChange}
+                                        required
+                                        className="w-full px-4 py-4 border-2 border-amber-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-amber-50/50 hover:bg-white transition-all duration-300 text-sm font-medium"
+                                    >
+                                        {Array.from({ length: 16 }, (_, i) => {
+                                            const hour = (7 + i).toString().padStart(2, '0');
+                                            return (
+                                                <option key={hour} value={`${hour}:00`}>
+                                                    {hour}:00
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
                                 </div>
 
                                 <div>
@@ -632,29 +653,29 @@ const HomePage = () => {
 
                                 {/* Giờ trả */}
                                 <div>
-                                  <label htmlFor="dropoffTime" className="block text-sm font-bold text-gray-700 mb-3 flex items-center">
-                                    <div className="bg-purple-100 p-2 rounded-lg mr-3">
-                                      <FaClock className="text-purple-600" />
-                                    </div>
-                                    Giờ trả
-                                  </label>
-                                  <select
-                                    id="dropoffTime"
-                                    name="dropoffTime"
-                                    value={formData.dropoffTime}
-                                    onChange={handleInputChange}
-                                    required
-                                    className="w-full px-4 py-4 border-2 border-purple-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-purple-50/50 hover:bg-white transition-all duration-300 text-sm font-medium"
-                                  >
-                                    {Array.from({ length: 16 }, (_, i) => {
-                                      const hour = (7 + i).toString().padStart(2, '0');
-                                      return (
-                                        <option key={hour} value={`${hour}:00`}>
-                                          {hour}:00
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
+                                    <label htmlFor="dropoffTime" className="block text-sm font-bold text-gray-700 mb-3 flex items-center">
+                                        <div className="bg-purple-100 p-2 rounded-lg mr-3">
+                                            <FaClock className="text-purple-600" />
+                                        </div>
+                                        Giờ trả
+                                    </label>
+                                    <select
+                                        id="dropoffTime"
+                                        name="dropoffTime"
+                                        value={formData.dropoffTime}
+                                        onChange={handleInputChange}
+                                        required
+                                        className="w-full px-4 py-4 border-2 border-purple-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-purple-50/50 hover:bg-white transition-all duration-300 text-sm font-medium"
+                                    >
+                                        {Array.from({ length: 16 }, (_, i) => {
+                                            const hour = (7 + i).toString().padStart(2, '0');
+                                            return (
+                                                <option key={hour} value={`${hour}:00`}>
+                                                    {hour}:00
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
                                 </div>
 
                                 <div className="lg:col-span-6 flex justify-center mt-6">
@@ -726,13 +747,13 @@ const HomePage = () => {
                                         >
                                             <div className="p-8 text-center">
                                                 <div className="w-24 h-24 mx-auto mb-6 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 p-3 group-hover:scale-110 transition-transform duration-500 shadow-lg">
-                                                <img
-                                                    src={getBrandLogo(brand.brandName)}
-                                                    alt={brand.brandName}
-                                                    className="w-full h-full object-contain"
-                                                    loading="lazy"
-                                                    onError={e => { e.target.src = "/images/default-brand-logo.jpg" }}
-                                                />
+                                                    <img
+                                                        src={getBrandLogo(brand.brandName)}
+                                                        alt={brand.brandName}
+                                                        className="w-full h-full object-contain"
+                                                        loading="lazy"
+                                                        onError={e => { e.target.src = "/images/default-brand-logo.jpg" }}
+                                                    />
                                                 </div>
                                                 <h3 className="font-bold text-lg text-gray-800 group-hover:text-indigo-600 transition-colors">
                                                     {brand.brandName}
@@ -1126,7 +1147,26 @@ const HomePage = () => {
                         </button>
                     )}
                 </div>
-
+                  {/* Enhanced Testimonial Section - Thêm ngay trước Footer */}
+            {testimonials.length > 0 && (
+                <section className="py-24 bg-gradient-to-b from-white via-blue-50 to-indigo-50">
+                    <div className="container mx-auto px-4">
+                        <div className="text-center mb-20">
+                            <div className="inline-flex items-center bg-gradient-to-r from-yellow-100 to-orange-100 rounded-full px-6 py-2 mb-6">
+                                <FaStar className="text-yellow-600 mr-2" />
+                                <span className="text-yellow-700 font-semibold text-sm">ĐÁNH GIÁ KHÁCH HÀNG</span>
+                            </div>
+                            <h2 className="text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 bg-clip-text text-transparent mb-6">
+                                Khách Hàng Nói Gì Về Chúng Tôi
+                            </h2>
+                            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                                Những phản hồi chân thực từ khách hàng đã sử dụng dịch vụ cho thuê xe của chúng tôi
+                            </p>
+                        </div>
+                        <TestimonialCarousel ratings={testimonials} />
+                    </div>
+                </section>
+            )}
                 {/* Enhanced Cookie Consent Banner
                 {showCookieConsent && (
                     <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl shadow-2xl p-6 z-40 border-t border-gray-200">
@@ -1166,6 +1206,7 @@ const HomePage = () => {
                 car={selectedCar}
                 onSubmitBooking={handleSubmitBooking}
             />
+         
         </div>
     )
 }

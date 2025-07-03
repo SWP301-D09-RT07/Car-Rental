@@ -106,16 +106,16 @@ const ErrorMessage = ({ message, onRetry, className = "" }) => {
 
 // Hàm loại bỏ dấu tiếng Việt
 function removeVietnameseTones(str) {
-  return str
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, '')
-    .replace(/\u02C6|\u0306|\u031B/g, '')
-    .replace(/đ/g, 'd').replace(/Đ/g, 'D')
-    .replace(/[^\w\s]/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+    return str
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, '')
+        .replace(/\u02C6|\u0306|\u031B/g, '')
+        .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+        .replace(/[^\w\s]/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
 }
 
 const SearchPage = () => {
@@ -246,7 +246,7 @@ const SearchPage = () => {
             const response = await filterCars(filters, page, carsPerPage, filters.sortBy || "")
             setCars(response.data)
             setFilteredCars(response.data.content || [])
-            
+
             // Xử lý thông báo khi không có xe
             if (!response.data.content || response.data.content.length === 0) {
                 if (filters.pickupLocation) {
@@ -273,7 +273,7 @@ const SearchPage = () => {
             console.log('[SearchPage] Initial data already loaded, skipping...');
             return;
         }
-        
+
         try {
             setLoading(true);
             setFilterLoading(true);
@@ -326,7 +326,7 @@ const SearchPage = () => {
                     await fetchCars({}, 0);
                     break;
             }
-            
+
             setIsInitialDataLoaded(true);
         } catch (error) {
             toast.error("Failed to load data. Please try again later.");
@@ -414,7 +414,7 @@ const SearchPage = () => {
             ) {
                 // Clear previous timeout
                 clearTimeout(timeoutId);
-                
+
                 // Debounce the API call
                 timeoutId = setTimeout(() => {
                     const newFilters = { ...values };
@@ -440,7 +440,7 @@ const SearchPage = () => {
 
     const handlePageChange = (newPage) => {
         setCurrentPage(newPage);
-        
+
         // Xử lý pagination dựa trên loại filter hiện tại
         if (currentFilterType === "featured") {
             getFeaturedCars(newPage - 1).then(carsData => {
@@ -455,7 +455,7 @@ const SearchPage = () => {
         } else {
             fetchCars({ ...filters, search: searchQuery }, newPage - 1);
         }
-        
+
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
@@ -506,21 +506,21 @@ const SearchPage = () => {
     const onFilterSubmit = (data) => {
         // Loại bỏ các giá trị rỗng
         const cleanData = Object.fromEntries(
-            Object.entries(data).filter(([key, value]) => 
+            Object.entries(data).filter(([key, value]) =>
                 value !== null && value !== undefined && value !== ""
             )
         );
-        
+
         // Kiểm tra xem có ít nhất một filter được chọn không
-        const hasAnyFilter = cleanData.brand || cleanData.fuelType || cleanData.numOfSeats || 
-                           cleanData.priceRange || cleanData.year || cleanData.regionId || 
-                           cleanData.pickupLocation || cleanData.sortBy;
-        
+        const hasAnyFilter = cleanData.brand || cleanData.fuelType || cleanData.numOfSeats ||
+            cleanData.priceRange || cleanData.year || cleanData.regionId ||
+            cleanData.pickupLocation || cleanData.sortBy;
+
         if (!hasAnyFilter) {
             console.warn('[SearchPage] Không có filter nào được chọn, không gọi fetchCars:', cleanData);
             return;
         }
-        
+
         console.log('[SearchPage] onFilterSubmit gọi fetchCars với:', cleanData);
         setFilters(cleanData);
         fetchCars(cleanData, 0);
@@ -556,6 +556,31 @@ const SearchPage = () => {
         }
         return result
     }
+
+    const renderStars = (rating) => {
+    if (!rating || rating === 0) return null;
+    
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 >= 0.5;
+    
+    for (let i = 0; i < fullStars; i++) {
+        stars.push(<FaStar key={i} className="text-yellow-400" />);
+    }
+    
+    if (hasHalfStar) {
+        stars.push(<FaStar key="half" className="text-yellow-300" />);
+    }
+    
+    return (
+        <div className="flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-lg">
+            <div className="flex text-sm">
+                {stars}
+            </div>
+            <span className="text-sm font-semibold text-gray-700">{rating.toFixed(1)}</span>
+        </div>
+    );
+};
 
     // Car Categorization
     const carContent = Array.isArray(filteredCars) ? filteredCars : []
@@ -726,9 +751,8 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                             "/placeholder.svg"
                         }
                         alt={`${car.brandName} ${car.model}`}
-                        className={`w-full h-full object-cover object-center transition-all duration-700 ${
-                            isHovered ? "scale-110" : "scale-100"
-                        } ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+                        className={`w-full h-full object-cover object-center transition-all duration-700 ${isHovered ? "scale-110" : "scale-100"
+                            } ${imageLoaded ? "opacity-100" : "opacity-0"}`}
                         loading="lazy"
                         onLoad={() => setImageLoaded(true)}
                         onClick={() => navigate(`/cars/${car.carId}`)}
@@ -758,9 +782,10 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                             onClick={() => toggleFavorite(car.carId)}
                             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-sm ${
                                 favoriteVehicles.includes(car.carId)
+
                                     ? "bg-red-500 text-white"
                                     : "bg-white/90 text-gray-600 hover:text-red-500"
-                            }`}
+                                }`}
                         >
                             <FaHeart className="text-sm" />
                         </button>
@@ -793,11 +818,7 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                                 {car.year} • {car.regionName || 'Hà Nội'}
                             </p>
                         </div>
-                        <div className="flex items-center space-x-1 ml-3">
-                            <FaStar className="text-yellow-400 text-sm" />
-                            <span className="text-sm font-bold text-gray-900">{car.rating || "4.8"}</span>
-                            <span className="text-xs text-gray-500">({car.reviewCount || "124"})</span>
-                        </div>
+                        {car.averageRating && car.averageRating > 0 && renderStars(car.averageRating)}
                     </div>
 
                     {/* Car Features */}
@@ -918,9 +939,8 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                                             </div>
                                         </div>
                                         <div
-                                            className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                                                rental.status === "COMPLETED" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-                                            }`}
+                                            className={`text-xs font-semibold px-2 py-1 rounded-full ${rental.status === "COMPLETED" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+                                                }`}
                                         >
                                             {rental.status === "COMPLETED" ? "Hoàn thành" : "Đang thuê"}
                                         </div>
@@ -955,11 +975,11 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
     const applyFilters = (newFilters = {}, page = 0) => {
         // Loại bỏ các giá trị rỗng
         const cleanFilters = Object.fromEntries(
-            Object.entries(newFilters).filter(([key, value]) => 
+            Object.entries(newFilters).filter(([key, value]) =>
                 value !== null && value !== undefined && value !== ""
             )
         );
-        
+
         setFilters(cleanFilters)
         setCurrentPage(page + 1)
         fetchCars(cleanFilters, page)
@@ -971,11 +991,11 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
             setLoading(true);
             setError("");
             setCurrentFilterType("all"); // Reset về search thường
-            
+
             const response = await findCars(query, currentPage - 1, carsPerPage);
             setCars(response);
             setFilteredCars(response.content || []);
-            
+
             // Xử lý thông báo khi không có xe
             if (!response.content || response.content.length === 0) {
                 setNoCarMessage(`Không tìm thấy xe nào với từ khóa "${query}". Vui lòng thử từ khóa khác.`);
@@ -1024,15 +1044,15 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
             // Thay vì tạo booking ngay, chuyển đến trang confirmation với thông tin
             setIsBookingModalOpen(false);
             setSelectedCar(null);
-            
+
             // Chuyển đến trang confirmation với booking data
-            navigate('/bookings/confirmation', { 
-                state: { 
+            navigate('/bookings/confirmation', {
+                state: {
                     bookingData: {
                         ...bookingData,
                         car: selectedCar // Thêm thông tin xe
                     }
-                } 
+                }
             });
         } catch (err) {
             toast.error(err.message || 'Không thể tạo đặt chỗ');
@@ -1079,80 +1099,80 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
     // Lấy country từ user (giả sử lưu ở localStorage)
     const { user } = useAuth();
     const getUserCountry = () => {
-      if (user && user.countryCode) return user.countryCode;
-      if (localStorage.getItem('countryCode')) return localStorage.getItem('countryCode');
-      return '+84'; // countryCode mặc định
+        if (user && user.countryCode) return user.countryCode;
+        if (localStorage.getItem('countryCode')) return localStorage.getItem('countryCode');
+        return '+84'; // countryCode mặc định
     };
 
     // Lấy danh sách region khi countryCode thay đổi
     useEffect(() => {
-      const countryCode = getUserCountry();
-      api.get(`/api/cars/regions/country/${countryCode}`)
-        .then(res => setRegions(res.data || []));
+        const countryCode = getUserCountry();
+        api.get(`/api/cars/regions/country/${countryCode}`)
+            .then(res => setRegions(res.data || []));
     }, [user]);
 
     // Khi nhận searchParams từ HomePage, tự động tìm region phù hợp
     useEffect(() => {
-      const searchParams = location.state?.searchParams;
-      if (searchParams && regions.length > 0) {
-        const countryCode = getUserCountry();
-        const matchedRegion = regions.find(
-          r => removeVietnameseTones(r.regionName) === removeVietnameseTones(searchParams.pickupLocation || '')
-        );
-        if (matchedRegion) {
-          setValue('countryCode', countryCode);
-          // Gọi API lấy region ngay sau khi set countryCode
-          setTimeout(() => {
-            api.get(`/api/cars/regions/country/${countryCode}`)
-              .then(res => {
-                setRegions(res.data || []);
-                setValue('regionId', matchedRegion.regionId);
-                // Sau khi đã set xong region, mới applyFilters và navigate
+        const searchParams = location.state?.searchParams;
+        if (searchParams && regions.length > 0) {
+            const countryCode = getUserCountry();
+            const matchedRegion = regions.find(
+                r => removeVietnameseTones(r.regionName) === removeVietnameseTones(searchParams.pickupLocation || '')
+            );
+            if (matchedRegion) {
+                setValue('countryCode', countryCode);
+                // Gọi API lấy region ngay sau khi set countryCode
+                setTimeout(() => {
+                    api.get(`/api/cars/regions/country/${countryCode}`)
+                        .then(res => {
+                            setRegions(res.data || []);
+                            setValue('regionId', matchedRegion.regionId);
+                            // Sau khi đã set xong region, mới applyFilters và navigate
+                            const newFilters = {
+                                pickupLocation: searchParams.pickupLocation,
+                                pickupDateTime: searchParams.pickupDateTime,
+                                country: countryCode,
+                                countryCode: countryCode,
+                            };
+                            setFilters(newFilters);
+                            applyFilters(newFilters, 0);
+                            setTimeout(() => {
+                                navigate(location.pathname, { replace: true, state: { filterType: currentFilterType } });
+                            }, 100);
+                        });
+                }, 0);
+            } else {
+                // Không tìm thấy region phù hợp, set xe về rỗng và hiển thị thông báo
+                console.log('[SearchPage] Không tìm thấy region phù hợp cho:', searchParams.pickupLocation);
+                setCars({ content: [], totalElements: 0, totalPages: 1 });
+                setFilteredCars([]);
+                setNoCarMessage(`Không có xe tại địa điểm "${searchParams.pickupLocation}". Vui lòng thử địa điểm khác.`);
+
+                // Vẫn set form values để user có thể thay đổi
+                setValue('countryCode', countryCode);
+
+                // Set filters để track trạng thái hiện tại
                 const newFilters = {
-                  pickupLocation: searchParams.pickupLocation,
-                  pickupDateTime: searchParams.pickupDateTime,
-                  country: countryCode,
-                  countryCode: countryCode,
+                    pickupLocation: searchParams.pickupLocation,
+                    pickupDateTime: searchParams.pickupDateTime,
+                    country: countryCode,
+                    countryCode: countryCode,
                 };
                 setFilters(newFilters);
-                applyFilters(newFilters, 0);
+
                 setTimeout(() => {
-                  navigate(location.pathname, { replace: true, state: { filterType: currentFilterType } });
+                    navigate(location.pathname, { replace: true, state: { filterType: currentFilterType } });
                 }, 100);
-              });
-          }, 0);
-        } else {
-          // Không tìm thấy region phù hợp, set xe về rỗng và hiển thị thông báo
-          console.log('[SearchPage] Không tìm thấy region phù hợp cho:', searchParams.pickupLocation);
-          setCars({ content: [], totalElements: 0, totalPages: 1 });
-          setFilteredCars([]);
-          setNoCarMessage(`Không có xe tại địa điểm "${searchParams.pickupLocation}". Vui lòng thử địa điểm khác.`);
-          
-          // Vẫn set form values để user có thể thay đổi
-          setValue('countryCode', countryCode);
-          
-          // Set filters để track trạng thái hiện tại
-          const newFilters = {
-            pickupLocation: searchParams.pickupLocation,
-            pickupDateTime: searchParams.pickupDateTime,
-            country: countryCode,
-            countryCode: countryCode,
-          };
-          setFilters(newFilters);
-          
-          setTimeout(() => {
-            navigate(location.pathname, { replace: true, state: { filterType: currentFilterType } });
-          }, 100);
+            }
         }
-      }
     }, [location.state, regions, setValue]);
 
     // useEffect fetchCars chỉ chạy khi không phải lần đầu nhận filter từ HomePage
     useEffect(() => {
-      if (currentFilterType === "all" && !location.state?.searchParams && !location.state?.filters && !isInitialFilterApplied) {
-        fetchCars(filters, 0);
-      }
-      // eslint-disable-next-line
+        if (currentFilterType === "all" && !location.state?.searchParams && !location.state?.filters && !isInitialFilterApplied) {
+            fetchCars(filters, 0);
+        }
+        // eslint-disable-next-line
     }, [currentFilterType, filters, location.state, isInitialFilterApplied]);
 
     useEffect(() => {
@@ -1241,11 +1261,10 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                                     <button
                                         key={filter.type}
                                         onClick={() => handleFilterTypeChange(filter.type)}
-                                        className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
-                                            currentFilterType === filter.type
+                                        className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${currentFilterType === filter.type
                                                 ? "bg-white text-blue-600 shadow-lg"
                                                 : "text-white/80 hover:text-white hover:bg-white/10"
-                                        }`}
+                                            }`}
                                     >
                                         <filter.icon className="text-sm" />
                                         <span>{filter.label}</span>
@@ -1493,17 +1512,15 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                                                 <span className="text-sm text-gray-600 mr-3 px-2">Hiển thị:</span>
                                                 <button
                                                     onClick={() => handleViewModeChange("grid")}
-                                                    className={`p-2 rounded-lg transition-all ${
-                                                        viewMode === "grid" ? "bg-blue-500 text-white shadow-md" : "text-gray-600 hover:bg-gray-200"
-                                                    }`}
+                                                    className={`p-2 rounded-lg transition-all ${viewMode === "grid" ? "bg-blue-500 text-white shadow-md" : "text-gray-600 hover:bg-gray-200"
+                                                        }`}
                                                 >
                                                     <FaThLarge />
                                                 </button>
                                                 <button
                                                     onClick={() => handleViewModeChange("list")}
-                                                    className={`p-2 rounded-lg transition-all ${
-                                                        viewMode === "list" ? "bg-blue-500 text-white shadow-md" : "text-gray-600 hover:bg-gray-200"
-                                                    }`}
+                                                    className={`p-2 rounded-lg transition-all ${viewMode === "list" ? "bg-blue-500 text-white shadow-md" : "text-gray-600 hover:bg-gray-200"
+                                                        }`}
                                                 >
                                                     <FaList />
                                                 </button>
@@ -1517,7 +1534,7 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                                                 >
                                                     <FaSort className="text-gray-500" />
                                                     <span>
-                            Sắp xếp:{" "}
+                                                        Sắp xếp:{" "}
                                                         {filters.sortBy === "price-low"
                                                             ? "Giá thấp"
                                                             : filters.sortBy === "price-high"
@@ -1525,7 +1542,7 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                                                                 : filters.sortBy === "name"
                                                                     ? "Tên A-Z"
                                                                     : "Mặc định"}
-                          </span>
+                                                    </span>
                                                     <FaChevronDown
                                                         className={`text-xs transition-transform ${showSortDropdown ? "rotate-180" : ""}`}
                                                     />
@@ -1701,13 +1718,12 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                                                             <button
                                                                 key={page}
                                                                 onClick={() => typeof page === "number" && handlePageChange(page)}
-                                                                className={`px-4 py-2 rounded-xl font-medium transition-all ${
-                                                                    page === currentPage
+                                                                className={`px-4 py-2 rounded-xl font-medium transition-all ${page === currentPage
                                                                         ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg"
                                                                         : page === "..."
                                                                             ? "text-gray-400 cursor-default"
                                                                             : "text-gray-700 hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-300"
-                                                                }`}
+                                                                    }`}
                                                                 disabled={page === "..."}
                                                             >
                                                                 {page}
@@ -1739,10 +1755,10 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                     <div className="container mx-auto px-4 py-4">
                         <div className="flex flex-col sm:flex-row justify-between items-center">
                             <div className="flex items-center mb-4 sm:mb-0">
-                <span className="font-bold text-gray-800 mr-4 flex items-center">
-                  <FaExchangeAlt className="mr-2 text-blue-600" />
-                  So sánh xe:
-                </span>
+                                <span className="font-bold text-gray-800 mr-4 flex items-center">
+                                    <FaExchangeAlt className="mr-2 text-blue-600" />
+                                    So sánh xe:
+                                </span>
                                 <div className="flex space-x-3">
                                     {compareVehicles.map((id) => {
                                         const car = filteredCars.find((v) => v.carId === id)
@@ -1817,17 +1833,17 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
 
                 {/* Back to Top */}
                 {showScrollToTop && (
-                        <button
-                            onClick={scrollToTop}
-                            className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white w-14 h-14 rounded-full shadow-xl hover:shadow-2xl flex items-center justify-center transition-all duration-300 transform hover:scale-110"
-                            aria-label="Lên đầu trang"
-                        >
-                            <FaArrowUp className="text-lg" />
-                            <div className="absolute right-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-                                Lên đầu trang
-                            </div>
-                        </button>
-                    )}
+                    <button
+                        onClick={scrollToTop}
+                        className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white w-14 h-14 rounded-full shadow-xl hover:shadow-2xl flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+                        aria-label="Lên đầu trang"
+                    >
+                        <FaArrowUp className="text-lg" />
+                        <div className="absolute right-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                            Lên đầu trang
+                        </div>
+                    </button>
+                )}
             </div>
 
             {/* Enhanced Cookie Consent Banner */}
