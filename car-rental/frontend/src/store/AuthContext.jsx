@@ -1,6 +1,7 @@
 // src/context/AuthContext.jsx
 import { createContext, useState, useEffect } from 'react';
 import { logout } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 // Provide default values to prevent undefined context errors
 const defaultContextValue = {
@@ -21,13 +22,19 @@ export const AuthProvider = ({ children }) => {
         const role = localStorage.getItem('role');
         return username ? { username, role } : null;
     });
-    const [token, setToken] = useState(localStorage.getItem('token'));
+    // Lấy token từ localStorage trước, nếu không có thì lấy từ sessionStorage
+    const getInitialToken = () => {
+        return localStorage.getItem('token') || sessionStorage.getItem('token');
+    };
+    const [token, setToken] = useState(getInitialToken());
     const [isLoading, setIsLoading] = useState(true);
+    const navigate = useNavigate();
 
     useEffect(() => {
         // Check token validity on mount
         const checkToken = () => {
-            const storedToken = localStorage.getItem('token');
+            // Lấy token từ localStorage trước, nếu không có thì lấy từ sessionStorage
+            const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
             const expiresAt = localStorage.getItem('expiresAt');
             const role = localStorage.getItem('role');
             const username = localStorage.getItem('username');
@@ -77,25 +84,25 @@ export const AuthProvider = ({ children }) => {
         setUser(userInfo);
 
         if (newToken) {
-            localStorage.setItem('token', newToken);
+            // Nếu có userData.rememberMe thì lưu vào localStorage, ngược lại lưu vào sessionStorage
+            if (userData && userData.rememberMe) {
+                localStorage.setItem('token', newToken);
+                sessionStorage.removeItem('token');
+            } else {
+                sessionStorage.setItem('token', newToken);
+                localStorage.removeItem('token');
+            }
             if (userData.expiresAt) localStorage.setItem('expiresAt', userData.expiresAt);
             if (userData.role) localStorage.setItem('role', userData.role);
             if (userData.username) localStorage.setItem('username', userData.username);
-            console.log('[AuthContext] Saved to localStorage:', {
-                token: 'Có',
+            console.log('[AuthContext] Saved token:', {
+                where: userData && userData.rememberMe ? 'localStorage' : 'sessionStorage',
                 expiresAt: userData.expiresAt,
                 role: userData.role,
                 username: userData.username
             });
-            
-            // Verify what was actually saved
-            console.log('[AuthContext] Verification after save:');
-            console.log('[AuthContext] - token in localStorage:', localStorage.getItem('token') ? 'Có' : 'Không có');
-            console.log('[AuthContext] - expiresAt in localStorage:', localStorage.getItem('expiresAt'));
-            console.log('[AuthContext] - role in localStorage:', localStorage.getItem('role'));
-            console.log('[AuthContext] - username in localStorage:', localStorage.getItem('username'));
         } else {
-            console.log('[AuthContext] No token provided, not saving to localStorage');
+            console.log('[AuthContext] No token provided, not saving');
         }
     };
 
@@ -112,7 +119,9 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('expiresAt');
             localStorage.removeItem('role');
             localStorage.removeItem('username');
+            localStorage.removeItem('userId');
             console.log('[AuthContext] Cleared all auth data');
+            navigate('/');
         }
     };
 

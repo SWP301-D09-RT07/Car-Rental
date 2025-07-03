@@ -16,7 +16,10 @@ const LoginRegisterPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: '' });
+  const [countryCodes, setCountryCodes] = useState([]);
+  const [countryCode, setCountryCode] = useState('+84');
   const navigate = useNavigate();
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Login form
   const {
@@ -54,9 +57,9 @@ const LoginRegisterPage = () => {
     setLoading(true);
     setError('');
     try {
-      console.log('[LoginRegister] Attempting login with:', { username: data.username, password: '***' });
+      console.log('[LoginRegister] [FRONTEND] Bắt đầu gọi login với:', data);
       const response = await login(data.username, data.password);
-      console.log('[LoginRegister] Login response:', response);
+      console.log('[LoginRegister] [FRONTEND] Đăng nhập thành công, response:', response);
       console.log('[LoginRegister] Response structure:', {
         hasToken: !!response.token,
         tokenLength: response.token ? response.token.length : 0,
@@ -76,7 +79,8 @@ const LoginRegisterPage = () => {
         expiresAt: response.expiresAt,
         role: userRole,
         username: response.username || data.username,
-        email: response.email || data.username
+        email: response.email || data.username,
+        rememberMe
       });
 
       // Lưu email vào localStorage
@@ -107,9 +111,24 @@ const LoginRegisterPage = () => {
         }
       }, 1000);
     } catch (err) {
-      console.error('[LoginRegister] Login error:', err);
-      setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.');
-      showToast('Đăng nhập thất bại!', 'error');
+      console.log('[LoginRegister] [FRONTEND] Đăng nhập thất bại, error object:', err);
+      console.log('[LoginRegister] [FRONTEND] error.response?.data:', err?.response?.data);
+      if (err?.response?.data) {
+        console.log('[LoginRegister] [FRONTEND] error.response?.data.error:', err?.response?.data.error);
+        console.log('[LoginRegister] [FRONTEND] error.response?.data.code:', err?.response?.data.code);
+      }
+      // Ưu tiên lấy message từ backend trả về
+      const backendMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message;
+      if (
+        backendMsg &&
+        backendMsg.includes('Tài khoản đã đăng nhập ở nơi khác')
+      ) {
+        setError('Tài khoản đã đăng nhập ở nơi khác. Vui lòng đăng xuất trước khi đăng nhập mới.');
+        showToast('Tài khoản đã đăng nhập ở nơi khác. Vui lòng đăng xuất trước khi đăng nhập mới.', 'error');
+      } else {
+        setError(backendMsg || 'Đăng nhập thất bại. Vui lòng kiểm tra thông tin.');
+        showToast(backendMsg || 'Đăng nhập thất bại!', 'error');
+      }
     } finally {
       setLoading(false);
     }
@@ -119,42 +138,58 @@ const LoginRegisterPage = () => {
     setLoading(true);
     setError('');
     try {
+      // Ghép country code với số điện thoại
+      const fullPhone = `${countryCode}${data.phone}`;
+      
       const userData = {
         username: data.username,
         email: data.email,
         password: data.password,
-        phone: data.phone,
+        phone: fullPhone, // Sử dụng số điện thoại đã ghép
         roleId: data.userType === 'renter' ? 3 : 2, // 3 = customer, 2 = supplier
         statusId: 8,
-        countryCode: '+84',
+        countryCode: countryCode,
         preferredLanguage: 'vi',
         userDetail: {
-          name: data.username,
+          fullName: data.username,
           address: 'Unknown',
         },
       };
-      console.log('[LoginRegister] Registering user with data:', { ...userData, password: '***' });
+      // Log dữ liệu gửi lên
+      console.log('[Register][FRONTEND] userData gửi lên:', { ...userData, password: '***' });
       if (userData.roleId === 2) {
         // Nếu là chủ xe, chỉ chuyển sang trang đăng ký chủ xe, KHÔNG gọi API đăng ký user
+        console.log('[Register][FRONTEND] Chuyển hướng sang owner-registration, không gọi API');
         showToast('Vui lòng hoàn thiện hồ sơ chủ xe!', 'success');
         setTimeout(() => {
-          navigate('/owner-registration', { state: { email: data.email, username: data.username } });
+          navigate('/owner-registration', { 
+            state: { 
+              email: data.email, 
+              username: data.username,
+              phone: fullPhone // Truyền số điện thoại đã ghép
+            } 
+          });
         }, 1000);
         return;
       }
       // Nếu là khách thuê, đăng ký tài khoản user như cũ
-      await register(userData);
-
+      console.log('[Register][FRONTEND] Bắt đầu gọi API register...');
+      const response = await register(userData);
+      console.log('[Register][FRONTEND] Đăng ký thành công, response:', response);
       showToast('Đăng ký thành công! Vui lòng đăng nhập.', 'success');
       setTimeout(() => {
         setRegisterActive(false);
       }, 1500);
     } catch (err) {
-      console.error('[LoginRegister] Register error:', err);
+      console.error('[Register][FRONTEND] Register error:', err);
+      if (err?.response) {
+        console.error('[Register][FRONTEND] err.response.data:', err.response.data);
+      }
       setError(err.message || 'Đăng ký thất bại. Vui lòng thử lại.');
       showToast('Đăng ký thất bại!', 'error');
     } finally {
       setLoading(false);
+      console.log('[Register][FRONTEND] Kết thúc onRegisterSubmit, loading:', false);
     }
   };
 
@@ -189,6 +224,17 @@ const LoginRegisterPage = () => {
       setRegisterActive(true);
     }
   }, [location.state]);
+
+  // Lấy country code từ API khi mở form
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/country-codes`)
+      .then(res => res.json())
+      .then(data => {
+        setCountryCodes(data);
+        if (data && data.length > 0) setCountryCode(data[0].countryCode);
+      })
+      .catch(() => setCountryCodes([{ countryCode: '+84', countryName: 'Việt Nam' }]));
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 relative overflow-hidden">
@@ -325,7 +371,12 @@ const LoginRegisterPage = () => {
 
                 <div className="flex items-center justify-between">
                   <label className="flex items-center">
-                    <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={() => setRememberMe(!rememberMe)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
                     <span className="ml-2 text-sm text-gray-600">Ghi nhớ tôi</span>
                   </label>
                   <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500">
@@ -439,23 +490,38 @@ const LoginRegisterPage = () => {
                   </div>
 
                   <div>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i className="ri-phone-line text-gray-400"></i>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại <span className="text-red-500">*</span></label>
+                    <div className="flex gap-2">
+                      <div className="relative w-36">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <i className="ri-phone-line text-gray-400"></i>
+                        </div>
+                        <select
+                          value={countryCode}
+                          onChange={(e) => setCountryCode(e.target.value)}
+                          className="pl-10 pr-8 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white w-full text-sm appearance-none cursor-pointer hover:border-blue-400"
+                        >
+                          {countryCodes.map((country) => (
+                            <option key={country.countryCode} value={country.countryCode}>
+                              {country.countryName}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <input
                         {...registerRegister('phone', {
                           required: 'Số điện thoại là bắt buộc',
                           pattern: {
-                            value: /^\+?[1-9]\d{1,14}$/,
-                            message: 'Vui lòng nhập số điện thoại hợp lệ (ví dụ: +84123456789)',
+                            value: /^[0-9]{6,15}$/,
+                            message: 'Chỉ nhập số, không bao gồm mã quốc gia và số 0',
                           },
                         })}
                         type="text"
-                        placeholder="Số điện thoại *"
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Nhập số điện thoại"
+                        className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-blue-400"
                       />
                     </div>
+                    <p className="mt-1 text-xs text-gray-500">Ví dụ: 912345678 (không bao gồm mã quốc gia)</p>
                     {registerErrors.phone && (
                       <p className="mt-1 text-sm text-red-600">{registerErrors.phone.message}</p>
                     )}

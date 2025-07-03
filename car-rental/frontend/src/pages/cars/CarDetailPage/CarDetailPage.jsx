@@ -70,6 +70,7 @@ import { Pagination, Autoplay, Navigation } from "swiper/modules"
 import "swiper/css"
 import "swiper/css/pagination"
 import "swiper/css/navigation"
+import { getItem } from '@/utils/auth';
 
 // Enhanced Loading Spinner Component
 const LoadingSpinner = ({ size = "medium", color = "blue", text }) => {
@@ -539,11 +540,8 @@ const CarDetailPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <Header
-          isAuthenticated={!!localStorage.getItem("token")}
-          userEmail={localStorage.getItem("userEmail")}
           isUserDropdownOpen={isUserDropdownOpen}
           setIsUserDropdownOpen={setIsUserDropdownOpen}
-          handleLogout={handleLogout}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
         />
@@ -559,11 +557,8 @@ const CarDetailPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <Header
-          isAuthenticated={!!localStorage.getItem("token")}
-          userEmail={localStorage.getItem("userEmail")}
           isUserDropdownOpen={isUserDropdownOpen}
           setIsUserDropdownOpen={setIsUserDropdownOpen}
-          handleLogout={handleLogout}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
         />
@@ -580,11 +575,8 @@ const CarDetailPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <Header
-          isAuthenticated={!!localStorage.getItem("token")}
-          userEmail={localStorage.getItem("userEmail")}
           isUserDropdownOpen={isUserDropdownOpen}
           setIsUserDropdownOpen={setIsUserDropdownOpen}
-          handleLogout={handleLogout}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
         />
@@ -617,11 +609,8 @@ const CarDetailPage = () => {
   return (
     <div className="bg-gradient-to-br from-gray-50 via-white to-blue-50 min-h-screen">
       <Header
-        isAuthenticated={!!localStorage.getItem("token")}
-        userEmail={localStorage.getItem("userEmail")}
         isUserDropdownOpen={isUserDropdownOpen}
         setIsUserDropdownOpen={setIsUserDropdownOpen}
-        handleLogout={handleLogout}
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
       />
@@ -656,7 +645,7 @@ const CarDetailPage = () => {
                   </div>
                 </div>
 
-                <h1 className="text-4xl lg:text-6xl font-black bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-6 leading-tight">
+                <h1 className="text-4xl lg:text-6xl font-black bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-6 leading-tight pb-2">
                   {car.model} {car.year}
                 </h1>
 
@@ -861,7 +850,7 @@ const CarDetailPage = () => {
           <div className="w-full xl:w-2/3">
             {/* Enhanced Basic Features */}
             <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-12 border border-gray-100">
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8">
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 leading-tight pb-2">
                 Đặc điểm nổi bật
               </h2>
 
@@ -902,7 +891,7 @@ const CarDetailPage = () => {
 
             {/* Enhanced Description */}
             <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-12 border border-gray-100">
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8">
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 leading-tight pb-2">
                 Mô tả chi tiết
               </h2>
               <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed">
@@ -916,7 +905,7 @@ const CarDetailPage = () => {
             {/* Enhanced Features */}
             <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-12 border border-gray-100">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight pb-2">
                   Tính năng & Tiện ích
                 </h2>
                 <button
@@ -949,7 +938,7 @@ const CarDetailPage = () => {
 
             {/* Enhanced Rental Policy */}
             <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-12 border border-gray-100">
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8">
+              <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 leading-tight pb-2">
                 Chính sách thuê xe
               </h2>
 
@@ -1138,7 +1127,7 @@ const CarDetailPage = () => {
             {/* Enhanced Reviews Section */}
             <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-12 border border-gray-100">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 leading-tight pb-2">
                   Đánh giá từ khách hàng
                 </h2>
                 <button
@@ -1294,7 +1283,7 @@ const CarDetailPage = () => {
             {/* Enhanced Terms & Conditions */}
             <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-12 border border-gray-100">
               <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 leading-tight pb-2">
                   Điều khoản & Quy định
                 </h2>
                 <button
@@ -1392,7 +1381,7 @@ const CarDetailPage = () => {
             {/* Enhanced Car Owner Section */}
             {(supplier || car.supplier) ? (
               <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-12 border border-gray-100">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 leading-tight pb-2">
                   Thông tin chủ xe
                 </h2>
                 <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
@@ -1590,19 +1579,19 @@ const CarDetailPage = () => {
               <div className="space-y-4">
                 <button
                   onClick={handleBookNow}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-6 rounded-3xl font-black text-xl transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-3xl flex items-center justify-center relative overflow-hidden group"
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-3xl flex items-center justify-center relative overflow-hidden group"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <FaCalendarAlt className="mr-4 text-2xl relative z-10" />
+                  <FaCalendarAlt className="mr-3 text-lg relative z-10" />
                   <span className="relative z-10">Đặt xe ngay</span>
                   <div className="absolute right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
-                    <FaArrowRight className="text-xl" />
+                    <FaArrowRight className="text-lg" />
                   </div>
                 </button>
 
-                <button className="w-full border-3 border-blue-600 text-blue-600 py-5 rounded-3xl font-bold hover:bg-blue-50 transition-all duration-300 flex items-center justify-center shadow-xl hover:shadow-2xl text-lg group relative overflow-hidden">
+                <button className="w-full border-2 border-blue-600 text-blue-600 py-3 rounded-2xl font-semibold hover:bg-blue-50 transition-all duration-300 flex items-center justify-center shadow-xl hover:shadow-2xl text-base group relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <FaComments className="mr-3 text-xl relative z-10" />
+                  <FaComments className="mr-2 text-lg relative z-10" />
                   <span className="relative z-10">Liên hệ chủ xe</span>
                 </button>
               </div>
@@ -1655,21 +1644,21 @@ const CarDetailPage = () => {
         {/* Enhanced Similar Cars Section */}
         <div className="mt-20">
           <div className="flex justify-between items-center mb-12">
-            <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <h2 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight pb-2">
               Xe tương tự bạn có thể thích
             </h2>
             <Link
               to="/search"
               className="text-blue-600 hover:text-blue-800 font-bold flex items-center text-xl px-6 py-3 rounded-2xl hover:bg-blue-50 transition-all duration-300"
             >
-              Xem tất cả
+              Xem tất cả xe
               <FaArrowRight className="ml-3" />
             </Link>
           </div>
           {similarCars && similarCars.length > 0 ? (
             <div className="relative px-8">
               <button
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-100 text-blue-600 rounded-full p-4 shadow-lg transition-all"
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-blue-100 text-blue-600 rounded-full p-3 shadow-lg transition-all"
                 onClick={() => similarSwiperRef.current?.slidePrev()}
                 aria-label="Previous similar cars"
                 style={{ left: 0 }}

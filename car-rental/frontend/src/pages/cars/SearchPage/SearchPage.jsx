@@ -160,6 +160,8 @@ const SearchPage = () => {
     const [noCarMessage, setNoCarMessage] = useState("")
     const [isInitialFilterApplied, setIsInitialFilterApplied] = useState(false)
     const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false);
+    const [quickViewCar, setQuickViewCar] = useState(null);
+    const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
 
     // Form Management for Filters
     const { register, handleSubmit, reset, watch, setValue, getValues } = useForm({
@@ -561,6 +563,146 @@ const SearchPage = () => {
     const availableCars = carContent.filter((car) => car?.statusName?.toLowerCase() === "available")
     const displayedRentedCars = showAllRented ? rentedCars : rentedCars.slice(0, rentedCarsLimit)
 
+    // Quick View Modal Component
+const QuickViewModal = ({ isOpen, onClose, car }) => {
+    if (!isOpen || !car) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+                {/* Header */}
+                <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between rounded-t-2xl">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900">{car.brandName} {car.model}</h2>
+                        <p className="text-gray-600">Xem chi tiết nhanh về chiếc xe này</p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+                    >
+                        <FaTimes className="text-gray-500 text-xl" />
+                    </button>
+                </div>
+
+                <div className="p-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Image Section */}
+                        <div className="space-y-4">
+                            <div className="relative h-64 rounded-xl overflow-hidden">
+                                <img
+                                    src={
+                                        car.images?.find((img) => img.isMain)?.imageUrl ||
+                                        car.images?.[0]?.imageUrl ||
+                                        "/placeholder.svg"
+                                    }
+                                    alt={`${car.brandName} ${car.model}`}
+                                    className="w-full h-full object-cover"
+                                />
+                                {/* Status Badge */}
+                                <div className="absolute top-4 left-4">
+                                    <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                                        Có sẵn
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Info Section */}
+                        <div className="space-y-6">
+                            {/* Rating */}
+                            <div className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-1">
+                                    <FaStar className="text-yellow-400" />
+                                    <span className="font-bold text-lg">{car.rating || "4.8"}</span>
+                                </div>
+                                <span className="text-gray-500">({car.reviewCount || "124"} đánh giá)</span>
+                            </div>
+
+                            {/* Basic Info */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex items-center space-x-3">
+                                    <FaUsers className="text-blue-500" />
+                                    <span>{car.numOfSeats || 7} chỗ ngồi</span>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <FaGasPump className="text-green-500" />
+                                    <span>{car.fuelTypeName || "Hybrid"}</span>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <FaCog className="text-purple-500" />
+                                    <span>{car.transmission || "Automatic"}</span>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <FaMapMarkerAlt className="text-red-500" />
+                                    <span>{car.regionName || "Hà Nội"}</span>
+                                </div>
+                            </div>
+
+                            {/* Features */}
+                            <div>
+                                <h4 className="font-bold text-gray-900 mb-3">Tính năng nổi bật:</h4>
+                                <div className="flex flex-wrap gap-2">
+                                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">GPS</span>
+                                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">Bluetooth</span>
+                                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">AC</span>
+                                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">Sunroof</span>
+                                </div>
+                            </div>
+
+                            {/* Price */}
+                            <div className="bg-blue-50 rounded-xl p-4">
+                                <div className="flex items-baseline space-x-2 mb-2">
+                                    <span className="text-3xl font-bold text-blue-600">
+                                        ${car.dailyRate}
+                                    </span>
+                                    <span className="text-gray-600">/ngày</span>
+                                </div>
+                                {car.discount && (
+                                    <span className="text-gray-400 line-through text-sm">
+                                        ${Math.round(car.dailyRate / (1 - car.discount / 100))}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex space-x-4">
+                                <button
+                                    onClick={() => {
+                                        onClose();
+                                        navigate(`/cars/${car.carId}`);
+                                    }}
+                                    className="flex-1 border-2 border-blue-600 text-blue-600 py-3 rounded-xl font-semibold hover:bg-blue-50 transition-all"
+                                >
+                                    Xem chi tiết
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        onClose();
+                                        onBookNow && onBookNow(car);
+                                    }}
+                                    className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-all"
+                                >
+                                    Đặt ngay
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+    // Quick View handlers
+    const handleQuickView = (car) => {
+        setQuickViewCar(car);
+        setIsQuickViewOpen(true);
+    };
+
+    const closeQuickView = () => {
+        setIsQuickViewOpen(false);
+        setQuickViewCar(null);
+    };
+
     // Enhanced Car Card Component
     const CarCard = ({ car, isRented = false, onBookNow }) => {
         const [imageLoaded, setImageLoaded] = useState(false)
@@ -568,7 +710,7 @@ const SearchPage = () => {
 
         return (
             <div
-                className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden transform hover:-translate-y-2 border border-gray-100"
+                className="group bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden border border-gray-100"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
@@ -590,25 +732,23 @@ const SearchPage = () => {
                         loading="lazy"
                         onLoad={() => setImageLoaded(true)}
                         onClick={() => navigate(`/cars/${car.carId}`)}
-                        
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
-
+                    
                     {/* Status Badge */}
                     <div className="absolute top-4 left-4 flex flex-col space-y-2">
-            <span
-                className={`px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm ${
-                    isRented
-                        ? "bg-gradient-to-r from-red-500 to-pink-500 text-white"
-                        : "bg-gradient-to-r from-green-500 to-emerald-500 text-white"
-                }`}
-            >
-              {isRented ? "🚗 Đang thuê" : "✅ Có sẵn"}
-            </span>
+                        <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm ${
+                                isRented
+                                    ? "bg-red-500/90 text-white"
+                                    : "bg-green-500/90 text-white"
+                            }`}
+                        >
+                            {isRented ? "Đang thuê" : "Có sẵn"}
+                        </span>
                         {car.discount && (
-                            <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-                -{car.discount}% OFF
-              </span>
+                            <span className="bg-red-500/90 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+                                -{car.discount}%
+                            </span>
                         )}
                     </div>
 
@@ -616,7 +756,7 @@ const SearchPage = () => {
                     <div className="absolute top-4 right-4 flex flex-col space-y-2">
                         <button
                             onClick={() => toggleFavorite(car.carId)}
-                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm ${
+                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-sm ${
                                 favoriteVehicles.includes(car.carId)
                                     ? "bg-red-500 text-white"
                                     : "bg-white/90 text-gray-600 hover:text-red-500"
@@ -624,98 +764,108 @@ const SearchPage = () => {
                         >
                             <FaHeart className="text-sm" />
                         </button>
+                    </div>
+
+                    {/* Quick View Button - Overlay */}
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                         <button
-                            onClick={() => toggleCompare(car.carId)}
-                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm ${
-                                compareVehicles.includes(car.carId)
-                                    ? "bg-blue-500 text-white"
-                                    : "bg-white/90 text-gray-600 hover:text-blue-500"
-                            }`}
+                            onClick={() => handleQuickView(car)}
+                            className="bg-white/95 text-gray-800 px-6 py-3 rounded-xl font-semibold hover:bg-white transition-all duration-300 transform hover:scale-105 shadow-lg flex items-center space-x-2"
                         >
-                            <FaExchangeAlt className="text-sm" />
-                        </button>
-                        <button
-                            onClick={() => handleViewSchedule(car)}
-                            className="w-10 h-10 rounded-full bg-white/90 text-gray-600 hover:text-purple-500 flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm"
-                        >
-                            <FaCalendarAlt className="text-sm" />
+                            <FaEye className="text-sm" />
+                            <span>Xem nhanh</span>
                         </button>
                     </div>
                 </div>
 
                 <div className="p-6">
-                    <div className="flex items-start justify-between mb-3">
-                        <div>
-                            <h3 className="text-xl font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors cursor-pointer" onClick={() => navigate(`/cars/${car.carId}`)}>
-                                {car.model} {car.year}
+                    {/* Car Title and Rating */}
+                    <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                            <h3 
+                                className="text-xl font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors cursor-pointer line-clamp-1" 
+                                onClick={() => navigate(`/cars/${car.carId}`)}
+                                title={`${car.brandName} ${car.model}`}
+                            >
+                                {car.brandName} {car.model}
                             </h3>
-                            <p className="text-gray-500 text-sm">{car.brandName}</p>
+                            <p className="text-gray-500 text-sm">
+                                {car.year} • {car.regionName || 'Hà Nội'}
+                            </p>
                         </div>
-                        <div className="flex items-center space-x-1 bg-yellow-50 px-2 py-1 rounded-lg">
+                        <div className="flex items-center space-x-1 ml-3">
                             <FaStar className="text-yellow-400 text-sm" />
-                            <span className="text-sm font-semibold text-gray-700">{car.rating || "4.8"}</span>
+                            <span className="text-sm font-bold text-gray-900">{car.rating || "4.8"}</span>
+                            <span className="text-xs text-gray-500">({car.reviewCount || "124"})</span>
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                ${car.dailyRate}
-              </span>
-                            <span className="text-gray-500 text-sm ml-1">/ngày</span>
+                    {/* Car Features */}
+                    <div className="flex items-center space-x-4 mb-4 text-sm text-gray-600">
+                        <div className="flex items-center space-x-1">
+                            <FaUsers className="text-blue-500" />
+                            <span>{car.numOfSeats || 5} chỗ</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                            <FaGasPump className="text-green-500" />
+                            <span>{car.fuelTypeName || "Hybrid"}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                            <FaCog className="text-purple-500" />
+                            <span>{car.transmission || "Automatic"}</span>
+                        </div>
+                    </div>
+
+                    {/* Owner Info */}
+                    <div className="flex items-center space-x-2 mb-4 pb-4 border-b border-gray-100">
+                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-semibold text-gray-600">
+                                {car.ownerName?.charAt(0) || 'N'}
+                            </span>
+                        </div>
+                        <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-900">
+                                {car.ownerName || 'Nguyễn Văn A'}
+                            </span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-xs text-green-600 font-medium">Verified</span>
+                        </div>
+                    </div>
+
+                    {/* Price and Book Button */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                            <div className="flex items-baseline space-x-2">
+                                <span className="text-2xl font-bold text-blue-600">
+                                    ${car.dailyRate}
+                            </span>
+                            <span className="text-sm text-gray-500">/ngày</span>
                         </div>
                         {car.discount && (
-                            <div className="text-right">
-                <span className="text-sm text-gray-500 line-through">
-                  ${Math.round(car.dailyRate / (1 - car.discount / 100))}
-                </span>
-                                <span className="text-xs text-green-600 font-semibold ml-1">-{car.discount}%</span>
-                            </div>
+                            <span className="text-sm text-gray-400 line-through">
+                                ${Math.round(car.dailyRate / (1 - car.discount / 100))}
+                            </span>
                         )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 mb-6">
-                        <div className="flex items-center justify-center bg-gray-50 rounded-lg py-2 px-1">
-                            <FaUsers className="text-blue-500 mr-1 text-sm" />
-                            <span className="text-xs font-medium text-gray-700">{car.numOfSeats || 5} chỗ</span>
-                        </div>
-                        <div className="flex items-center justify-center bg-gray-50 rounded-lg py-2 px-1">
-                            <FaCog className="text-green-500 mr-1 text-sm" />
-                            <span className="text-xs font-medium text-gray-700">{car.transmission || "Tự động"}</span>
-                        </div>
-                        <div className="flex items-center justify-center bg-gray-50 rounded-lg py-2 px-1">
-                            <FaGasPump className="text-orange-500 mr-1 text-sm" />
-                            <span className="text-xs font-medium text-gray-700">{car.fuelTypeName || "Xăng"}</span>
-                        </div>
-                        <div className="flex items-center justify-center bg-gray-50 rounded-lg py-2 px-1">
-                            <FaCalendarAlt className="text-purple-500 mr-1 text-sm" />
-                            <span className="text-xs font-medium text-gray-700">{car.year}</span>
-                        </div>
-                    </div>
-
-                    <div className="flex space-x-2">
-                        <button
-                            onClick={() => onBookNow(car)}
-                            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 rounded-xl font-semibold transition-all duration-300 flex justify-center items-center shadow-lg hover:shadow-xl transform hover:scale-105"
-                            disabled={isRented}
-                        >
-                            {isRented ? (
-                                <>
-                                    <FaEye className="mr-2" />
-                                    Xem lịch
-                                </>
-                            ) : (
-                                <>
-                                    <FaCar className="mr-2" />
-                                    Đặt ngay
-                                </>
-                            )}
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => onBookNow && onBookNow(car)}
+                        className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg ${
+                            isRented
+                                ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                                : "bg-blue-600 hover:bg-blue-700 text-white hover:shadow-xl"
+                        }`}
+                        disabled={isRented}
+                    >
+                        {isRented ? "Đang thuê" : "Đặt ngay"}
+                    </button>
                 </div>
             </div>
-        )
-    }
+        </div>
+    )
+}
 
     // Schedule Popup Component
     const SchedulePopup = () => {
@@ -1077,24 +1227,6 @@ const SearchPage = () => {
                                             ? "Những chiếc xe được yêu thích nhất bởi khách hàng"
                                             : "Tìm và đặt xe hoàn hảo từ bộ sưu tập xe cao cấp của chúng tôi"}
                                 </p>
-                            </div>
-                            <div className="flex justify-center mt-6">
-                                <nav aria-label="Breadcrumb">
-                                    <ol className="inline-flex items-center space-x-1 md:space-x-3">
-                                        <li className="inline-flex items-center">
-                                            <a href="/frontend/public" className="text-white/80 hover:text-white transition-colors">
-                                                <FaHome className="mr-2" />
-                                                Trang chủ
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <div className="flex items-center">
-                                                <FaChevronDown className="text-white/60 mx-2 text-xs rotate-[-90deg]" />
-                                                <span className="text-white font-semibold">Xe</span>
-                                            </div>
-                                        </li>
-                                    </ol>
-                                </nav>
                             </div>
                         </div>
 
@@ -1736,8 +1868,14 @@ const SearchPage = () => {
                 car={selectedCar}
                 onSubmitBooking={handleSubmitBooking}
             />
+            {/* Render QuickViewModal */}
+            <QuickViewModal
+                isOpen={isQuickViewOpen}
+                onClose={closeQuickView}
+                car={quickViewCar}
+            />
         </div>
-    )
+    );
 }
 
 export default SearchPage

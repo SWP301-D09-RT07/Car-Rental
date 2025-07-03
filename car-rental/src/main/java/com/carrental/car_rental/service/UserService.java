@@ -150,14 +150,14 @@ public class UserService {
         UserDetail userDetail;
         if (userDetailOptional.isPresent()) {
             userDetail = userDetailOptional.get();
-            log.info("Updating EXISTING UserDetail: id={}, instance={}, hash={}", userDetail.getId(), System.identityHashCode(userDetail), userDetail);
+            log.info("[UserDetail] Updating EXISTING UserDetail: id={}, instance={}, hash={}", userDetail.getId(), System.identityHashCode(userDetail), userDetail);
         } else {
             userDetail = new UserDetail();
             userDetail.setId(user.getId());
             userDetail.setUser(user);
             userDetail.setIsDeleted(false);
             userDetail.setAddress("");
-            log.info("Creating NEW UserDetail: id={}, instance={}, hash={}", userDetail.getId(), System.identityHashCode(userDetail), userDetail);
+            log.info("[UserDetail] Creating NEW UserDetail: id={}, instance={}, hash={}", userDetail.getId(), System.identityHashCode(userDetail), userDetail);
         }
         userDetail.setName(dto.getUserDetail() != null && dto.getUserDetail().getFullName() != null
                 ? dto.getUserDetail().getFullName() : dto.getUsername());
@@ -166,8 +166,34 @@ public class UserService {
         userDetail.setTaxcode(dto.getUserDetail() != null ? dto.getUserDetail().getTaxcode() : null);
         userDetail.setIsDeleted(false);
 
-        log.info("Saving UserDetail: id={}, instance={}, hash={}", userDetail.getId(), System.identityHashCode(userDetail), userDetail);
-        return userDetailRepository.save(userDetail);
+        // Thêm log chi tiết trước khi save
+        log.info("[UserDetail] Trước khi save: userId={}, userDetail instance={}, user instance={}, userDetail.getUser().getId()={}, userDetail.getId()={}, isDeleted={}, name={}, address={}, taxcode={}",
+                user.getId(),
+                System.identityHashCode(userDetail),
+                System.identityHashCode(user),
+                userDetail.getUser() != null ? userDetail.getUser().getId() : null,
+                userDetail.getId(),
+                userDetail.getIsDeleted(),
+                userDetail.getName(),
+                userDetail.getAddress(),
+                userDetail.getTaxcode()
+        );
+
+        UserDetail saved = userDetailRepository.save(userDetail);
+
+        // Thêm log chi tiết sau khi save
+        log.info("[UserDetail] Sau khi save: userId={}, userDetail instance={}, user instance={}, userDetail.getUser().getId()={}, userDetail.getId()={}, isDeleted={}, name={}, address={}, taxcode={}",
+                user.getId(),
+                System.identityHashCode(saved),
+                System.identityHashCode(user),
+                saved.getUser() != null ? saved.getUser().getId() : null,
+                saved.getId(),
+                saved.getIsDeleted(),
+                saved.getName(),
+                saved.getAddress(),
+                saved.getTaxcode()
+        );
+        return saved;
     }    public UserDTO update(Integer id, UpdateUserDTO dto) {
         log.info("Updating user with ID: {}", id);
         
@@ -184,7 +210,8 @@ public class UserService {
                 .filter(u -> !u.getId().equals(id))
                 .ifPresent(u -> {
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists: " + dto.getEmail());
-                });validateRelations(dto.getRoleId(), dto.getStatusId(), dto.getCountryCode(), dto.getPreferredLanguage());
+                });
+        validateRelations(dto.getRoleId(), dto.getStatusId(), dto.getCountryCode(), dto.getPreferredLanguage());
         
         // Use mapper to create updated entity, then set ID and other preserved fields
         User updatedUser = userMapper.toEntity(dto);
@@ -197,28 +224,59 @@ public class UserService {
         updatedUser.setLastLogin(existingUser.getLastLogin());
         updatedUser.setIsDeleted(false);
         
-        log.info("Before save: ID={}", updatedUser.getId());
+        log.info("[UserService][Update] Before save User: ID={}, instance={}, username={}", updatedUser.getId(), System.identityHashCode(updatedUser), updatedUser.getUsername());
         userRepository.save(updatedUser);
-        log.info("After save: successful");        Optional<UserDetail> userDetailOptional = userDetailRepository.findByUserIdAndIsDeletedFalse(id);
-        log.info("UserDetail lookup for ID={}: found={}", id, userDetailOptional.isPresent());
+        log.info("[UserService][Update] After save User: ID={}, instance={}, username={}", updatedUser.getId(), System.identityHashCode(updatedUser), updatedUser.getUsername());
+        
+        Optional<UserDetail> userDetailOptional = userDetailRepository.findByUserIdAndIsDeletedFalse(id);
+        log.info("[UserService][Update] UserDetail lookup for ID={}: found={}", id, userDetailOptional.isPresent());
         UserDetail userDetail;
         if (userDetailOptional.isPresent()) {
             userDetail = userDetailOptional.get();
-            // Update existing UserDetail
+            log.info("[UserService][Update] Updating EXISTING UserDetail: id={}, instance={}, hash={}", userDetail.getId(), System.identityHashCode(userDetail), userDetail);
         } else {
             userDetail = new UserDetail();
             userDetail.setUser(updatedUser);  // This will set the id via @MapsId
+            userDetail.setId(updatedUser.getId());
             userDetail.setIsDeleted(false);
+            log.info("[UserService][Update] Creating NEW UserDetail: id={}, instance={}, hash={}", userDetail.getId(), System.identityHashCode(userDetail), userDetail);
         }
         userDetail.setName(dto.getUserDetail() != null && dto.getUserDetail().getFullName() != null
                 ? dto.getUserDetail().getFullName() : (userDetail.getName() != null ? userDetail.getName() : ""));
         userDetail.setAddress(dto.getUserDetail() != null && dto.getUserDetail().getAddress() != null
-                ? dto.getUserDetail().getAddress() : (userDetail.getAddress() != null ? userDetail.getAddress() : ""));        userDetail.setTaxcode(dto.getUserDetail() != null ? dto.getUserDetail().getTaxcode() : userDetail.getTaxcode());
+                ? dto.getUserDetail().getAddress() : (userDetail.getAddress() != null ? userDetail.getAddress() : ""));
+        userDetail.setTaxcode(dto.getUserDetail() != null ? dto.getUserDetail().getTaxcode() : userDetail.getTaxcode());
         
-        userDetailRepository.save(userDetail);
+        // Thêm log chi tiết trước khi save
+        log.info("[UserService][Update] UserDetail trước khi save: userId={}, userDetail instance={}, user instance={}, userDetail.getUser().getId()={}, userDetail.getId()={}, isDeleted={}, name={}, address={}, taxcode={}",
+                updatedUser.getId(),
+                System.identityHashCode(userDetail),
+                System.identityHashCode(updatedUser),
+                userDetail.getUser() != null ? userDetail.getUser().getId() : null,
+                userDetail.getId(),
+                userDetail.getIsDeleted(),
+                userDetail.getName(),
+                userDetail.getAddress(),
+                userDetail.getTaxcode()
+        );
+        
+        UserDetail savedDetail = userDetailRepository.save(userDetail);
+        
+        // Thêm log chi tiết sau khi save
+        log.info("[UserService][Update] UserDetail sau khi save: userId={}, userDetail instance={}, user instance={}, userDetail.getUser().getId()={}, userDetail.getId()={}, isDeleted={}, name={}, address={}, taxcode={}",
+                updatedUser.getId(),
+                System.identityHashCode(savedDetail),
+                System.identityHashCode(updatedUser),
+                savedDetail.getUser() != null ? savedDetail.getUser().getId() : null,
+                savedDetail.getId(),
+                savedDetail.getIsDeleted(),
+                savedDetail.getName(),
+                savedDetail.getAddress(),
+                savedDetail.getTaxcode()
+        );
 
         UserDTO result = userMapper.toDto(updatedUser);
-        result.setUserDetail(userDetailMapper.toDTO(userDetail));
+        result.setUserDetail(userDetailMapper.toDTO(savedDetail));
         return result;
     }
 

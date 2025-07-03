@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +40,7 @@ public class GlobalExceptionHandler {
         
         Map<String, Object> response = new HashMap<>();
         response.put("success", false);
-        response.put("error", "Xác thực thất bại. Vui lòng đăng nhập lại.");
+        response.put("error", ex.getMessage());
         response.put("code", "AUTHENTICATION_FAILED");
         
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
@@ -74,5 +75,15 @@ public class GlobalExceptionHandler {
         response.put("error", "Lỗi hệ thống: " + ex.getMessage());
         
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<?> handleResponseStatusException(ResponseStatusException ex) {
+        logger.error("ResponseStatusException: {}", ex.getReason());
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("error", ex.getReason());
+        response.put("code", ex.getStatusCode().toString());
+        return ResponseEntity.status(ex.getStatusCode()).body(response);
     }
 }

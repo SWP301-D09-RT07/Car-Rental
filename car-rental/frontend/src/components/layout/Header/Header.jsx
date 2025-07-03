@@ -4,17 +4,14 @@ import { FaCarSide, FaHome, FaCar, FaStore, FaSearch, FaHeart, FaChevronDown, Fa
 import { useAuth } from "@/hooks/useAuth";
 
 const Header = ({
-    isAuthenticated,
-    userEmail,
     isUserDropdownOpen,
     setIsUserDropdownOpen,
-    handleLogout,
     isMobileMenuOpen,
     setIsMobileMenuOpen
 }) => {
+    const { isAuthenticated, user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
-    const { user } = useAuth();
     return (
         <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-xl shadow-lg z-50 border-b border-blue-100">
             <div className="container mx-auto px-4 py-4">
@@ -74,13 +71,13 @@ const Header = ({
                         </Link>
                         {/* Enhanced User Account */}
                         <div className="relative">
-                            {localStorage.getItem("token") ? (
+                            {isAuthenticated ? (
                                 <button
                                     onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
                                     className="flex items-center text-gray-700 hover:text-blue-600 transition-all duration-300 p-2 rounded-xl hover:bg-blue-50 group"
                                 >
                                     <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center mr-3 shadow-lg group-hover:shadow-xl transition-all">
-                                        <span className="text-white text-sm font-bold">U</span>
+                                        <span className="text-white text-sm font-bold">{user?.username ? user.username[0].toUpperCase() : 'U'}</span>
                                     </div>
                                     <FaChevronDown
                                         className={`text-xs transition-all duration-300 ${isUserDropdownOpen ? "rotate-180" : ""}`}
@@ -108,7 +105,7 @@ const Header = ({
                                 <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl py-3 border border-blue-100 animate-in slide-in-from-top-5 duration-200">
                                     <div className="px-6 py-4 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl">
                                         <p className="text-sm font-semibold text-gray-900">Xin chào!</p>
-                                        <p className="text-xs text-gray-500">{user?.username || localStorage.getItem('username') || "user@example.com"}</p>
+                                        <p className="text-xs text-gray-500">{user?.username || "user@example.com"}</p>
                                     </div>
                                     {user?.role === 'supplier' && (
                                         <Link
@@ -141,7 +138,7 @@ const Header = ({
                                     <div className="border-t border-blue-100 mt-2 pt-2">
                                         <button
                                             onClick={() => {
-                                                handleLogout();
+                                                logout();
                                                 setIsUserDropdownOpen(false);
                                             }}
                                             className="flex items-center w-full text-left px-6 py-3 text-sm text-red-600 hover:bg-red-50 transition-all duration-200 rounded-xl mx-2"
@@ -239,7 +236,7 @@ const Header = ({
                                     <button
                                         onClick={() => {
                                             setIsMobileMenuOpen(false);
-                                            handleLogout();
+                                            logout();
                                         }}
                                         className="flex items-center w-full text-left text-red-600 p-4 hover:bg-red-50 rounded-xl space-x-3 transition-all"
                                     >

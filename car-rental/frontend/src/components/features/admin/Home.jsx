@@ -20,6 +20,7 @@ import {
 } from "react-icons/fa";
 import styles from "../../../styles/Home.module.scss";
 import { getReportsData } from '../../../services/api';
+import { getItem } from '@/utils/auth';
 
 // Register Chart.js components
 ChartJS.register(
@@ -43,7 +44,7 @@ function Home() {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('token');
+        const token = getItem('token');
         console.log('[ADMIN HOME] Token in localStorage:', token);
         const overviewData = await getReportsData();
         setOverview(overviewData);

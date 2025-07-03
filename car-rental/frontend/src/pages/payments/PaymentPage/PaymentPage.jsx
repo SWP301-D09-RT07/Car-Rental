@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useLocation, useNavigate, Link } from "react-router-dom"
-import { post } from "@/services/api.js"
+import { post, getBookingById, getBookingByTransactionId } from "@/services/api.js"
 import { useAuth } from "@/hooks/useAuth.js"
 import {
   FaCreditCard,
@@ -25,6 +25,7 @@ import {
   FaUndoAlt,
   FaMobile,
 } from "react-icons/fa"
+import { getItem } from '@/utils/auth'
 
 // Enhanced Progress Steps Component
 const ProgressSteps = ({ currentStep = 1 }) => {
@@ -81,38 +82,61 @@ const ProgressSteps = ({ currentStep = 1 }) => {
 }
 
 // Enhanced Page Header Component
-const PageHeader = ({ currentStep = 3, backLink = "/booking-confirm", backText = "Quay lại xác nhận" }) => (
-  <header className="bg-white/95 backdrop-blur-xl shadow-lg border-b border-gray-100 sticky top-0 z-50">
-    <div className="container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between">
-        <Link
-          to={backLink}
-          className="flex items-center text-gray-700 hover:text-blue-600 transition-all duration-300 group"
-        >
-          <div className="w-12 h-12 flex items-center justify-center mr-4 bg-gray-100 rounded-2xl group-hover:bg-blue-100 transition-all duration-300 group-hover:scale-110">
-            <FaArrowLeft className="text-lg" />
-          </div>
-          <span className="font-semibold hidden sm:block">{backText}</span>
-        </Link>
+const PageHeader = ({
+  currentStep = 3,
+  backText = "Quay lại xác nhận",
+  bookingInfo,
+  priceBreakdown,
+  customerInfo,
+  withDriver,
+  deliveryRequested,
+}) => {
+  const navigate = useNavigate();
+  const handleBack = () => {
+    navigate("/bookings/confirmation", {
+      state: {
+        bookingData: bookingInfo,
+        priceBreakdown,
+        customerInfo,
+        withDriver,
+        deliveryRequested,
+      },
+    });
+  };
+  return (
+    <header className="bg-white/95 backdrop-blur-xl shadow-lg border-b border-gray-100 z-50">
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="flex items-center text-gray-700 hover:text-blue-600 transition-all duration-300 group"
+          >
+            <div className="w-12 h-12 flex items-center justify-center mr-4 bg-gray-100 rounded-2xl group-hover:bg-blue-100 transition-all duration-300 group-hover:scale-110">
+              <FaArrowLeft className="text-lg" />
+            </div>
+            <span className="font-semibold hidden sm:block">{backText}</span>
+          </button>
 
-        <ProgressSteps currentStep={currentStep} />
+          <ProgressSteps currentStep={currentStep} />
 
-        {/* Logo */}
-        <Link to="/" className="flex items-center group">
-          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-3 rounded-2xl mr-3 group-hover:scale-110 transition-all duration-300 shadow-xl group-hover:shadow-2xl">
-            <FaCarSide className="text-xl text-white" />
-          </div>
-          <div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              DriveLuxe
-            </span>
-            <p className="text-xs text-gray-500 -mt-1">Premium Car Rental</p>
-          </div>
-        </Link>
+          {/* Logo */}
+          <Link to="/" className="flex items-center group">
+            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-3 rounded-2xl mr-3 group-hover:scale-110 transition-all duration-300 shadow-xl group-hover:shadow-2xl">
+              <FaCarSide className="text-xl text-white" />
+            </div>
+            <div>
+              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                DriveLuxe
+              </span>
+              <p className="text-xs text-gray-500 -mt-1">Premium Car Rental</p>
+            </div>
+          </Link>
+        </div>
       </div>
-    </div>
-  </header>
-)
+    </header>
+  );
+};
 
 // Enhanced PageFooter component
 const PageFooter = () => {
@@ -514,8 +538,10 @@ const PaymentPage = () => {
     depositAmount,
     collateralAmount,
     bookingId: stateBookingId,
+    paymentId: statePaymentId,
     priceBreakdown: statePriceBreakdown,
     bookingInfo: stateBookingInfo,
+    fromHistory,
   } = location.state || {}
 
   // State management
@@ -540,28 +566,28 @@ const PaymentPage = () => {
     const loadDataFromStorage = () => {
       try {
         if (!bookingId) {
-          const storedBookingId = localStorage.getItem("lastBookingId")
+          const storedBookingId = getItem('lastBookingId')
           if (storedBookingId) {
             setBookingId(storedBookingId)
           }
         }
 
         if (!priceBreakdown) {
-          const storedPriceBreakdown = localStorage.getItem("lastPriceBreakdown")
+          const storedPriceBreakdown = getItem('lastPriceBreakdown')
           if (storedPriceBreakdown) {
             const parsed = JSON.parse(storedPriceBreakdown)
             setPriceBreakdown(parsed)
           }
         }
         if (!bookingInfo) {
-          const storedBookingInfo = localStorage.getItem("lastBookingInfo")
+          const storedBookingInfo = getItem('lastBookingInfo')
           if (storedBookingInfo) {
             const parsed = JSON.parse(storedBookingInfo)
             setBookingInfo(parsed)
           }
         }
         if (!customerInfo) {
-          const storedCustomerInfo = localStorage.getItem("lastCustomerInfo")
+          const storedCustomerInfo = getItem('lastCustomerInfo')
           if (storedCustomerInfo) {
             const parsed = JSON.parse(storedCustomerInfo)
             setCustomerInfo(parsed)
@@ -603,6 +629,55 @@ const PaymentPage = () => {
 
     setError(null)
   }, [bookingId, bookingInfo, priceBreakdown, customerInfo, isAuthenticated, navigate])
+
+  // Nếu vào từ lịch sử đặt, tự động lấy lại thông tin booking/payment
+  useEffect(() => {
+    const fetchBookingForRetry = async () => {
+      if (fromHistory && (stateBookingId || statePaymentId)) {
+        setIsLoading(true);
+        try {
+          let bookingData = null;
+          if (stateBookingId) {
+            bookingData = await getBookingById(stateBookingId);
+          } else if (statePaymentId) {
+            bookingData = await getBookingByTransactionId(statePaymentId);
+          }
+          if (bookingData) {
+            setBookingId(bookingData.bookingId);
+            setBookingInfo({
+              carId: bookingData.car?.carId,
+              pickupLocation: bookingData.pickupLocation,
+              dropoffLocation: bookingData.dropoffLocation,
+              pickupDateTime: bookingData.pickupDateTime,
+              dropoffDateTime: bookingData.dropoffDateTime,
+              seatNumber: bookingData.seatNumber,
+              withDriver: bookingData.withDriver,
+              deliveryRequested: bookingData.deliveryRequested,
+              car: bookingData.car,
+            });
+            setPriceBreakdown(bookingData.priceBreakdown || {});
+            setCustomerInfo({
+              fullName: bookingData.customer?.fullName || '',
+              phone: bookingData.customer?.phone || '',
+              email: bookingData.customer?.email || '',
+              pickupAddress: bookingData.pickupLocation || '',
+              dropoffAddress: bookingData.dropoffLocation || '',
+            });
+            // Nếu trạng thái là failed, hiển thị thông báo
+            if (bookingData.statusName === 'failed') {
+              setError('Đơn đặt này chưa thanh toán thành công. Bạn có thể thanh toán lại ngay tại đây.');
+            }
+          }
+        } catch (err) {
+          setError('Không thể lấy lại thông tin đơn đặt. Vui lòng thử lại hoặc liên hệ hỗ trợ.');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    fetchBookingForRetry();
+    // eslint-disable-next-line
+  }, [fromHistory, stateBookingId, statePaymentId]);
 
   // Toast notification
   const showToast = (message, type = "success") => {
@@ -702,17 +777,15 @@ const PaymentPage = () => {
             state: {
               bookingId: response.bookingId || bookingId,
               paymentId: response.paymentId || response.transactionId,
-              amount: response.amount || DEPOSIT,
-              priceBreakdown: priceBreakdown,
+              amount: paymentMethod === "cash" ? 0 : (response.amount || DEPOSIT),
+              priceBreakdown: response.priceBreakdown || priceBreakdown,
+              totalAmount: response.totalAmount || priceBreakdown?.total || 0,
               withDriver: withDriver,
               deliveryRequested: deliveryRequested,
               customerInfo: customerInfo,
               bookingData: {
-                pickupDateTime: bookingInfo?.pickupDateTime || new Date().toISOString(),
-                dropoffDateTime: bookingInfo?.dropoffDateTime || new Date().toISOString(),
-                pickupLocation: customerInfo?.pickupAddress || bookingInfo?.pickupLocation || "Không xác định",
-                dropoffLocation: customerInfo?.dropoffAddress || bookingInfo?.dropoffLocation || "Không xác định",
-                car: bookingInfo?.car || { model: "Không xác định" },
+                ...bookingInfo,
+                car: bookingInfo?.car || { model: "Không xác định" }
               },
             },
           })
@@ -823,7 +896,13 @@ const PaymentPage = () => {
         </div>
       )}
 
-      <PageHeader />
+      <PageHeader
+        bookingInfo={bookingInfo}
+        priceBreakdown={priceBreakdown}
+        customerInfo={customerInfo}
+        withDriver={withDriver}
+        deliveryRequested={deliveryRequested}
+      />
 
       {/* Main Title and Subtitle */}
       <div className="text-center mb-12 pt-8">
@@ -839,7 +918,7 @@ const PaymentPage = () => {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">
           {/* Left Column - Payment Form */}
           <div className="xl:col-span-2">
-            <div className="sticky top-32 z-30">
+            <div className="sticky top-0 z-30">
               {paymentStatus === "success" ? (
                 <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-10 shadow-2xl text-center border border-gray-100">
                   <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-8">

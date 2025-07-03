@@ -1,6 +1,7 @@
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import { getToken } from "@/utils/auth"
+import { getItem } from "@/utils/auth";
 
 // Cấu hình base URL
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -29,7 +30,7 @@ const invalidateCache = (key) => {
 
 // Kiểm tra token hết hạn
 const isTokenExpired = () => {
-    const expiresAt = localStorage.getItem('expiresAt');
+    const expiresAt = getItem('expiresAt');
     return !expiresAt || new Date().getTime() > parseInt(expiresAt, 10);
 };
 
@@ -37,7 +38,7 @@ const isTokenExpired = () => {
 api.interceptors.request.use(
     async (config) => {
         console.log('[API Request]', config.method?.toUpperCase(), config.url, config.data);
-        const token = localStorage.getItem('token');
+        const token = getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
@@ -61,10 +62,10 @@ api.interceptors.response.use(
     (error) => {
         console.error('[API Response Error]', error.response?.status, error.config?.url, error.message);
         console.log('[API Response Error] Current auth state:');
-        console.log('[API Response Error] - Token:', localStorage.getItem('token') ? 'Có' : 'Không có');
-        console.log('[API Response Error] - Username:', localStorage.getItem('username'));
-        console.log('[API Response Error] - Role:', localStorage.getItem('role'));
-        console.log('[API Response Error] - ExpiresAt:', localStorage.getItem('expiresAt'));
+        console.log('[API Response Error] - Token:', getItem('token') ? 'Có' : 'Không có');
+        console.log('[API Response Error] - Username:', getItem('username'));
+        console.log('[API Response Error] - Role:', getItem('role'));
+        console.log('[API Response Error] - ExpiresAt:', getItem('expiresAt'));
         
         if (error.response?.status === 401) {
 
@@ -131,22 +132,10 @@ export const login = async (username, password) => {
     try {
         console.log('[API] Attempting login for username:', username);
         const response = await api.post('/api/auth/login', { username, password });
-        console.log('[API] Login response received:', {
-            hasToken: !!response.data.token,
-            tokenLength: response.data.token ? response.data.token.length : 0,
-            hasExpiresAt: !!response.data.expiresAt,
-            expiresAt: response.data.expiresAt,
-            hasRole: !!response.data.role,
-            role: response.data.role,
-            hasUsername: !!response.data.username,
-            username: response.data.username
-        });
-        
-        // Không lưu vào localStorage ở đây, để AuthContext xử lý
         return response.data;
     } catch (error) {
         console.error('[API] Login error:', error);
-        throw new Error(error.response?.data?.message || 'Đăng nhập thất bại');
+        throw error;
     }
 };
 
@@ -309,7 +298,7 @@ export const toggleUserStatus = async (userId, reason = null) => {
     console.log("=== BẮT ĐẦU TOGGLE USER STATUS (FRONTEND) ===");
     console.log("User ID:", userId);
     console.log("Reason:", reason);
-    console.log("Current token:", localStorage.getItem('token'));
+    console.log("Current token:", getItem('token'));
     
     try {
         const requestBody = {
@@ -523,7 +512,7 @@ export const createBooking = async (bookingData) => {
         }
 
         // Check if user has reached booking limit
-        const userId = localStorage.getItem('userId');
+        const userId = getItem('userId');
         if (userId) {
             const userBookings = await getBookingsByUserId(userId);
             const activeBookings = userBookings.filter(b => 
@@ -792,7 +781,7 @@ export const getBookingsByUserId = async (userId) => {
 // Hàm POST tổng quát
 export const post = async (url, data) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getItem('token');
         const headers = {
             'Content-Type': 'application/json',
             ...(token && { 'Authorization': `Bearer ${token}` })
@@ -912,8 +901,8 @@ export const getFavoriteCars = async () => {
 export const getBookingDetails = async (bookingId) => {
     try {
         console.log('🔄 Fetching booking details for ID:', bookingId);
-        console.log('🔍 Current token:', localStorage.getItem('token') ? 'Present' : 'Missing');
-        console.log('🔍 Current role:', localStorage.getItem('role'));
+        console.log('🔍 Current token:', getItem('token') ? 'Present' : 'Missing');
+        console.log('🔍 Current role:', getItem('role'));
         
         const response = await api.get(`/api/bookings/${bookingId}`);
         console.log('✅ Booking details fetched:', response.data);
@@ -995,7 +984,7 @@ export const ensureBookingFinancials = async (bookingId) => {
     if (!bookingId) throw new Error('Vui lòng cung cấp ID đặt xe');
     try {
         console.log('[API] Calling ensureBookingFinancials for bookingId:', bookingId);
-        console.log('[API] Current token:', localStorage.getItem('token') ? 'Có' : 'Không có');
+        console.log('[API] Current token:', getItem('token') ? 'Có' : 'Không có');
         const response = await api.post(`/api/bookings/${bookingId}/ensure-financials`);
         console.log('[API] ensureBookingFinancials response:', response.data);
         return response.data;

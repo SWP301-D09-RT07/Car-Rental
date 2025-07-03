@@ -2,9 +2,7 @@ package com.carrental.car_rental.service;
 
 import com.carrental.car_rental.config.VNPayConfig;
 import com.carrental.car_rental.config.MoMoConfig;
-import com.carrental.car_rental.dto.PaymentDTO;
-import com.carrental.car_rental.dto.PaymentResponseDTO;
-import com.carrental.car_rental.dto.BookingDTO;
+import com.carrental.car_rental.dto.*;
 import com.carrental.car_rental.entity.Booking;
 import com.carrental.car_rental.entity.Payment;
 import com.carrental.car_rental.entity.Region;
@@ -36,6 +34,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.carrental.car_rental.service.BookingFinancialsService;
 import com.carrental.car_rental.entity.User;
 import com.carrental.car_rental.repository.UserRepository;
+import com.carrental.car_rental.mapper.BookingMapper;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
@@ -62,6 +61,7 @@ public class PaymentService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final BookingFinancialsService bookingFinancialsService;
     private final UserRepository userRepository;
+    private final BookingMapper bookingMapper;
 
     @Value("${email.from}")
     private String fromEmail;
@@ -179,6 +179,11 @@ public class PaymentService {
                 String redirectUrl = createVnpayPaymentUrl(request, paymentId, dto.getAmount().longValue(), dto.getBookingId());
                 Payment savedPayment = repository.save(payment);
 
+                // Lấy thông tin tài chính booking
+                BookingDTO bookingDTO = bookingMapper.toDTO(savedPayment.getBooking());
+                BookingFinancialsDTO financials = bookingFinancialsService.getOrCreateFinancials(bookingDTO);
+                PriceBreakdownDTO priceBreakdown = bookingFinancialsService.calculatePriceBreakdown(bookingDTO);
+
                 response.setPaymentId(savedPayment.getId());
                 response.setBookingId(savedPayment.getBooking().getId());
                 response.setAmount(savedPayment.getAmount());
@@ -188,6 +193,8 @@ public class PaymentService {
                 response.setStatus(savedPayment.getPaymentStatus().getStatusName());
                 response.setRedirectUrl(redirectUrl);
                 response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+                response.setTotalAmount(financials != null ? financials.getTotalFare() : null);
+                response.setPriceBreakdown(priceBreakdown);
             } catch (UnsupportedEncodingException e) {
                 logger.error("Failed to create VNPay payment URL", e);
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tạo URL thanh toán VNPay");
@@ -201,6 +208,11 @@ public class PaymentService {
 
             String payUrl = createMomoPaymentUrlWithOrderId(savedPayment, orderId);
 
+            // Lấy thông tin tài chính booking
+            BookingDTO bookingDTO = bookingMapper.toDTO(savedPayment.getBooking());
+            BookingFinancialsDTO financials = bookingFinancialsService.getOrCreateFinancials(bookingDTO);
+            PriceBreakdownDTO priceBreakdown = bookingFinancialsService.calculatePriceBreakdown(bookingDTO);
+
             response.setPaymentId(savedPayment.getId());
             response.setBookingId(savedPayment.getBooking().getId());
             response.setAmount(savedPayment.getAmount());
@@ -210,14 +222,22 @@ public class PaymentService {
             response.setStatus(savedPayment.getPaymentStatus().getStatusName());
             response.setRedirectUrl(payUrl);
             response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+            response.setTotalAmount(financials != null ? financials.getTotalFare() : null);
+            response.setPriceBreakdown(priceBreakdown);
             return response;
         } else if ("cash".equals(dto.getPaymentMethod())) {
             // Xử lý thanh toán tiền mặt
             String paymentId = "CASH_" + System.nanoTime();
             payment.setTransactionId(paymentId);
-            payment.setPaymentStatus(paidStatus); // Tiền mặt được coi là đã thanh toán ngay
+            payment.setPaymentStatus(pendingStatus); // Để trạng thái là pending
             payment.setPaymentMethod("cash");
+            payment.setAmount(java.math.BigDecimal.ZERO); // Số tiền đã thanh toán là 0
             Payment savedPayment = repository.save(payment);
+
+            // Lấy thông tin tài chính booking
+            BookingDTO bookingDTO = bookingMapper.toDTO(savedPayment.getBooking());
+            BookingFinancialsDTO financials = bookingFinancialsService.getOrCreateFinancials(bookingDTO);
+            PriceBreakdownDTO priceBreakdown = bookingFinancialsService.calculatePriceBreakdown(bookingDTO);
 
             // Gửi email xác nhận cho thanh toán tiền mặt
             try {
@@ -234,7 +254,9 @@ public class PaymentService {
             response.setTransactionId(savedPayment.getTransactionId());
             response.setPaymentMethod(savedPayment.getPaymentMethod());
             response.setStatus(savedPayment.getPaymentStatus().getStatusName());
-            response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+            response.setPaymentDate(java.time.LocalDateTime.from(savedPayment.getPaymentDate().atZone(java.time.ZoneId.systemDefault())));
+            response.setTotalAmount(financials != null ? financials.getTotalFare() : null);
+            response.setPriceBreakdown(priceBreakdown);
         }
 
         return response;
@@ -749,6 +771,11 @@ public class PaymentService {
                 String redirectUrl = createVnpayPaymentUrl(request, paymentId, dto.getAmount().longValue(), savedBooking.getBookingId());
                 Payment savedPayment = repository.save(payment);
 
+                // Lấy thông tin tài chính booking
+                bookingDTO = bookingMapper.toDTO(savedPayment.getBooking());
+                BookingFinancialsDTO financials = bookingFinancialsService.getOrCreateFinancials(bookingDTO);
+                PriceBreakdownDTO priceBreakdown = bookingFinancialsService.calculatePriceBreakdown(bookingDTO);
+
                 response.setPaymentId(savedPayment.getId());
                 response.setBookingId(savedPayment.getBooking().getId());
                 response.setAmount(savedPayment.getAmount());
@@ -758,6 +785,8 @@ public class PaymentService {
                 response.setStatus(savedPayment.getPaymentStatus().getStatusName());
                 response.setRedirectUrl(redirectUrl);
                 response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+                response.setTotalAmount(financials != null ? financials.getTotalFare() : null);
+                response.setPriceBreakdown(priceBreakdown);
             } catch (UnsupportedEncodingException e) {
                 logger.error("Failed to create VNPay payment URL", e);
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tạo URL thanh toán VNPay");
@@ -771,6 +800,11 @@ public class PaymentService {
 
             String payUrl = createMomoPaymentUrlWithOrderId(savedPayment, orderId);
 
+            // Lấy thông tin tài chính booking
+            bookingDTO = bookingMapper.toDTO(savedPayment.getBooking());
+            BookingFinancialsDTO financials = bookingFinancialsService.getOrCreateFinancials(bookingDTO);
+            PriceBreakdownDTO priceBreakdown = bookingFinancialsService.calculatePriceBreakdown(bookingDTO);
+
             response.setPaymentId(savedPayment.getId());
             response.setBookingId(savedPayment.getBooking().getId());
             response.setAmount(savedPayment.getAmount());
@@ -780,13 +814,21 @@ public class PaymentService {
             response.setStatus(savedPayment.getPaymentStatus().getStatusName());
             response.setRedirectUrl(payUrl);
             response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+            response.setTotalAmount(financials != null ? financials.getTotalFare() : null);
+            response.setPriceBreakdown(priceBreakdown);
         } else if ("cash".equals(dto.getPaymentMethod())) {
             // Xử lý thanh toán tiền mặt
             String paymentId = "CASH_" + System.nanoTime();
             payment.setTransactionId(paymentId);
-            payment.setPaymentStatus(paidStatus); // Tiền mặt được coi là đã thanh toán ngay
+            payment.setPaymentStatus(pendingStatus); // Để trạng thái là pending
             payment.setPaymentMethod("cash");
+            payment.setAmount(java.math.BigDecimal.ZERO); // Số tiền đã thanh toán là 0
             Payment savedPayment = repository.save(payment);
+
+            // Lấy thông tin tài chính booking
+            bookingDTO = bookingMapper.toDTO(savedPayment.getBooking());
+            BookingFinancialsDTO financials = bookingFinancialsService.getOrCreateFinancials(bookingDTO);
+            PriceBreakdownDTO priceBreakdown = bookingFinancialsService.calculatePriceBreakdown(bookingDTO);
 
             // Gửi email xác nhận cho thanh toán tiền mặt
             try {
@@ -803,7 +845,9 @@ public class PaymentService {
             response.setTransactionId(savedPayment.getTransactionId());
             response.setPaymentMethod(savedPayment.getPaymentMethod());
             response.setStatus(savedPayment.getPaymentStatus().getStatusName());
-            response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
+            response.setPaymentDate(java.time.LocalDateTime.from(savedPayment.getPaymentDate().atZone(java.time.ZoneId.systemDefault())));
+            response.setTotalAmount(financials != null ? financials.getTotalFare() : null);
+            response.setPriceBreakdown(priceBreakdown);
         }
 
         logger.info("Payment with booking processed successfully. Booking ID: {}, Payment ID: {}", 

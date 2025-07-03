@@ -57,6 +57,7 @@ import CarCard from '@/components/features/cars/CarCard/CarCard';
 import BookingModal from '@/components/features/cars/BookingModal';
 import Header from '@/components/layout/Header/Header';
 import Footer from '@/components/layout/Footer/Footer';
+import { getItem } from '@/utils/auth';
 
 // Images
 const bg1 = "/images/bg_1.jpg"
@@ -247,7 +248,7 @@ const HomePage = () => {
     const popularSwiperRef = React.useRef(null);
 
     useEffect(() => {
-        const email = localStorage.getItem("userEmail");
+        const email = getItem('userEmail');
         if (email) setUserEmail(email);
     }, []);
 
@@ -258,7 +259,7 @@ const HomePage = () => {
                 setIsLoading(true)
                 setError("")
 
-                const token = localStorage.getItem('token');
+                const token = getItem('token');
                 const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
                 const [featuredResponse, popularResponse, brandsResponse, regionsResponse] = await Promise.all([
                     api.get("/api/cars/featured", config),
@@ -379,7 +380,7 @@ const HomePage = () => {
     const handleLogout = useCallback(async () => {
         try {
             await logout()
-            window.location.href = "/login"
+            window.location.href = "/";
         } catch (err) {
             toast.error(err.message || "Đăng xuất thất bại")
         }
@@ -434,11 +435,8 @@ const HomePage = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
             <Header
-                isAuthenticated={isAuthenticated}
-                userEmail={userEmail}
                 isUserDropdownOpen={isUserDropdownOpen}
                 setIsUserDropdownOpen={setIsUserDropdownOpen}
-                handleLogout={handleLogout}
                 isMobileMenuOpen={isMobileMenuOpen}
                 setIsMobileMenuOpen={setIsMobileMenuOpen}
             />

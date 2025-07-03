@@ -378,13 +378,13 @@ const BookingSuccessPage = () => {
           paymentId:
             state.paymentId || state.payment_id || transactionId || bookingDataFromApi?.paymentId || "N/A",
           amount:
-            state.amount || priceBreakdownState.deposit || bookingDataFromApi?.depositAmount || bookingDataFromApi?.amount || 0,
+            bookingDataFromApi?.amount !== undefined ? bookingDataFromApi.amount : (state.amount || priceBreakdownState.deposit || bookingDataFromApi?.depositAmount || 0),
           carModel:
-            carState.model || bookingDataFromApi?.car?.model || "Không xác định",
+            bookingDataFromApi?.car?.model || carState.model || "Không xác định",
           pickupLocation:
-            bookingDataState.pickupLocation || bookingDataFromApi?.pickupLocation || customerInfoState.pickupAddress || "Không xác định",
+            bookingDataFromApi?.pickupLocation || bookingDataState.pickupLocation || customerInfoState.pickupAddress || "Không xác định",
           dropoffLocation:
-            bookingDataState.dropoffLocation || bookingDataFromApi?.dropoffLocation || customerInfoState.dropoffAddress || "Không xác định",
+            bookingDataFromApi?.dropoffLocation || bookingDataState.dropoffLocation || customerInfoState.dropoffAddress || "Không xác định",
           pickupDate,
           dropoffDate,
           customerName:
@@ -394,7 +394,7 @@ const BookingSuccessPage = () => {
           customerPhone:
             customerInfoState.phone || bookingDataFromApi?.customer?.phone || "Không xác định",
           totalAmount:
-            priceBreakdownState.total || bookingDataFromApi?.totalAmount || bookingDataFromApi?.priceBreakdown?.total || 0,
+            bookingDataFromApi?.priceBreakdown?.total || bookingDataFromApi?.totalAmount || priceBreakdownState.total || bookingDataFromApi?.priceBreakdown?.total || 0,
           depositAmount:
             priceBreakdownState.deposit || bookingDataFromApi?.depositAmount || bookingDataFromApi?.priceBreakdown?.deposit || 0,
           withDriver:
@@ -402,7 +402,7 @@ const BookingSuccessPage = () => {
           deliveryRequested:
             deliveryRequestedState !== undefined ? deliveryRequestedState : bookingDataFromApi?.deliveryRequested,
           paymentMethod: paymentMethodState || bookingDataFromApi?.paymentMethod,
-          priceBreakdown: priceBreakdownState || bookingDataFromApi?.priceBreakdown,
+          priceBreakdown: bookingDataFromApi?.priceBreakdown || priceBreakdownState || bookingDataFromApi?.priceBreakdown,
           customerInfo: customerInfoState,
           bookingData: bookingDataState,
         })

@@ -33,6 +33,7 @@ import {
 } from "react-icons/fa"
 import { toast } from "react-toastify"
 import { useAuth } from "@/hooks/useAuth"
+import { getItem } from '@/utils/auth'
 
 // Enhanced Loading Spinner Component
 const LoadingSpinner = ({ size = "medium", color = "blue", text }) => {
@@ -230,7 +231,7 @@ const ServiceToggle = ({ icon: Icon, title, description, price, checked, onChang
 
 // Enhanced Page Header Component
 const PageHeader = ({ currentStep = 2, backLink = "/search", backText = "Quay lại trang xe" }) => (
-  <header className="bg-white/95 backdrop-blur-xl shadow-lg border-b border-gray-100 sticky top-0 z-50">
+  <header className="bg-white/95 backdrop-blur-xl shadow-lg border-b border-gray-100 z-50">
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between">
         <Link
@@ -397,7 +398,7 @@ const OrderSummary = ({
   isLoading,
   contactErrors,
 }) => (
-  <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl sticky top-32 border border-gray-100">
+  <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl sticky top-0 border border-gray-100">
     <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8">
       Tóm tắt đơn hàng
     </h2>
@@ -584,7 +585,7 @@ const BookingConfirmationPage = () => {
   // Load saved form data from localStorage
   const loadSavedFormData = () => {
     try {
-      const savedData = localStorage.getItem("bookingFormData")
+      const savedData = getItem('bookingFormData')
       if (savedData) {
         const parsedData = JSON.parse(savedData)
         setContactInfo((prev) => ({
@@ -606,7 +607,7 @@ const BookingConfirmationPage = () => {
   // Load booking data from localStorage
   const loadBookingData = () => {
     try {
-      const bookingData = localStorage.getItem("lastBookingData")
+      const bookingData = getItem('lastBookingData')
       if (bookingData) {
         const parsedData = JSON.parse(bookingData)
         setContactInfo((prev) => ({
@@ -623,10 +624,10 @@ const BookingConfirmationPage = () => {
   // Get user info from localStorage as fallback
   const getUserInfoFromStorage = () => {
     try {
-      const username = localStorage.getItem("username")
-      const email = localStorage.getItem("email")
-      const phone = localStorage.getItem("phone")
-      const fullName = localStorage.getItem("fullName")
+      const username = getItem('username')
+      const email = getItem('email')
+      const phone = getItem('phone')
+      const fullName = getItem('fullName')
 
       return {
         username,
@@ -770,8 +771,8 @@ const BookingConfirmationPage = () => {
     const errors = {}
     if (!contactInfo.fullName.trim()) errors.fullName = "Vui lòng nhập họ và tên"
     if (!contactInfo.phone.trim()) errors.phone = "Vui lòng nhập số điện thoại"
-    else if (!/^[0-9]{10,11}$/.test(contactInfo.phone.replace(/\s/g, ""))) {
-      errors.phone = "Số điện thoại không hợp lệ"
+    else if (!/^\+?[1-9]\d{7,14}$/.test(contactInfo.phone.replace(/\s/g, ""))) {
+      errors.phone = "Số điện thoại không hợp lệ (ví dụ: +84977227788)"
     }
     if (!contactInfo.email.trim()) errors.email = "Vui lòng nhập email"
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactInfo.email)) {
@@ -1064,7 +1065,7 @@ const BookingConfirmationPage = () => {
             </div>
 
             {/* Terms and Conditions */}
-            <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-8 border border-gray-100">
+            <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100">
               <div className="flex justify-between items-center mb-8">
                 <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   Điều khoản quan trọng

@@ -15,6 +15,8 @@ import SearchPage from "../pages/cars/SearchPage/SearchPage";
 import PaymentFailedPage from '../pages/payments/PaymentFailedPage';
 import OwnerRegistrationPage from '../pages/owner/OwnerRegistrationPage';
 import OwnerRegistrationSuccessPage from '../pages/owner/OwnerRegistrationSuccessPage';
+import ForgotPassword from '../pages/Auth/ForgotPassword';
+import ResetPassword from '../pages/Auth/ResetPassword';
 
 // Components
 import { ProtectedRoute } from '../components/features/auth/ProtectedRoute.jsx';
@@ -204,6 +206,8 @@ const AppRoutes = () => {
             />
             <Route path="/owner-registration" element={<OwnerRegistrationPage />} />
             <Route path="/owner-registration-success" element={<OwnerRegistrationSuccessPage />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );

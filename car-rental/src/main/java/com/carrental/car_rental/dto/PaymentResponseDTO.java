@@ -16,4 +16,6 @@ public class PaymentResponseDTO {
     private String status;
     private String redirectUrl;
     private LocalDateTime paymentDate;
+    private BigDecimal totalAmount;
+    private PriceBreakdownDTO priceBreakdown;
 }

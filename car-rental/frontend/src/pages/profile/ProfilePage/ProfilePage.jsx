@@ -246,40 +246,39 @@ const ProfilePage = () => {
     };
 
     // Handle cancel booking
-    // Handle cancel booking
-const handleCancelBooking = async (bookingId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy đặt xe này?')) {
-        return;
-    }
+    const handleCancelBooking = async (bookingId) => {
+        if (!window.confirm('Bạn có chắc chắn muốn hủy đặt xe này?')) {
+            return;
+        }
 
-    try {
-        console.log('🔄 Attempting to cancel booking:', bookingId);
-        const response = await cancelBooking(bookingId);
-        
-        if (response.success) {
-            toast.success('Hủy đặt xe thành công!');
-            // Refresh bookings to get updated status
-            await fetchBookings();
-        } else {
-            throw new Error(response.error || 'Không thể hủy đặt xe');
+        try {
+            console.log('🔄 Attempting to cancel booking:', bookingId);
+            const response = await cancelBooking(bookingId);
+            
+            if (response.success) {
+                toast.success('Hủy đặt xe thành công!');
+                // Refresh bookings to get updated status
+                await fetchBookings();
+            } else {
+                throw new Error(response.error || 'Không thể hủy đặt xe');
+            }
+        } catch (error) {
+            console.error('❌ Cancel booking error:', error);
+            
+            // Handle specific error cases
+            if (error.message.includes('hết hạn') || error.message.includes('unauthorized')) {
+                toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+                logout();
+                navigate('/login');
+            } else if (error.message.includes('không có quyền')) {
+                toast.error('Bạn không có quyền hủy đặt xe này.');
+            } else if (error.message.includes('trạng thái')) {
+                toast.error('Không thể hủy đặt xe với trạng thái hiện tại.');
+            } else {
+                toast.error(error.message || 'Không thể hủy đặt xe');
+            }
         }
-    } catch (error) {
-        console.error('❌ Cancel booking error:', error);
-        
-        // Handle specific error cases
-        if (error.message.includes('hết hạn') || error.message.includes('unauthorized')) {
-            toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-            logout();
-            navigate('/login');
-        } else if (error.message.includes('không có quyền')) {
-            toast.error('Bạn không có quyền hủy đặt xe này.');
-        } else if (error.message.includes('trạng thái')) {
-            toast.error('Không thể hủy đặt xe với trạng thái hiện tại.');
-        } else {
-            toast.error(error.message || 'Không thể hủy đặt xe');
-        }
-    }
-};
+    };
 
     // Handle view booking details
     const handleViewBookingDetails = async (booking) => {
@@ -565,21 +564,39 @@ const handleCancelBooking = async (bookingId) => {
                                     className="btn-action cancel"
                                     onClick={() => handleCancelBooking(booking.bookingId)}
                                     title="Hủy đặt xe"
-                            >
-                                <i className="fas fa-ban"></i>
-                                <span>Hủy</span>
-                            </button>
+                                >
+                                    <i className="fas fa-ban"></i>
+                                    <span>Hủy</span>
+                                </button>
                             )}
-                            
+                            {booking.statusName === 'failed' && (
+                                <button
+                                    className="btn-action pay-again"
+                                    onClick={() => {
+                                        // Chuyển sang trang thanh toán lại, truyền bookingId/paymentId
+                                        navigate('/payment', {
+                                            state: {
+                                                bookingId: booking.bookingId,
+                                                paymentId: booking.paymentId,
+                                                fromHistory: true
+                                            }
+                                        });
+                                    }}
+                                    title="Thanh toán lại"
+                                >
+                                    <i className="fas fa-redo"></i>
+                                    <span>Thanh toán lại</span>
+                                </button>
+                            )}
                             {booking.statusName === 'completed' && (
                                 <button 
                                     className="btn-action review"
                                     onClick={() => {/* TODO: Implement review */}}
                                     title="Đánh giá"
-                            >
-                                <i className="fas fa-star"></i>
-                                <span>Đánh giá</span>
-                            </button>
+                                >
+                                    <i className="fas fa-star"></i>
+                                    <span>Đánh giá</span>
+                                </button>
                             )}
                         </div>
                     </div>

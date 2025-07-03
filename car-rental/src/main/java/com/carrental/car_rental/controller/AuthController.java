@@ -10,6 +10,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.carrental.car_rental.config.JwtTokenProvider;
+import com.carrental.car_rental.repository.UserRepository;
+import com.carrental.car_rental.entity.User;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -23,10 +26,14 @@ public class AuthController {
     private final EmailService emailService;
     @Value("${frontend.url:http://localhost:5173}")
     private String frontendUrl;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final UserRepository userRepository;
 
-    public AuthController(AuthService authService, EmailService emailService) {
+    public AuthController(AuthService authService, EmailService emailService, JwtTokenProvider jwtTokenProvider, UserRepository userRepository) {
         this.authService = authService;
         this.emailService = emailService;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.userRepository = userRepository;
     }
 
     @PostMapping("/login")
@@ -35,6 +42,10 @@ public class AuthController {
         try {
             AuthResponse authResponse = authService.login(authRequest);
             return ResponseEntity.ok(authResponse);
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            logger.warn("Đăng nhập thất bại: {}", e.getReason());
+            return ResponseEntity.status(e.getStatusCode())
+                    .body(createErrorResponse(e.getReason()));
         } catch (Exception e) {
             logger.warn("Đăng nhập thất bại: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -59,9 +70,24 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
+    public ResponseEntity<?> logout(@RequestHeader("Authorization") String authHeader) {
         logger.info("Xử lý đăng xuất");
-        return ResponseEntity.ok(createSuccessResponse("Đăng xuất thành công. Vui lòng xóa JWT token ở phía client."));
+        try {
+            String token = authHeader != null && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
+            if (token == null || !jwtTokenProvider.validateToken(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(createErrorResponse("Token không hợp lệ hoặc đã hết hạn."));
+            }
+            String username = jwtTokenProvider.getUsernameFromToken(token);
+            User user = userRepository.findByUsername(username).orElse(null);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(createErrorResponse("Không tìm thấy user."));
+            }
+            authService.logout(user);
+            return ResponseEntity.ok(createSuccessResponse("Đăng xuất thành công."));
+        } catch (Exception e) {
+            logger.error("Lỗi khi đăng xuất: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createErrorResponse("Lỗi khi đăng xuất: " + e.getMessage()));
+        }
     }
 
     @PostMapping("/check-email")

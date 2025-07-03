@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { getItem } from '@/utils/auth';
 
 const TestConnection = () => {
   const [results, setResults] = useState({});
@@ -27,7 +28,7 @@ const TestConnection = () => {
   const testAuthConnection = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getItem('token');
       if (!token) {
         setResults(prev => ({ ...prev, auth: { success: false, error: 'No token found' } }));
         return;
@@ -61,7 +62,7 @@ const TestConnection = () => {
   const testBookingCreation = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getItem('token');
       if (!token) {
         setResults(prev => ({ ...prev, booking: { success: false, error: 'No token found' } }));
         return;

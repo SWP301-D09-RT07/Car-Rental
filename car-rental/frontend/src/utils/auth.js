@@ -30,4 +30,8 @@ export const removeExpiresAt = () => {
 export const isTokenExpired = () => {
     const expiresAt = getExpiresAt();
     return !expiresAt || new Date().getTime() > parseInt(expiresAt, 10);
-}; 
+};
+
+export function getItem(key) {
+  return localStorage.getItem(key) || sessionStorage.getItem(key);
+} 
