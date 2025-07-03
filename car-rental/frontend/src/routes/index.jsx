@@ -29,13 +29,7 @@ import OwnerRequests from '../components/features/admin/OwnerRequests';
 // Supplier Pages
 import SupplierCarDashboard from '../components/Supplier/SupplierCarDashboard';
 
-// Admin Layout Wrapper
-const AdminLayout = ({ children }) => (
-    <div className="admin-layout" style={{ display: 'flex', minHeight: '100vh' }}>
-         <Sidebar />
-        <div style={{ flex: 1 }}>{children}</div>
-    </div>
-);
+import AdminLayout from '../components/features/admin/AdminLayout';
 
 const AppRoutes = () => {
     const { user } = useContext(AuthContext);
@@ -59,7 +53,7 @@ const AppRoutes = () => {
                     )
                 }
             />
-    
+
             <Route path="/cars/:carId" element={<CarDetailPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route
@@ -161,47 +155,14 @@ const AppRoutes = () => {
                 }
             />
 
-            {/* Admin routes bọc bởi AdminLayout */}
-            <Route
-                path="/admin"
-                element={
-                    <ProtectedRoute requiredRole="admin">
-                        <AdminLayout>
-                            <AdminHome />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/reports"
-                element={
-                    <ProtectedRoute requiredRole="admin">
-                        <AdminLayout>
-                            <Reports />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/users"
-                element={
-                    <ProtectedRoute requiredRole="admin">
-                        <AdminLayout>
-                            <Users />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/owner-requests"
-                element={
-                    <ProtectedRoute requiredRole="admin">
-                        <AdminLayout>
-                            <OwnerRequests />
-                        </AdminLayout>
-                    </ProtectedRoute>
-                }
-            />
+            {/* Admin routes bọc bởi AdminLayout mới */}
+            <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminLayout /></ProtectedRoute>}>
+                <Route index element={<AdminHome />} />
+                <Route path="reports" element={<Reports />} />
+                <Route path="users" element={<Users />} />
+                <Route path="owner-requests" element={<OwnerRequests />} />
+            </Route>
+
             <Route path="/owner-registration" element={<OwnerRegistrationPage />} />
             <Route path="/owner-registration-success" element={<OwnerRegistrationSuccessPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
