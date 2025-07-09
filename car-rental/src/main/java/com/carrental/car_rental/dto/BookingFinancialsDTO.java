@@ -17,4 +17,8 @@ public class BookingFinancialsDTO {
     private BigDecimal lateFeeAmount;
     private Integer lateDays;
     private Boolean isDeleted;
+    private BigDecimal serviceFee;
+    private BigDecimal tax;
+    private BigDecimal finalTotal;
+    private BigDecimal deposit;
 }

@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ import org.springframework.http.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.carrental.car_rental.service.BookingFinancialsService;
 import com.carrental.car_rental.entity.User;
+import com.carrental.car_rental.entity.BookingFinancial;
 import com.carrental.car_rental.repository.UserRepository;
 import com.carrental.car_rental.mapper.BookingMapper;
 
@@ -62,6 +64,7 @@ public class PaymentService {
     private final BookingFinancialsService bookingFinancialsService;
     private final UserRepository userRepository;
     private final BookingMapper bookingMapper;
+    private final com.carrental.car_rental.repository.BookingFinancialsRepository bookingFinancialsRepository;
 
     @Value("${email.from}")
     private String fromEmail;
@@ -72,20 +75,28 @@ public class PaymentService {
         Payment entity = repository.findById(id)
                 .filter(e -> !e.getIsDeleted())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found with id: " + id));
-        return mapper.toDTO(entity);
+        PaymentDTO dto = mapper.toDTO(entity);
+        enrichWithBookingConfirmFlags(dto, entity);
+        return dto;
     }
 
     public List<PaymentDTO> findAll() {
-        return repository.findAll().stream()
-                .filter(e -> !e.getIsDeleted())
-                .map(mapper::toDTO)
-                .collect(Collectors.toList());
+        // Sử dụng custom query để lấy payment kèm region, paymentStatus, booking, customer, supplier, userDetail, tránh lazy loading
+        List<Payment> payments = repository.findAllWithRegionAndStatusAndBookingAndUsers();
+        List<PaymentDTO> dtos = payments.stream().map(mapper::toDTO).collect(Collectors.toList());
+        for (int i = 0; i < payments.size(); i++) {
+            enrichWithBookingConfirmFlags(dtos.get(i), payments.get(i));
+        }
+        return dtos;
     }
 
     public List<PaymentDTO> findByBookingId(Integer bookingId) {
-        return repository.findByBookingIdAndIsDeletedFalse(bookingId).stream()
-                .map(mapper::toDTO)
-                .collect(Collectors.toList());
+        List<Payment> payments = repository.findByBookingIdAndIsDeletedFalseWithBooking(bookingId);
+        List<PaymentDTO> dtos = payments.stream().map(mapper::toDTO).collect(Collectors.toList());
+        for (int i = 0; i < payments.size(); i++) {
+            enrichWithBookingConfirmFlags(dtos.get(i), payments.get(i));
+        }
+        return dtos;
     }
 
     public PaymentDTO save(PaymentDTO dto) {
@@ -133,7 +144,25 @@ public class PaymentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ thanh toán bằng VND");
         }
 
-        Booking booking = bookingRepository.findById(dto.getBookingId())
+        // Bổ sung kiểm tra paymentType
+        if ("full_payment".equalsIgnoreCase(dto.getPaymentType())) {
+            boolean hasDeposit = repository.existsByBookingIdAndPaymentTypeAndIsDeleted(dto.getBookingId(), "deposit", false);
+            if (!hasDeposit) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn cần thanh toán tiền cọc trước khi thanh toán phần còn lại.");
+            }
+            boolean hasFullPayment = repository.existsByBookingIdAndPaymentTypeAndIsDeleted(dto.getBookingId(), "full_payment", false);
+            if (hasFullPayment) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn này đã thanh toán đủ.");
+            }
+        }
+        if ("deposit".equalsIgnoreCase(dto.getPaymentType())) {
+            boolean hasDeposit = repository.existsByBookingIdAndPaymentTypeAndIsDeleted(dto.getBookingId(), "deposit", false);
+            if (hasDeposit) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn này đã thanh toán cọc.");
+            }
+        }
+
+        Booking booking = bookingRepository.findByIdWithAllRelations(dto.getBookingId())
                 .filter(b -> !b.getIsDeleted())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
         
@@ -224,7 +253,6 @@ public class PaymentService {
             response.setPaymentDate(LocalDateTime.from(savedPayment.getPaymentDate().atZone(ZoneId.systemDefault())));
             response.setTotalAmount(financials != null ? financials.getTotalFare() : null);
             response.setPriceBreakdown(priceBreakdown);
-            return response;
         } else if ("cash".equals(dto.getPaymentMethod())) {
             // Xử lý thanh toán tiền mặt
             String paymentId = "CASH_" + System.nanoTime();
@@ -257,6 +285,18 @@ public class PaymentService {
             response.setPaymentDate(java.time.LocalDateTime.from(savedPayment.getPaymentDate().atZone(java.time.ZoneId.systemDefault())));
             response.setTotalAmount(financials != null ? financials.getTotalFare() : null);
             response.setPriceBreakdown(priceBreakdown);
+        }
+
+        // Khi trả về PriceBreakdownDTO, đảm bảo serviceFee và tax là basePrice * 0.1
+        if (response.getPriceBreakdown() != null) {
+            var pb = response.getPriceBreakdown();
+            java.math.BigDecimal base = null;
+            if (pb.getBasePrice() != null) base = pb.getBasePrice();
+            else if (pb.getTotal() != null) base = pb.getTotal();
+            if (base != null) {
+                pb.setServiceFee(base.multiply(new java.math.BigDecimal("0.1")).setScale(2, java.math.RoundingMode.HALF_UP));
+                pb.setTax(base.multiply(new java.math.BigDecimal("0.1")).setScale(2, java.math.RoundingMode.HALF_UP));
+            }
         }
 
         return response;
@@ -337,6 +377,23 @@ public class PaymentService {
         } else {
             logger.warn("Payment failed for TxnRef: {}, response code: {}", vnp_TxnRef, vnp_ResponseCode);
         }
+        
+        // Nếu payment failed, cập nhật booking status = failed
+        if (!"00".equals(vnp_ResponseCode)) {
+            Booking booking = payment.getBooking();
+            Status failedStatus = statusRepository.findByStatusName("failed").orElse(null);
+            if (booking != null && failedStatus != null) {
+                logger.warn("[BOOKING] Updating booking status to FAILED for bookingId={}, oldStatus={}", booking.getId(), booking.getStatus().getStatusName());
+                booking.setStatus(failedStatus);
+                bookingRepository.save(booking);
+                logger.info("[BOOKING] Booking status updated to FAILED for bookingId={}", booking.getId());
+            } else {
+                logger.error("[BOOKING] Failed to update booking status to FAILED: booking or status not found");
+            }
+        }
+        
+        logger.info("[PAYMENT] VNPay callback: vnp_TxnRef={}, vnp_ResponseCode={}, paymentId={}", vnp_TxnRef, vnp_ResponseCode, payment.getId());
+        logger.info("[PAYMENT] VNPay callback response: paymentId={}, paymentStatus={}, bookingId={}, bookingStatus={}", payment.getId(), payment.getPaymentStatus().getStatusName(), payment.getBooking().getId(), payment.getBooking().getStatus().getStatusName());
         
         return vnp_TxnRef;
     }
@@ -658,12 +715,31 @@ public class PaymentService {
         return repository.findByTransactionIdAndIsDeletedFalse(transactionId).orElse(null);
     }
 
+    @Transactional
     public void updatePaymentStatus(Payment payment, String statusName) {
         Status status = statusRepository.findByStatusName(statusName).orElse(null);
+        logger.info("[MoMo] updatePaymentStatus called: paymentId={}, bookingId={}, statusName={}", payment.getId(), payment.getBooking() != null ? payment.getBooking().getId() : null, statusName);
         if (status != null) {
             payment.setPaymentStatus(status);
             payment.setPaymentMethod("momo");
             repository.save(payment);
+            // Nếu payment failed, cập nhật booking status = failed
+            if ("failed".equalsIgnoreCase(statusName)) {
+                Booking booking = payment.getBooking();
+                if (booking != null) {
+                    booking = bookingRepository.findById(booking.getId()).orElse(null);
+                }
+                Status failedStatus = statusRepository.findByStatusName("failed").orElse(null);
+                if (booking != null && failedStatus != null) {
+                    booking.setStatus(failedStatus);
+                    bookingRepository.save(booking);
+                    logger.info("[MoMo] Booking status updated to FAILED for bookingId={}", booking.getId());
+                } else {
+                    logger.error("[MoMo] Failed to update booking status to FAILED: booking or status not found (bookingId={}, failedStatus={})", booking != null ? booking.getId() : null, failedStatus != null ? failedStatus.getStatusName() : null);
+                }
+            }
+        } else {
+            logger.error("[MoMo] updatePaymentStatus: Status '{}' not found in DB", statusName);
         }
     }
 
@@ -696,6 +772,11 @@ public class PaymentService {
         }
         if (dto.getPickupDateTime().isAfter(dto.getDropoffDateTime())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pickup date cannot be after dropoff date");
+        }
+
+        // Bổ sung kiểm tra paymentType cho trường hợp tạo booking mới (nên chỉ cho phép deposit)
+        if ("full_payment".equalsIgnoreCase(dto.getPaymentType())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không thể thanh toán toàn bộ khi chưa đặt cọc. Hãy thanh toán cọc trước.");
         }
 
         // Create booking first
@@ -855,58 +936,127 @@ public class PaymentService {
         return response;
     }
 
-//    @Transactional
-//public PaymentResponseDTO createPickupPayment(PaymentDTO paymentDTO, Integer userId) {
-//    try {
-//        // ✅ Validate booking
-//        Booking booking = bookingRepository.findById(paymentDTO.getBookingId())
-//            .orElseThrow(() -> new RuntimeException("Booking not found"));
-//
-//        if (!booking.getCustomer().getId().equals(userId)) {
-//            throw new RuntimeException("Unauthorized access to booking");
-//        }
-//
-//        // ✅ CHECK: Phải có deposit payment trước
-//        boolean hasDeposit = paymentRepository.existsByBookingIdAndPaymentTypeAndIsDeleted(
-//            booking.getId(), "deposit", false);
-//
-//        if (!hasDeposit) {
-//            throw new RuntimeException("No deposit payment found");
-//        }
-//
-//        // ✅ CHECK: Chưa có full_payment
-//        boolean hasFullPayment = paymentRepository.existsByBookingIdAndPaymentTypeAndIsDeleted(
-//            booking.getId(), "full_payment", false);
-//
-//        if (hasFullPayment) {
-//            throw new RuntimeException("Booking already has full payment");
-//        }
-//
-//        // ✅ CREATE payment record mới cho full_payment
-//        Payment fullPayment = new Payment();
-//        fullPayment.setBookingId(booking.getId());
-//        fullPayment.setAmount(paymentDTO.getAmount());
-//        fullPayment.setRegionId(1); // Có thể lấy từ booking
-//        fullPayment.setTransactionId("TXN_FULL_" + System.currentTimeMillis());
-//        fullPayment.setPaymentMethod(paymentDTO.getPaymentMethod());
-//        fullPayment.setPaymentStatusId(15); // Paid status
-//        fullPayment.setPaymentDate(new Date());
-//        fullPayment.setPaymentType("full_payment");
-//        fullPayment.setIsDeleted(false);
-//
-//        paymentRepository.save(fullPayment);
-//
-//        // ✅ Create VNPay URL...
-//        String vnpayUrl = vnpayService.createPaymentUrl(paymentDTO);
-//
-//        return PaymentResponseDTO.builder()
-//            .paymentId(fullPayment.getPaymentId())
-//            .redirectUrl(vnpayUrl)
-//            .build();
-//
-//    } catch (Exception e) {
-//        logger.error("Error creating pickup payment: {}", e.getMessage());
-//        throw new RuntimeException("Cannot create pickup payment: " + e.getMessage());
-//    }
-//}
+    /**
+     * Trung gian hoàn tiền cọc cho khách sau khi booking completed
+     */
+    @Transactional
+    public ResponseEntity<?> refundDeposit(Integer bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
+        String status = booking.getStatus().getStatusName().toLowerCase();
+        if (!(status.equals("completed") || status.equals("payout"))) {
+            return ResponseEntity.badRequest().body("Booking chưa hoàn thành, không thể hoàn cọc.");
+        }
+        boolean alreadyRefunded = repository.existsByBookingIdAndPaymentTypeAndIsDeleted(bookingId, "refund", false);
+        if (alreadyRefunded) {
+            return ResponseEntity.badRequest().body("Booking này đã hoàn cọc trước đó.");
+        }
+
+        // Lấy phí phát sinh từ BookingFinancial
+        BookingFinancial financial = bookingFinancialsRepository.findById(bookingId).orElse(null);
+        java.math.BigDecimal extraFee = (financial != null && financial.getLateFeeAmount() != null) ? financial.getLateFeeAmount() : java.math.BigDecimal.ZERO;
+
+        java.math.BigDecimal collateral = new java.math.BigDecimal("5000000");
+        java.math.BigDecimal refundAmount = collateral.subtract(extraFee);
+        if (refundAmount.compareTo(java.math.BigDecimal.ZERO) < 0) refundAmount = java.math.BigDecimal.ZERO;
+
+        Region region = booking.getRegion();
+        Status paidStatus = statusRepository.findByStatusName("paid")
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status 'paid' not found"));
+        Status refundedStatus = statusRepository.findByStatusName("refunded")
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status 'refunded' not found"));
+
+        Payment refundPayment = new Payment();
+        refundPayment.setBooking(booking);
+        refundPayment.setRegion(region);
+        refundPayment.setAmount(refundAmount);
+        refundPayment.setPaymentMethod("vnpay");
+        refundPayment.setIsDeleted(false);
+        refundPayment.setPaymentDate(Instant.now());
+        refundPayment.setPaymentType("refund");
+        refundPayment.setPaymentStatus(paidStatus);
+        refundPayment.setTransactionId("REFUND_" + System.nanoTime());
+
+        repository.save(refundPayment);
+
+        // Cập nhật trạng thái booking thành 'refunded'
+        booking.setStatus(refundedStatus);
+        bookingRepository.save(booking);
+
+        return ResponseEntity.ok("Đã hoàn cọc " + refundAmount + " cho booking #" + bookingId + ". Phí phát sinh: " + extraFee);
+    }
+
+    /**
+     * Trung gian chuyển tiền cho supplier sau khi refund xong
+     */
+    @Transactional
+    public ResponseEntity<?> payoutSupplier(Integer bookingId) {
+        logger.info("Bắt đầu payoutSupplier cho bookingId={}", bookingId);
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
+        String status = booking.getStatus().getStatusName().toLowerCase();
+        if (!(status.equals("completed") || status.equals("refunded"))) {
+            return ResponseEntity.badRequest().body("Booking chưa hoàn thành, không thể payout.");
+        }
+        boolean alreadyPayout = repository.existsByBookingIdAndPaymentTypeAndIsDeleted(bookingId, "payout", false);
+        if (alreadyPayout) {
+            return ResponseEntity.badRequest().body("Booking này đã payout trước đó.");
+        }
+
+        // Lấy tổng tiền và phí thu thêm từ BookingFinancial
+        BookingFinancial financial = bookingFinancialsRepository.findById(bookingId).orElse(null);
+        java.math.BigDecimal totalAmount = (financial != null && financial.getTotalFare() != null) ? financial.getTotalFare() : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal extraFee = (financial != null && financial.getLateFeeAmount() != null) ? financial.getLateFeeAmount() : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal payoutAmount = totalAmount.add(extraFee);
+
+        Region region = booking.getRegion();
+        Status paidStatus = statusRepository.findByStatusName("paid")
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status 'paid' not found"));
+        Status payoutStatus = statusRepository.findByStatusName("payout")
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Status 'payout' not found"));
+
+        Payment payoutPayment = new Payment();
+        payoutPayment.setBooking(booking);
+        payoutPayment.setRegion(region);
+        payoutPayment.setAmount(payoutAmount);
+        payoutPayment.setPaymentMethod("vnpay");
+        payoutPayment.setIsDeleted(false);
+        payoutPayment.setPaymentDate(Instant.now());
+        payoutPayment.setPaymentType("payout");
+        payoutPayment.setPaymentStatus(paidStatus);
+        payoutPayment.setTransactionId("PAYOUT_" + System.nanoTime());
+
+        repository.save(payoutPayment);
+
+        // Cập nhật trạng thái booking thành 'payout'
+        booking.setStatus(payoutStatus);
+        bookingRepository.save(booking);
+
+        logger.info("Tạo payment payout cho bookingId={}", bookingId);
+        logger.info("Đã lưu payment payout cho bookingId={}", bookingId);
+        return ResponseEntity.ok("Đã payout " + payoutAmount + " cho supplier booking #" + bookingId + ". Bao gồm phí thu thêm: " + extraFee);
+    }
+
+    private void enrichWithBookingConfirmFlags(PaymentDTO dto, Payment payment) {
+        if (payment.getBooking() != null) {
+            dto.setSupplierDeliveryConfirm(payment.getBooking().getSupplierDeliveryConfirm());
+            dto.setCustomerReceiveConfirm(payment.getBooking().getCustomerReceiveConfirm());
+            dto.setCustomerReturnConfirm(payment.getBooking().getCustomerReturnConfirm());
+            dto.setSupplierReturnConfirm(payment.getBooking().getSupplierReturnConfirm());
+            // Thêm tên khách hàng
+            if (payment.getBooking().getCustomer() != null) {
+                String customerName = payment.getBooking().getCustomer().getUserDetail() != null
+                    ? payment.getBooking().getCustomer().getUserDetail().getName()
+                    : payment.getBooking().getCustomer().getUsername();
+                dto.setCustomerName(customerName);
+            }
+            // Thêm tên supplier
+            if (payment.getBooking().getCar() != null && payment.getBooking().getCar().getSupplier() != null) {
+                String supplierName = payment.getBooking().getCar().getSupplier().getUserDetail() != null
+                    ? payment.getBooking().getCar().getSupplier().getUserDetail().getName()
+                    : payment.getBooking().getCar().getSupplier().getUsername();
+                dto.setSupplierName(supplierName);
+            }
+        }
+    }
 }

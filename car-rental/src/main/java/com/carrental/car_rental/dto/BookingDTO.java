@@ -175,4 +175,36 @@ public class BookingDTO {
         BigDecimal fullPayment = getFullPayment() != null ? getFullPayment().getAmount() : BigDecimal.ZERO;
         return deposit.add(fullPayment);
     }
+
+    // ✅ THÊM: Trường tổng tiền và breakdown cho API by-payment
+    private BigDecimal totalAmount;
+    private PriceBreakdownDTO priceBreakdown;
+
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+    public PriceBreakdownDTO getPriceBreakdown() {
+        return priceBreakdown;
+    }
+    public void setPriceBreakdown(PriceBreakdownDTO priceBreakdown) {
+        this.priceBreakdown = priceBreakdown;
+    }
+
+    // --- Thêm các trường trạng thái cho supplier ---
+    private Boolean supplierConfirmedFullPayment;
+    private Boolean depositRefunded;
+    private String refundStatus; // "pending", "completed", null
+    private String payoutStatus; // "pending", "completed", null
+
+    public Boolean getSupplierConfirmedFullPayment() { return supplierConfirmedFullPayment; }
+    public void setSupplierConfirmedFullPayment(Boolean supplierConfirmedFullPayment) { this.supplierConfirmedFullPayment = supplierConfirmedFullPayment; }
+    public Boolean getDepositRefunded() { return depositRefunded; }
+    public void setDepositRefunded(Boolean depositRefunded) { this.depositRefunded = depositRefunded; }
+    public String getRefundStatus() { return refundStatus; }
+    public void setRefundStatus(String refundStatus) { this.refundStatus = refundStatus; }
+    public String getPayoutStatus() { return payoutStatus; }
+    public void setPayoutStatus(String payoutStatus) { this.payoutStatus = payoutStatus; }
 }

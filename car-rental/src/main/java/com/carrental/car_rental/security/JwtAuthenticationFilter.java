@@ -38,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/regions/",
             "/api/cars/",
             "/api/service-types/",
-            "/api/bookings/",
+
             "/api/ratings/",
             "/api/payments/callback",
             "/api/payments/momo-callback",
@@ -71,12 +71,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // So sánh chính xác endpoint hoặc bắt đầu bằng prefix
         boolean isPublicEndpoint = PUBLIC_ENDPOINTS.stream()
             .anyMatch(publicPath -> path.equals(publicPath) || path.startsWith(publicPath));
-        boolean isGetRestrictedEndpoint = (path.startsWith("/api/bookings/") || path.startsWith("/api/ratings/"))
+        boolean isGetRestrictedEndpoint = (path.startsWith("/api/ratings/"))
                 && "GET".equalsIgnoreCase(method);
 
         logger.info("Path: {}, isPublicEndpoint: {}, isGetRestrictedEndpoint: {}", path, isPublicEndpoint, isGetRestrictedEndpoint);
 
-        if (isPublicEndpoint || isGetRestrictedEndpoint) {
+        if (isPublicEndpoint) {
             logger.info("Allowing public access to: {}", path);
             filterChain.doFilter(request, response);
             return;

@@ -63,6 +63,11 @@ public class SupplierController {
         return supplierService.completeBooking(id);
     }
 
+    @PutMapping("/bookings/{id}/confirm-full-payment")
+    public ResponseEntity<?> confirmFullPayment(@PathVariable Integer id) {
+        return supplierService.confirmFullPayment(id);
+    }
+
     // Dashboard
     @GetMapping("/dashboard/summary")
     public ResponseEntity<?> getDashboardSummary() {

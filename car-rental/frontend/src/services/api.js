@@ -1232,4 +1232,97 @@ export const createPaymentForPickup = async (bookingId, paymentData) => {
     }
 };
 
+/**
+ * Supplier xác nhận nhận lại xe (kết thúc chuyến, chuẩn bị hoàn cọc)
+ */
+export const supplierConfirmReturn = async (bookingId) => {
+    try {
+        const response = await api.put(`/api/bookings/${bookingId}/supplier-confirm-return`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.error || error.response?.data?.message || 'Không thể xác nhận nhận lại xe');
+    }
+};
+
+/**
+ * Supplier thực hiện hoàn tiền cọc cho khách
+ */
+export const refundDeposit = async (bookingId) => {
+    try {
+        const response = await api.post(`/api/payments/refund`, { bookingId });
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.error || error.response?.data?.message || 'Không thể hoàn tiền cọc');
+    }
+};
+
+/**
+ * Lấy tất cả payment (admin)
+ */
+export const getAllPayments = async () => {
+    try {
+        const response = await api.get('/api/payments');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Lấy danh sách payment thất bại');
+    }
+};
+
+/**
+ * Admin thực hiện payout cho supplier
+ */
+export const payoutSupplier = async (bookingId) => {
+    try {
+        const response = await api.post('/api/payments/payout', { bookingId });
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Chuyển tiền cho supplier thất bại');
+    }
+};
+
+export const supplierConfirmBooking = async (bookingId) => {
+    try {
+        const response = await api.put(`/api/supplier/bookings/${bookingId}/confirm`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể xác nhận đơn đặt xe');
+    }
+};
+
+export const supplierRejectBooking = async (bookingId) => {
+    try {
+        const response = await api.put(`/api/supplier/bookings/${bookingId}/reject`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể từ chối đơn đặt xe');
+    }
+};
+
+/**
+ * Supplier xác nhận đã nhận đủ tiền (full_payment)
+ */
+export const supplierConfirmFullPayment = async (bookingId) => {
+    try {
+        const response = await api.put(`/api/supplier/bookings/${bookingId}/confirm-full-payment`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể xác nhận đã nhận đủ tiền');
+    }
+};
+
+/**
+ * Lấy số tiền payout cho supplier của 1 booking (chỉ cho admin)
+ * @param {number} bookingId
+ * @returns {Promise<{payoutAmount: number, currency: string, priceBreakdown: object}>}
+ */
+export const getPayoutAmount = async (bookingId) => {
+  if (!bookingId) throw new Error('Thiếu bookingId');
+  try {
+    const response = await api.get(`/api/bookings/${bookingId}/payout-amount`);
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data || error.message || 'Không lấy được payout amount');
+  }
+};
+
 export default api;

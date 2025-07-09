@@ -33,4 +33,29 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
     
     // ✅ THÊM: Check có payment type không
     boolean existsByBookingIdAndPaymentTypeAndIsDeleted(Integer bookingId, String paymentType, Boolean isDeleted);
+
+    // Lấy tất cả payment kèm region và paymentStatus để tránh lazy loading
+    @Query("SELECT p FROM Payment p LEFT JOIN FETCH p.region LEFT JOIN FETCH p.paymentStatus WHERE p.isDeleted = false")
+    List<Payment> findAllWithRegionAndStatus();
+
+    // Lấy tất cả payment kèm region, paymentStatus và booking để tránh lazy loading
+    @Query("SELECT p FROM Payment p LEFT JOIN FETCH p.region LEFT JOIN FETCH p.paymentStatus LEFT JOIN FETCH p.booking WHERE p.isDeleted = false")
+    List<Payment> findAllWithRegionAndStatusAndBooking();
+
+    // Lấy payment theo bookingId kèm booking, region, paymentStatus để tránh lazy loading
+    @Query("SELECT p FROM Payment p LEFT JOIN FETCH p.region LEFT JOIN FETCH p.paymentStatus LEFT JOIN FETCH p.booking WHERE p.booking.id = :bookingId AND p.isDeleted = false")
+    List<Payment> findByBookingIdAndIsDeletedFalseWithBooking(@Param("bookingId") Integer bookingId);
+
+    // Lấy tất cả payment kèm region, paymentStatus, booking, customer, customer.userDetail, car, car.supplier, car.supplier.userDetail để tránh lazy loading
+    @Query("SELECT p FROM Payment p " +
+           "LEFT JOIN FETCH p.region " +
+           "LEFT JOIN FETCH p.paymentStatus " +
+           "LEFT JOIN FETCH p.booking b " +
+           "LEFT JOIN FETCH b.customer c " +
+           "LEFT JOIN FETCH c.userDetail cud " +
+           "LEFT JOIN FETCH b.car car " +
+           "LEFT JOIN FETCH car.supplier s " +
+           "LEFT JOIN FETCH s.userDetail sud " +
+           "WHERE p.isDeleted = false")
+    List<Payment> findAllWithRegionAndStatusAndBookingAndUsers();
 }

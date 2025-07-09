@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
-import { getCarById, getRatingsByCarId, post, searchCars, getUserById, getSimilarCarsAdvanced } from "@/services/api.js"
+import { getCarById, getRatingsByCarId, post, searchCars, getUserById, getSimilarCarsAdvanced, getRatingSummaryByCarId  } from "@/services/api.js"
 import {
   FaCarSide,
   FaUser,
@@ -70,6 +70,7 @@ import { Pagination, Autoplay, Navigation } from "swiper/modules"
 import "swiper/css"
 import "swiper/css/pagination"
 import "swiper/css/navigation"
+import TestimonialCarousel from '../../../components/Rating/TestimonialCarousel'
 import { getItem } from '@/utils/auth';
 
 // Enhanced Loading Spinner Component
@@ -131,7 +132,7 @@ const ErrorMessage = ({ message, onRetry, className = "" }) => {
 }
 
 // Enhanced Star Rating Component
-const StarRating = ({ rating, size = "small", showNumber = false }) => {
+const StarRating = ({ rating, size = "small" }) => {
   const stars = []
   const fullStars = Math.floor(rating)
   const hasHalfStar = rating % 1 >= 0.5
@@ -140,27 +141,22 @@ const StarRating = ({ rating, size = "small", showNumber = false }) => {
   const starSizes = {
     small: "text-sm",
     medium: "text-lg",
-    large: "text-2xl",
+    large: "text-xl",
   }
 
   for (let i = 0; i < fullStars; i++) {
-    stars.push(<FaStar key={`full-${i}`} className={`text-yellow-400 ${starSizes[size]} drop-shadow-sm`} />)
+    stars.push(<FaStar key={`full-${i}`} className={`text-yellow-400 ${starSizes[size]}`} />)
   }
 
   if (hasHalfStar) {
-    stars.push(<FaStarHalf key="half" className={`text-yellow-400 ${starSizes[size]} drop-shadow-sm`} />)
+    stars.push(<FaStarHalf key="half" className={`text-yellow-400 ${starSizes[size]}`} />)
   }
 
   for (let i = 0; i < emptyStar; i++) {
     stars.push(<FaRegStar key={`empty-${i}`} className={`text-gray-300 ${starSizes[size]}`} />)
   }
 
-  return (
-    <div className="flex items-center gap-1">
-      {stars}
-      {showNumber && <span className="ml-2 font-bold text-gray-700">{rating.toFixed(1)}</span>}
-    </div>
-  )
+  return <div className="flex items-center">{stars}</div>
 }
 
 // Enhanced Feature Icon Component
@@ -216,7 +212,134 @@ const CarDetailPage = () => {
   const [supplier, setSupplier] = useState(null)
   const [loadingSupplier, setLoadingSupplier] = useState(false)
   const similarSwiperRef = useRef(null);
+  const [carRatings, setCarRatings] = useState([])
+  const [ratingSummary, setRatingSummary] = useState([])
+  const [calculatedRating, setCalculatedRating] = useState(null)
 
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      try {
+        const carData = await getCarById(carId)
+        setCar(carData)
+
+        // Fetch ratings for this car
+        const ratingsResponse = await getRatingsByCarId(carId)
+        setCarRatings(ratingsResponse)
+
+        // Fetch rating summary
+        const summaryResponse = await getRatingSummaryByCarId(carId)
+        setRatingSummary(summaryResponse)
+
+        const ratingsPromise = isAuthenticated ? getRatingsByCarId(carId) : Promise.resolve([]);
+        const similarCarsPromise = searchCars({
+          brand: carData?.brandName,
+          priceRange: `${carData?.dailyRate * 0.8}-${carData?.dailyRate * 1.2}`,
+          excludeId: carId,
+          size: 4,
+        });
+
+        const [ratingsResult, similarCarsResult] = await Promise.allSettled([
+          ratingsPromise,
+          similarCarsPromise,
+        ]);
+
+        if (ratingsResult.status === 'fulfilled') {
+          setRatings(ratingsResult.value);
+        } else {
+          console.error("Failed to fetch ratings:", ratingsResult.reason);
+        }
+
+        if (similarCarsResult.status === 'fulfilled') {
+          setSimilarCars(similarCarsResult.value.content || []);
+        } else {
+          console.error("Failed to fetch similar cars:", similarCarsResult.reason);
+        }
+      } catch (err) {
+        setError(err.message || "Không thể tải thông tin xe")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [carId, isAuthenticated])
+
+  useEffect(() => {
+    if (carRatings.length > 0) {
+      const avgRating = carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length
+      setCalculatedRating(avgRating)
+
+      // Cập nhật car object với rating mới tính
+      if (car && (!car.averageRating || car.averageRating === 0)) {
+        setCar(prev => ({
+          ...prev,
+          averageRating: avgRating
+        }))
+      }
+    } else {
+      setCalculatedRating(null)
+    }
+  }, [carRatings, car])
+  const [isAnonymous, setIsAnonymous] = useState(false)
+  const getDisplayRating = () => {
+    if (car?.averageRating && car?.averageRating > 0) {
+      return car.averageRating
+    }
+    if (calculatedRating) {
+      return calculatedRating
+    }
+    if (carRatings.length > 0) {
+      return carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length
+    }
+    return 0
+  }
+  // Tìm hàm handleSubmitReview (khoảng dòng 250) và thay thế:
+  const handleSubmitReview = async () => {
+    if (!rating || !comment.trim()) {
+      toast.error("Vui lòng nhập đầy đủ đánh giá và bình luận")
+      return
+    }
+
+    if (!isAuthenticated || !user) {
+      toast.error("Bạn cần đăng nhập để đánh giá")
+      return
+    }
+
+    try {
+      const reviewData = {
+        carId: Number(carId),
+        customerId: user?.id || user?.userId, // Thử cả hai trường hợp
+        ratingScore: rating,
+        comment: comment.trim(),
+        isAnonymous: isAnonymous,
+        ratingDate: new Date().toISOString()
+      }
+
+      console.log('Submitting review data:', reviewData) // Debug log
+
+      // Sử dụng createRating từ api.js
+      const response = await post('/api/ratings', reviewData)
+
+      toast.success("Đánh giá của bạn đã được gửi thành công!")
+
+      // Reset form
+      setRating(0)
+      setComment("")
+      setIsAnonymous(false)
+      setShowReviewForm(false)
+
+      // Refresh ratings
+      const updatedRatings = await getRatingsByCarId(carId)
+      setCarRatings(updatedRatings)
+
+      // Refresh car data to get new average rating
+      const updatedCar = await getCarById(carId)
+      setCar(updatedCar)
+    } catch (err) {
+      console.error('Error submitting review:', err)
+      toast.error(err.message || "Có lỗi xảy ra khi gửi đánh giá")
+    }
+  }
   // Auto-play functionality
   useEffect(() => {
     let interval
@@ -303,26 +426,6 @@ const CarDetailPage = () => {
     setImageErrors((prev) => ({ ...prev, [index]: true }))
   }
 
-  // Event handlers
-  const handleSubmitReview = async () => {
-    if (!rating || !comment) {
-      toast.error("Vui lòng chọn sao và viết bình luận.")
-      return
-    }
-
-    try {
-      await post("/api/ratings", { carId, rating, comment })
-      setRating(0)
-      setComment("")
-      const ratingsData = await getRatingsByCarId(carId)
-      setRatings(ratingsData)
-      setError(null)
-      toast.success("Đánh giá của bạn đã được gửi thành công!")
-      setShowReviewForm(false)
-    } catch (err) {
-      toast.error(err.message || "Không thể gửi đánh giá")
-    }
-  }
 
   const handleBookNow = () => {
     setIsBookingModalOpen(true)
@@ -666,22 +769,33 @@ const CarDetailPage = () => {
 
                 {/* Enhanced Info Row */}
                 <div className="flex flex-wrap items-center gap-6 text-gray-600">
-                  <div className="flex items-center bg-white rounded-2xl px-6 py-4 shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300">
-                    <StarRating rating={car.averageRating || 4.8} size="medium" />
-                    <span className="ml-3 font-bold text-gray-800 text-lg">{car.averageRating || 4.8}</span>
-                    <span className="ml-2 text-gray-500">/5.0</span>
-                  </div>
+                  {car.averageRating && car.averageRating > 0 ? (
+                      <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
+                        <StarRating rating={car.averageRating} />
+                        <span className="ml-2 font-bold text-gray-800">{car.averageRating.toFixed(1)}</span>
+                        <span className="ml-1 text-sm">/5.0</span>
+                      </div>
+                  ) : carRatings.length > 0 ? (
+                      <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
+                        <StarRating rating={carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length} />
+                        <span className="ml-2 font-bold text-gray-800">
+                        {(carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length).toFixed(1)}
+                      </span>
+                        <span className="ml-1 text-sm">/5.0</span>
+                      </div>
+                  ) : null}
 
-                  <div className="flex items-center bg-white rounded-2xl px-6 py-4 shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300">
-                    <FaComments className="mr-3 text-blue-500 text-xl" />
-                    <span className="font-bold text-lg">{ratings.length} đánh giá</span>
-                  </div>
+                  {carRatings.length > 0 && (
+                      <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
+                        <FaComments className="mr-2 text-blue-500" />
+                        <span className="font-medium">{carRatings.length} đánh giá</span>
+                      </div>
+                  )}
 
-                  <div className="flex items-center bg-white rounded-2xl px-6 py-4 shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300">
-                    <FaMapMarkerAlt className="mr-3 text-red-500 text-xl" />
-                    <span className="font-bold text-lg">{car.location || "TP. Hồ Chí Minh"}</span>
+                  <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
+                    <FaMapMarkerAlt className="mr-2 text-red-500" />
+                    <span className="font-medium">{car.location || "TP. Hồ Chí Minh"}</span>
                   </div>
-
                   <div className="flex items-center bg-white rounded-2xl px-6 py-4 shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300">
                     <FaThumbsUp className="mr-3 text-green-500 text-xl" />
                     <span className="font-bold text-lg">{car.rentalCount || 25} lượt thuê</span>
@@ -1124,160 +1238,109 @@ const CarDetailPage = () => {
               </div>
             </div>
 
-            {/* Enhanced Reviews Section */}
-            <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-12 border border-gray-100">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 leading-tight pb-2">
+            {/* Reviews - Gộp thành 1 phần duy nhất */}
+            <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 shadow-xl mb-8 border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   Đánh giá từ khách hàng
                 </h2>
-                <button
-                  onClick={() => setShowReviewForm(!showReviewForm)}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-300 text-lg flex items-center shadow-lg hover:shadow-xl transform hover:scale-105"
-                >
-                  <FaStar className="mr-2" />
-                  Viết đánh giá
-                </button>
               </div>
 
-              <div className="flex flex-col md:flex-row gap-8 mb-10">
-                <div className="md:w-1/3 bg-gradient-to-br from-blue-50 to-purple-50 p-8 rounded-2xl text-center border border-blue-100">
-                  <div className="text-6xl font-black text-gray-800 mb-4">{car.averageRating || "4.8"}</div>
-                  <div className="flex justify-center mb-4">
-                    <StarRating rating={car.averageRating || 4.8} size="large" />
-                  </div>
-                  <div className="text-gray-600 text-lg font-semibold">{ratings.length} đánh giá</div>
-                  <div className="mt-4 text-sm text-gray-500">Từ {ratings.length} khách hàng đã thuê</div>
-                </div>
-
-                <div className="md:w-2/3">
-                  <div className="space-y-4">
-                    {[5, 4, 3, 2, 1].map((star) => {
-                      const count = ratings.filter((r) => Math.round(r.rating) === star).length
-                      const percentage = ratings.length > 0 ? (count / ratings.length) * 100 : 0
-
-                      return (
-                        <div key={star} className="flex items-center gap-4">
-                          <div className="flex items-center w-20">
-                            <span className="mr-2 font-semibold">{star}</span>
-                            <FaStar className="text-yellow-400" />
+              {carRatings.length > 0 ? (
+                      <>
+                      {/* Rating Summary */}
+                      <div className="flex flex-col md:flex-row gap-6 mb-8">
+                        <div className="md:w-1/3 bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl text-center">
+                          <div className="text-5xl font-bold text-gray-800 mb-2">
+                            {car.averageRating && car.averageRating > 0
+                                ? car.averageRating.toFixed(1)
+                                : carRatings.length > 0
+                                    ? (carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length).toFixed(1)
+                                    : "Chưa có"
+                            }
                           </div>
-                          <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-1000 ease-out"
-                              style={{ width: `${percentage}%` }}
-                            ></div>
+                          <div className="flex justify-center mb-2">
+                            <StarRating rating={
+                              car.averageRating && car.averageRating > 0
+                                  ? car.averageRating
+                                  : carRatings.length > 0
+                                      ? carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length
+                                      : 0
+                            } size="medium" />
                           </div>
-                          <div className="w-16 text-right text-lg font-semibold text-gray-600">
-                            {percentage.toFixed(0)}%
-                          </div>
+                          <div className="text-gray-600">{carRatings.length} đánh giá</div>
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
 
-              {/* Enhanced Review Form */}
-              {showReviewForm && (
-                <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-8 rounded-2xl mb-10 animate-in slide-in-from-top duration-500 border border-blue-100">
-                  <h3 className="text-2xl font-bold text-gray-800 mb-6">Chia sẻ trải nghiệm của bạn</h3>
-                  <div className="mb-6">
-                    <label className="block text-lg font-semibold text-gray-700 mb-4">Đánh giá của bạn</label>
-                    <div className="flex gap-3">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setRating(star)}
-                          className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
-                            rating >= star
-                              ? "bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-lg scale-110"
-                              : "bg-gray-200 text-gray-400 hover:bg-gray-300 hover:scale-105"
-                          }`}
-                        >
-                          <FaStar className="text-xl" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                        <div className="md:w-2/3">
+                          <div className="space-y-2">
+                            {[5, 4, 3, 2, 1].map((star) => {
+                              const count = carRatings.filter((r) => Math.round(r.ratingScore) === star).length
+                              const percentage = carRatings.length > 0 ? (count / carRatings.length) * 100 : 0
 
-                  <div className="mb-6">
-                    <label htmlFor="comment" className="block text-lg font-semibold text-gray-700 mb-4">
-                      Bình luận chi tiết
-                    </label>
-                    <textarea
-                      id="comment"
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      placeholder="Chia sẻ trải nghiệm của bạn với xe này... (Chất lượng xe, dịch vụ, chủ xe, v.v.)"
-                      className="w-full border-2 border-gray-200 rounded-2xl p-4 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-300 text-lg"
-                      rows="5"
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-4">
-                    <button
-                      type="button"
-                      onClick={() => setShowReviewForm(false)}
-                      className="px-6 py-3 border-2 border-gray-300 rounded-2xl text-gray-700 hover:bg-gray-100 transition-all duration-300 font-semibold"
-                    >
-                      Hủy bỏ
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSubmitReview}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-2xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
-                      disabled={!rating || !comment}
-                    >
-                      Gửi đánh giá
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Enhanced Reviews List */}
-              <div className="space-y-8">
-                {ratings.length > 0 ? (
-                  ratings.map((r, index) => (
-                    <div key={index} className="border-b border-gray-200 pb-8 last:border-0">
-                      <div className="flex items-start gap-6">
-                        <div className="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-400 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                          {r.userName?.charAt(0)?.toUpperCase() || "U"}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start mb-3">
-                            <div>
-                              <h4 className="font-bold text-gray-800 text-lg">{r.userName || "Khách hàng ẩn danh"}</h4>
-                              <div className="flex items-center gap-3 text-gray-500">
-                                <StarRating rating={r.rating} size="medium" />
-                                <span>•</span>
-                                <span className="font-medium">
-                                  {new Date(r.createdAt || Date.now()).toLocaleDateString("vi-VN")}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
-                              <FaCheckCircle className="inline mr-1" />
-                              Đã xác thực
-                            </div>
+                              return (
+                                  <div key={star} className="flex items-center gap-3">
+                                    <span className="text-sm font-medium text-gray-600 w-12">{star} sao</span>
+                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                      <div
+                                          className="bg-gradient-to-r from-yellow-400 to-orange-400 h-2 rounded-full transition-all duration-500"
+                                          style={{ width: `${percentage}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-sm text-gray-500 w-12">{count}</span>
+                                  </div>
+                              )
+                            })}
                           </div>
-                          <p className="text-gray-700 text-lg leading-relaxed">
-                            {r.comment || "Không có bình luận chi tiết"}
-                          </p>
                         </div>
                       </div>
-                    </div>
-                  ))
-                ) : (
+
+                      {/* Horizontal Reviews Carousel - Luôn hiển thị */}
+                      <div className="mb-8">
+                        {/* <div className="flex justify-between items-center mb-6">
+                          <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
+                            Đánh giá từ khách hàng ({carRatings.length})
+                          </h3>
+
+                          Quick stats
+                          <div className="hidden md:flex items-center gap-4 text-sm text-gray-600">
+                            <div className="flex items-center">
+                              <FaStar className="text-yellow-400 mr-1" />
+                              <span>Trung bình: {getDisplayRating().toFixed(1)}/5</span>
+                            </div>
+                            <div>
+                              {carRatings.filter(r => r.ratingScore >= 4).length} đánh giá tích cực
+                            </div>
+                          </div>
+                        </div> */}
+
+                        <TestimonialCarousel carId={carId}
+                                             ratings={carRatings}
+                                             loading={loading}
+                                             error={error} />
+                      </div>
+
+                        {/* Enhanced View All Button */}
+                        {carRatings.length > 6 && (
+                            <div className="text-center bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
+                              <p className="text-gray-600 mb-4">
+                                Còn {carRatings.length - 6} đánh giá khác từ khách hàng
+                              </p>
+                              <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg">
+                                Xem tất cả {carRatings.length} đánh giá
+                                <FaArrowRight className="ml-2 inline" />
+                              </button>
+                            </div>
+                        )}
+                      </>
+              ) : (
                   <div className="text-center py-12">
-                    <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <FaComments className="text-gray-400 text-4xl" />
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <FaComments className="text-gray-400 text-2xl" />
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-800 mb-2">Chưa có đánh giá nào</h3>
-                    <p className="text-gray-600 text-lg">Hãy là người đầu tiên chia sẻ trải nghiệm với xe này</p>
+                    <h3 className="text-lg font-medium text-gray-800 mb-2">Chưa có đánh giá nào</h3>
+                    <p className="text-gray-600 mb-6">Xe này chưa có đánh giá từ khách hàng</p>
                   </div>
-                )}
-              </div>
+              )}
             </div>
 
             {/* Enhanced Terms & Conditions */}
@@ -1380,7 +1443,7 @@ const CarDetailPage = () => {
 
             {/* Enhanced Car Owner Section */}
             {(supplier || car.supplier) ? (
-              <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-12 border border-gray-100">
+              <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100">
                 <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 leading-tight pb-2">
                   Thông tin chủ xe
                 </h2>

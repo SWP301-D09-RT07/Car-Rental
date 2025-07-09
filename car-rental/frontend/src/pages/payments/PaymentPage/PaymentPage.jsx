@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useLocation, useNavigate, Link } from "react-router-dom"
-import { post, getBookingById, getBookingByTransactionId } from "@/services/api.js"
+import { post, getBookingById, getBookingByTransactionId, getPriceBreakdown } from "@/services/api.js"
 import { useAuth } from "@/hooks/useAuth.js"
+import InitialPaymentSummary from "@/components/payments/InitialPaymentSummary.jsx"
+import PickupPaymentSummary from "@/components/payments/PickupPaymentSummary.jsx"
+import RetryPaymentSummary from '@/components/payments/RetryPaymentSummary'
 import {
   FaCreditCard,
   FaHandHoldingUsd,
@@ -383,165 +386,26 @@ const PaymentMethodCard = ({ method, selected, onSelect, icon: Icon, title, desc
   )
 }
 
-// Enhanced Order Summary Component
-const OrderSummary = ({
-  priceBreakdown,
-  DEPOSIT,
-  COLLATERAL,
-  withDriver,
-  deliveryRequested,
-  paymentMethod,
-  isProcessing,
-  handlePayment,
-}) => (
-  <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl sticky top-32 border border-gray-100">
-    <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8">
-      Tóm tắt đơn hàng
-    </h3>
-
-    {/* Price Breakdown */}
-    <div className="space-y-4 mb-8">
-      <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-        <span className="text-gray-700 font-medium">Tổng tiền thuê:</span>
-        <span className="font-bold text-lg">{priceBreakdown?.total?.toLocaleString()} VND</span>
-      </div>
-      <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-        <span className="text-gray-700 font-medium">Phí dịch vụ:</span>
-        <span className="font-bold text-lg">{priceBreakdown?.serviceFee?.toLocaleString()} VND</span>
-      </div>
-      <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
-        <span className="text-gray-700 font-medium">Thuế VAT:</span>
-        <span className="font-bold text-lg">{priceBreakdown?.tax?.toLocaleString()} VND</span>
-      </div>
-      {priceBreakdown?.discount > 0 && (
-        <div className="flex justify-between items-center p-4 bg-green-50 rounded-xl">
-          <span className="text-green-700 font-medium">Giảm giá:</span>
-          <span className="font-bold text-green-600 text-lg">-{priceBreakdown.discount.toLocaleString()} VND</span>
-        </div>
-      )}
-      {withDriver && (
-        <div className="flex justify-between items-center p-4 bg-blue-50 rounded-xl">
-          <span className="text-gray-700 font-medium">Thuê tài xế:</span>
-          <span className="font-medium text-green-600 flex items-center gap-2">
-            <FaCheckCircle />
-            Đã chọn
-          </span>
-        </div>
-      )}
-      {deliveryRequested && (
-        <div className="flex justify-between items-center p-4 bg-blue-50 rounded-xl">
-          <span className="text-gray-700 font-medium">Giao xe tận nơi:</span>
-          <span className="font-medium text-green-600 flex items-center gap-2">
-            <FaCheckCircle />
-            Đã chọn
-          </span>
-        </div>
-      )}
-    </div>
-
-    {/* Payment Amount */}
-    <div className="border-t border-gray-200 pt-6 mb-8">
-      <div className="flex justify-between items-center mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border border-blue-100">
-        <span className="font-bold text-gray-900 text-base">Cần thanh toán ngay:</span>
-        <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          {DEPOSIT.toLocaleString()} VND
-        </span>
-      </div>
-      <p className="text-center text-sm text-gray-500 mb-4">Số tiền còn lại sẽ thanh toán khi nhận xe</p>
-    </div>
-
-    {/* Collateral Notice */}
-    <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-2xl p-6 mb-8">
-      <div className="flex items-start gap-3">
-        <FaInfoCircle className="text-yellow-600 text-xl mt-1" />
-        <div>
-          <p className="font-bold text-yellow-800 mb-2">Thế chấp khi nhận xe:</p>
-          <p className="text-yellow-700 font-semibold text-lg">{COLLATERAL.toLocaleString()} VND</p>
-          <p className="text-yellow-600 text-sm mt-1">(Hoàn lại sau khi trả xe)</p>
-        </div>
-      </div>
-    </div>
-
-    {/* Benefits */}
-    <div className="space-y-4 mb-8">
-      <div className="flex items-center text-sm text-gray-700 p-4 bg-green-50 rounded-xl border border-green-100">
-        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600 mr-4">
-          <FaShieldAlt />
-        </div>
-        <span className="font-medium">Bảo hiểm xe và hành khách theo quy định</span>
-      </div>
-      <div className="flex items-center text-sm text-gray-700 p-4 bg-blue-50 rounded-xl border border-blue-100">
-        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mr-4">
-          <FaHeadset />
-        </div>
-        <span className="font-medium">Hỗ trợ kỹ thuật 24/7</span>
-      </div>
-      <div className="flex items-center text-sm text-gray-700 p-4 bg-purple-50 rounded-xl border border-purple-100">
-        <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 mr-4">
-          <FaUndoAlt />
-        </div>
-        <span className="font-medium">Chính sách hủy linh hoạt</span>
-      </div>
-    </div>
-
-    {/* Payment Button */}
-    <button
-      onClick={handlePayment}
-      disabled={!paymentMethod || isProcessing}
-      className={`w-full py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform ${
-        !paymentMethod || isProcessing
-          ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-          : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white hover:scale-105 shadow-xl hover:shadow-2xl"
-      }`}
-    >
-      {isProcessing ? (
-        <div className="flex items-center justify-center gap-3">
-          <FaSpinner className="animate-spin text-xl" />
-          <span>Đang xử lý...</span>
-        </div>
-      ) : (
-        <div className="flex items-center justify-center gap-3">
-          <FaCreditCard className="text-xl" />
-          <span>Thanh toán {DEPOSIT.toLocaleString()} VND</span>
-        </div>
-      )}
-    </button>
-
-    {/* Security Notice */}
-    <div className="mt-6 text-center">
-      <div className="flex items-center justify-center gap-4 text-xs text-gray-500 mb-2">
-        <div className="flex items-center gap-1">
-          <FaShieldAlt />
-          <span>SSL Secure</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <FaLock />
-          <span>256-bit Encryption</span>
-        </div>
-      </div>
-      <p className="text-xs text-gray-400">Thông tin thanh toán được bảo mật tuyệt đối</p>
-    </div>
-  </div>
-)
-
 // Main Payment Page Component
 const PaymentPage = () => {
   const { isAuthenticated, user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Lấy dữ liệu từ location.state với validation
+  // Lấy dữ liệu từ location.state với validation (bổ sung nhận từ RetryPaymentHandler)
   const {
     withDriver,
     deliveryRequested,
     customerInfo: stateCustomerInfo,
-    depositAmount,
-    collateralAmount,
+    depositAmount: stateDepositAmount,
+    collateralAmount: stateCollateralAmount,
     bookingId: stateBookingId,
     paymentId: statePaymentId,
     priceBreakdown: statePriceBreakdown,
     bookingInfo: stateBookingInfo,
     fromHistory,
+    paymentType: statePaymentType,
+    pickupPayment = false,
   } = location.state || {}
 
   // State management
@@ -549,6 +413,9 @@ const PaymentPage = () => {
   const [priceBreakdown, setPriceBreakdown] = useState(statePriceBreakdown)
   const [bookingInfo, setBookingInfo] = useState(stateBookingInfo)
   const [customerInfo, setCustomerInfo] = useState(stateCustomerInfo)
+  const [depositAmount, setDepositAmount] = useState(stateDepositAmount)
+  const [collateralAmount, setCollateralAmount] = useState(stateCollateralAmount)
+  const [paymentType, setPaymentType] = useState(statePaymentType)
   const [paymentMethod, setPaymentMethod] = useState("")
   const [error, setError] = useState(null)
   const [paymentStatus, setPaymentStatus] = useState(null)
@@ -557,9 +424,73 @@ const PaymentPage = () => {
   const [toast, setToast] = useState({ show: false, message: "", type: "" })
   const [isLoading, setIsLoading] = useState(true)
 
-  // Calculate amounts with validation
-  const DEPOSIT = depositAmount || priceBreakdown?.deposit || 0
-  const COLLATERAL = collateralAmount || 5000000
+  // Lấy total và deposit từ bookingInfo nếu có, ưu tiên data truyền từ ProfilePage
+  let total = 0;
+  if (bookingInfo && bookingInfo.totalAmount) {
+    total = Number(bookingInfo.totalAmount);
+  } else if (priceBreakdown && priceBreakdown.total) {
+    total = Number(priceBreakdown.total);
+  }
+
+  let deposit = 0;
+  if (bookingInfo && bookingInfo.depositAmount) {
+    deposit = Number(bookingInfo.depositAmount);
+  } else if (priceBreakdown && priceBreakdown.deposit) {
+    deposit = Number(priceBreakdown.deposit);
+  }
+
+  let remaining = total - deposit;
+  if (remaining < 0) remaining = 0;
+
+  // ✅ SỬA: Tính số tiền cần thanh toán ngay dựa trên loại thanh toán
+  let amountToPay = 0;
+  if (pickupPayment) {
+    // Thanh toán khi nhận xe: chỉ thanh toán phần còn lại + thế chấp
+    amountToPay = remaining + Number(collateralAmount || 0);
+    console.log("🔍 [DEBUG] PaymentPage - Thanh toán khi nhận xe:", { total, deposit, remaining, collateralAmount, amountToPay });
+  } else {
+    // Thanh toán ban đầu: chỉ thanh toán deposit (không cộng thế chấp)
+    amountToPay = deposit;
+    console.log("🔍 [DEBUG] PaymentPage - Thanh toán ban đầu:", { total, deposit, amountToPay });
+  }
+
+  // Nếu vẫn không có priceBreakdown, tự động gọi API lấy breakdown
+  useEffect(() => {
+    if ((!priceBreakdown || !priceBreakdown.total) && bookingId) {
+      getPriceBreakdown(bookingId)
+        .then(res => {
+          if (res && res.total) {
+            setPriceBreakdown(res)
+          }
+        })
+        .catch(() => {
+          setError("Không thể lấy chi tiết giá cho đơn này, vui lòng liên hệ hỗ trợ.");
+        });
+    }
+    // eslint-disable-next-line
+  }, [bookingId])
+
+  // Sau khi lấy priceBreakdown, nếu thiếu serviceFee hoặc tax, tính lại dựa trên basePrice hoặc total
+  useEffect(() => {
+    if (priceBreakdown) {
+      const base = priceBreakdown.basePrice || priceBreakdown.total || 0;
+      console.log('[DEBUG] priceBreakdown:', priceBreakdown);
+      console.log('[DEBUG] basePrice:', priceBreakdown.basePrice, '| base used for fee:', base);
+      let needUpdate = false;
+      let newBreakdown = { ...priceBreakdown };
+      if (!priceBreakdown.serviceFee || priceBreakdown.serviceFee === 0) {
+        newBreakdown.serviceFee = Math.round(base * 0.1);
+        needUpdate = true;
+      }
+      if (!priceBreakdown.tax || priceBreakdown.tax === 0) {
+        newBreakdown.tax = Math.round(base * 0.1);
+        needUpdate = true;
+      }
+      if (needUpdate) {
+        setPriceBreakdown(newBreakdown);
+      }
+    }
+  }, [priceBreakdown]);
 
   // Load data from localStorage if not available from state
   useEffect(() => {
@@ -627,6 +558,20 @@ const PaymentPage = () => {
       return
     }
 
+    if (
+      !customerInfo.fullName ||
+      !customerInfo.email ||
+      !customerInfo.phone ||
+      !customerInfo.pickupAddress ||
+      !customerInfo.dropoffAddress 
+      // customerInfo.pickupAddress === "Unknown" ||
+      // customerInfo.dropoffAddress === "Unknown"
+    ) {
+      console.error("[VALIDATE] Địa chỉ nhận/trả xe không hợp lệ", { customerInfo });
+      setError("Vui lòng nhập địa chỉ nhận và trả xe hợp lệ");
+      return;
+    }
+
     setError(null)
   }, [bookingId, bookingInfo, priceBreakdown, customerInfo, isAuthenticated, navigate])
 
@@ -638,35 +583,41 @@ const PaymentPage = () => {
         try {
           let bookingData = null;
           if (stateBookingId) {
-            bookingData = await getBookingById(stateBookingId);
+            const res = await getBookingById(stateBookingId);
+            bookingData = res.data || res;
           } else if (statePaymentId) {
-            bookingData = await getBookingByTransactionId(statePaymentId);
+            const res = await getBookingByTransactionId(statePaymentId);
+            bookingData = res.data || res;
           }
           if (bookingData) {
+            console.log("[DEBUG] bookingData:", bookingData);
+            console.log("[DEBUG] bookingData.customer:", bookingData.customer);
             setBookingId(bookingData.bookingId);
-            setBookingInfo({
-              carId: bookingData.car?.carId,
-              pickupLocation: bookingData.pickupLocation,
-              dropoffLocation: bookingData.dropoffLocation,
-              pickupDateTime: bookingData.pickupDateTime,
-              dropoffDateTime: bookingData.dropoffDateTime,
-              seatNumber: bookingData.seatNumber,
-              withDriver: bookingData.withDriver,
-              deliveryRequested: bookingData.deliveryRequested,
-              car: bookingData.car,
-            });
+            setBookingInfo(bookingData);
             setPriceBreakdown(bookingData.priceBreakdown || {});
-            setCustomerInfo({
-              fullName: bookingData.customer?.fullName || '',
-              phone: bookingData.customer?.phone || '',
-              email: bookingData.customer?.email || '',
-              pickupAddress: bookingData.pickupLocation || '',
-              dropoffAddress: bookingData.dropoffLocation || '',
-            });
-            // Nếu trạng thái là failed, hiển thị thông báo
-            if (bookingData.statusName === 'failed') {
-              setError('Đơn đặt này chưa thanh toán thành công. Bạn có thể thanh toán lại ngay tại đây.');
+            if (bookingData.customer) {
+              // Ưu tiên lấy từ stateCustomerInfo, nếu thiếu thì lấy từ API
+              const info = {
+                fullName: (stateCustomerInfo && stateCustomerInfo.fullName)
+                  ? stateCustomerInfo.fullName
+                  : (bookingData.customer.userDetail?.fullName || bookingData.customer.username || ''),
+                phone: (stateCustomerInfo && stateCustomerInfo.phone)
+                  ? stateCustomerInfo.phone
+                  : (bookingData.customer.phone || ''),
+                email: (stateCustomerInfo && stateCustomerInfo.email)
+                  ? stateCustomerInfo.email
+                  : (bookingData.customer.email || ''),
+                pickupAddress: (stateCustomerInfo && stateCustomerInfo.pickupAddress)
+                  ? stateCustomerInfo.pickupAddress
+                  : (bookingData.pickupLocation || ''),
+                dropoffAddress: (stateCustomerInfo && stateCustomerInfo.dropoffAddress)
+                  ? stateCustomerInfo.dropoffAddress
+                  : (bookingData.dropoffLocation || ''),
+              };
+              setCustomerInfo(info);
+              console.log("[DEBUG] setCustomerInfo (merged):", info);
             }
+            setDepositAmount(Number(bookingData.depositAmount) || Number(bookingData.priceBreakdown?.deposit) || 0);
           }
         } catch (err) {
           setError('Không thể lấy lại thông tin đơn đặt. Vui lòng thử lại hoặc liên hệ hỗ trợ.');
@@ -691,26 +642,38 @@ const PaymentPage = () => {
   }
 
   const validatePaymentData = () => {
+    console.log("[DEBUG] Trước khi validatePaymentData:", {
+      customerInfo,
+      bookingInfo,
+      priceBreakdown,
+      amountToPay,
+      paymentMethod,
+    });
     if (!bookingInfo && !bookingId) {
+      console.error("[VALIDATE] Không tìm thấy thông tin đặt xe", { bookingInfo, bookingId });
       return "Không tìm thấy thông tin đặt xe"
     }
-
     if (!priceBreakdown) {
+      console.error("[VALIDATE] Không tìm thấy thông tin giá", { priceBreakdown });
       return "Không tìm thấy thông tin giá"
     }
-
     if (!paymentMethod) {
+      console.error("[VALIDATE] Chưa chọn phương thức thanh toán", { paymentMethod });
       return "Vui lòng chọn phương thức thanh toán"
     }
-
-    if (DEPOSIT <= 0) {
+    if (amountToPay <= 0) {
+      console.error("[VALIDATE] Số tiền thanh toán không hợp lệ", { amountToPay });
       return "Số tiền thanh toán không hợp lệ"
     }
-
-    if (!customerInfo || !customerInfo.fullName || !customerInfo.email || !customerInfo.phone) {
+    if (!customerInfo || !customerInfo.email || !customerInfo.phone) {
+      console.error("[VALIDATE] Thông tin khách hàng không đầy đủ", { customerInfo });
       return "Thông tin khách hàng không đầy đủ"
     }
-
+    // Kiểm tra fullName riêng biệt vì có thể là empty string
+    if (!customerInfo.fullName || customerInfo.fullName.trim() === '') {
+      console.error("[VALIDATE] Họ tên khách hàng không hợp lệ", { fullName: customerInfo?.fullName });
+      return "Vui lòng nhập họ tên khách hàng"
+    }
     return null
   }
 
@@ -720,15 +683,75 @@ const PaymentPage = () => {
       setError(validationError)
       return
     }
-
+    console.log("[DEBUG] Thực hiện handlePayment với:", {
+      customerInfo,
+      bookingInfo,
+      priceBreakdown,
+      amountToPay,
+      paymentMethod,
+    });
     try {
       setIsProcessing(true)
       setError(null)
 
-      let paymentData
-      let endpoint
+      // ✅ SỬA: Logic quyết định endpoint và paymentType
+      let paymentType = undefined;
+      let endpoint = "";
+      let paymentData = {};
 
-      if (bookingInfo) {
+      if (bookingInfo && bookingId) {
+        // Trường hợp đã có booking (từ ProfilePage) - sử dụng /api/payments
+        console.log("🔍 [DEBUG] Booking info details:", {
+          bookingId,
+          hasDeposit: bookingInfo?.hasDeposit,
+          hasFullPayment: bookingInfo?.hasFullPayment,
+          paymentStatus: bookingInfo?.paymentStatus,
+          paymentType: bookingInfo?.paymentType,
+          pickupPayment
+        });
+        
+        if (pickupPayment) {
+          // Kiểm tra trạng thái payment trước khi quyết định paymentType
+          if (bookingInfo.hasDeposit && bookingInfo.paymentStatus === 'paid' && !bookingInfo.hasFullPayment) {
+            paymentType = 'full_payment';
+            console.log("🔍 [DEBUG] Thanh toán full_payment - đã có deposit, chưa có full payment");
+          } else if (bookingInfo.hasFullPayment) {
+            // Nếu đã có full payment, không cho phép thanh toán nữa
+            console.log("🔍 [DEBUG] Booking đã có full payment, không thể thanh toán thêm", {
+              hasDeposit: bookingInfo?.hasDeposit,
+              hasFullPayment: bookingInfo?.hasFullPayment,
+              paymentStatus: bookingInfo?.paymentStatus
+            });
+            setError("Đơn đặt xe này đã được thanh toán đầy đủ. Không thể thanh toán thêm.");
+            return;
+          } else {
+            paymentType = 'deposit';
+            console.log("🔍 [DEBUG] Thanh toán deposit - chưa có deposit hoặc payment status không phải 'paid'", {
+              hasDeposit: bookingInfo?.hasDeposit,
+              hasFullPayment: bookingInfo?.hasFullPayment,
+              paymentStatus: bookingInfo?.paymentStatus
+            });
+          }
+        } else {
+          // Nếu không phải pickupPayment, mặc định là deposit
+          paymentType = 'deposit';
+        }
+
+        paymentData = {
+          bookingId: Number.parseInt(bookingId),
+          amount: amountToPay,
+          currency: "VND",
+          paymentMethod: paymentMethod,
+          customerInfo: customerInfo,
+          withDriver: withDriver || false,
+          deliveryRequested: deliveryRequested || false,
+          paymentType: paymentType,
+        }
+        endpoint = "/api/payments"
+      } else if (bookingInfo && !bookingId) {
+        // Trường hợp tạo booking mới - sử dụng /api/payments/with-booking
+        paymentType = 'deposit'; // Chỉ cho phép deposit khi tạo booking mới
+        
         paymentData = {
           carId: bookingInfo.carId,
           pickupDateTime: bookingInfo.pickupDateTime,
@@ -738,24 +761,30 @@ const PaymentPage = () => {
           seatNumber: bookingInfo.seatNumber,
           withDriver: bookingInfo.withDriver || false,
           deliveryRequested: bookingInfo.deliveryRequested || false,
-          amount: DEPOSIT,
+          amount: amountToPay,
           currency: "VND",
           paymentMethod: paymentMethod,
           customerInfo: customerInfo,
+          paymentType: paymentType,
         }
         endpoint = "/api/payments/with-booking"
       } else {
+        // Trường hợp chỉ có bookingId (fallback)
         paymentData = {
           bookingId: Number.parseInt(bookingId),
-          amount: DEPOSIT,
+          amount: amountToPay,
           currency: "VND",
           paymentMethod: paymentMethod,
           customerInfo: customerInfo,
           withDriver: withDriver || false,
           deliveryRequested: deliveryRequested || false,
+          paymentType: pickupPayment ? 'full_payment' : undefined,
         }
         endpoint = "/api/payments"
       }
+
+      console.log("🔍 [DEBUG] Final paymentType:", paymentType);
+      console.log("🔍 [DEBUG] Using endpoint:", endpoint);
 
       const response = await post(endpoint, paymentData)
 
@@ -777,7 +806,7 @@ const PaymentPage = () => {
             state: {
               bookingId: response.bookingId || bookingId,
               paymentId: response.paymentId || response.transactionId,
-              amount: paymentMethod === "cash" ? 0 : (response.amount || DEPOSIT),
+              amount: paymentMethod === "cash" ? 0 : (response.amount || amountToPay),
               priceBreakdown: response.priceBreakdown || priceBreakdown,
               totalAmount: response.totalAmount || priceBreakdown?.total || 0,
               withDriver: withDriver,
@@ -1031,16 +1060,44 @@ const PaymentPage = () => {
 
           {/* Right Column - Order Summary */}
           <div className="xl:col-span-1">
-            <OrderSummary
-              priceBreakdown={priceBreakdown}
-              DEPOSIT={DEPOSIT}
-              COLLATERAL={COLLATERAL}
-              withDriver={withDriver}
-              deliveryRequested={deliveryRequested}
-              paymentMethod={paymentMethod}
-              isProcessing={isProcessing}
-              handlePayment={handlePayment}
-            />
+            {fromHistory ? (
+              <RetryPaymentSummary
+                priceBreakdown={priceBreakdown}
+                collateralAmount={collateralAmount}
+                paymentType={paymentType}
+                withDriver={withDriver}
+                deliveryRequested={deliveryRequested}
+                paymentMethod={paymentMethod}
+                isProcessing={isProcessing}
+                handlePayment={handlePayment}
+                bookingInfo={bookingInfo}
+                disablePaymentButton={!paymentMethod || isProcessing || amountToPay <= 0}
+              />
+            ) : pickupPayment ? (
+              <PickupPaymentSummary
+                priceBreakdown={priceBreakdown}
+                collateralAmount={collateralAmount}
+                withDriver={withDriver}
+                deliveryRequested={deliveryRequested}
+                paymentMethod={paymentMethod}
+                isProcessing={isProcessing}
+                handlePayment={handlePayment}
+                bookingInfo={bookingInfo}
+                disablePaymentButton={!paymentMethod || isProcessing || amountToPay <= 0}
+              />
+            ) : (
+              <InitialPaymentSummary
+                priceBreakdown={priceBreakdown}
+                collateralAmount={collateralAmount}
+                withDriver={withDriver}
+                deliveryRequested={deliveryRequested}
+                paymentMethod={paymentMethod}
+                isProcessing={isProcessing}
+                handlePayment={handlePayment}
+                bookingInfo={bookingInfo}
+                disablePaymentButton={!paymentMethod || isProcessing || amountToPay <= 0}
+              />
+            )}
           </div>
         </div>
       </main>

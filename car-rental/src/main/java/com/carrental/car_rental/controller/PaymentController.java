@@ -259,4 +259,24 @@ public class PaymentController {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }
+
+    /**
+     * Trung gian hoàn tiền cọc cho khách
+     */
+    @PostMapping("/refund")
+    public ResponseEntity<?> refundDeposit(@RequestBody Map<String, Integer> body) {
+        Integer bookingId = body.get("bookingId");
+        service.refundDeposit(bookingId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Trung gian chuyển tiền cho supplier
+     */
+    @PostMapping("/payout")
+    public ResponseEntity<?> payoutSupplier(@RequestBody Map<String, Integer> body) {
+        Integer bookingId = body.get("bookingId");
+        service.payoutSupplier(bookingId);
+        return ResponseEntity.ok().build();
+    }
 }

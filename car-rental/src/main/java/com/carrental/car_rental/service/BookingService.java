@@ -1,21 +1,20 @@
 package com.carrental.car_rental.service;
 
-import com.carrental.car_rental.dto.BookingConfirmationDTO;
-import com.carrental.car_rental.dto.BookingDTO;
-import com.carrental.car_rental.dto.PaymentDTO;
-import com.carrental.car_rental.dto.BookingFinancialsDTO;
-import com.carrental.car_rental.dto.PriceBreakdownDTO;
+import com.carrental.car_rental.dto.*;
 import com.carrental.car_rental.entity.*;
 import com.carrental.car_rental.mapper.BookingMapper;
+import com.carrental.car_rental.mapper.UserMapper;
 import com.carrental.car_rental.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -48,6 +47,7 @@ public class BookingService {
     private final PromotionRepository promotionRepository;
     private final PaymentRepository paymentRepository;
     private final RatingRepository ratingRepository;
+    private final UserMapper userMapper;
 
     private static final int AVAILABLE_STATUS_ID = 11;
     private static final int PENDING_STATUS_ID = 1;
@@ -67,7 +67,7 @@ public class BookingService {
             BookingFinancialsService financialsService,
             PromotionRepository promotionRepository,
             PaymentRepository paymentRepository,
-            RatingRepository ratingRepository) {
+            RatingRepository ratingRepository, UserMapper userMapper) {
         this.bookingRepository = bookingRepository;
         this.carRepository = carRepository;
         this.insuranceRepository = insuranceRepository;
@@ -81,29 +81,23 @@ public class BookingService {
         this.promotionRepository = promotionRepository;
         this.paymentRepository = paymentRepository;
         this.ratingRepository = ratingRepository;
+        this.userMapper = userMapper;
     }
 
+    @Transactional(readOnly = true)
     public BookingDTO findById(Integer id) {
-        logger.info("Fetching booking with id: {}", id);
-        
         try {
-            Booking booking = bookingRepository.findById(id)
-                    .filter(b -> !b.getIsDeleted())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found or has been deleted."));
-            
-            BookingDTO dto = bookingMapper.toDTO(booking);
-            
-            // Check hasRated for single booking
-            boolean hasRated = ratingRepository.existsByBookingId(id);
-            dto.setHasRated(hasRated);
-            
-            logger.info("Booking {} hasRated: {}", id, hasRated);
-            return dto;
-            
+            logger.info("Fetching booking with id: {}", id);
+            Optional<Booking> bookingOpt = bookingRepository.findByIdWithAllRelations(id);
+            if (bookingOpt.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found");
+            }
+            Booking booking = bookingOpt.get();
+            // mapping sang DTO ở đây, khi session vẫn còn mở
+            return bookingMapper.toDTO(booking);
         } catch (Exception e) {
             logger.error("Error fetching booking with id: {}", id, e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
-                "Error fetching booking: " + e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error fetching booking: " + e.getMessage());
         }
     }
 
@@ -132,34 +126,40 @@ public class BookingService {
     @Transactional(readOnly = true)
     public List<BookingDTO> findByUserId(Integer userId) {
         logger.info("Fetching bookings for userId: {}", userId);
-        
         try {
             // Sử dụng query với eager loading
             List<BookingDTO> bookingDTOs = bookingRepository.findByCustomerIdWithDetails(userId)
                     .stream()
                     .map(bookingMapper::toDTO)
                     .collect(Collectors.toList());
-            
             // Bulk check hasRated để tối ưu performance
             if (!bookingDTOs.isEmpty()) {
                 List<Integer> bookingIds = bookingDTOs.stream()
                     .map(BookingDTO::getBookingId)
                     .collect(Collectors.toList());
-                
                 List<Integer> ratedBookingIds = ratingRepository.findRatedBookingIds(bookingIds);
                 Set<Integer> ratedSet = new HashSet<>(ratedBookingIds);
-                
                 // Set hasRated flag
                 bookingDTOs.forEach(dto -> 
                     dto.setHasRated(ratedSet.contains(dto.getBookingId()))
                 );
-                
                 logger.info("Set hasRated for {} bookings, {} have ratings", 
                     bookingDTOs.size(), ratedSet.size());
             }
-            
+            // Set tổng tiền cho từng booking
+            bookingDTOs.forEach(dto -> {
+                try {
+                    BookingFinancialsDTO financials = financialsService.getOrCreateFinancials(dto);
+                    if (financials != null && financials.getTotalFare() != null) {
+                        dto.setTotalAmount(financials.getTotalFare());
+                    }
+                } catch (Exception e) {
+                    dto.setTotalAmount(java.math.BigDecimal.ZERO);
+                }
+                // ✅ Đảm bảo set payment info cho từng booking
+                loadPaymentInfo(dto, dto.getBookingId());
+            });
             return bookingDTOs;
-            
         } catch (Exception e) {
             logger.error("Error fetching bookings for userId: {}", userId, e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
@@ -443,46 +443,43 @@ public class BookingService {
 @Transactional(readOnly = true)
 public BookingDTO findByIdWithDetails(Integer bookingId) {
     logger.info("🔍 Fetching booking with id: {}", bookingId);
-
     try {
-        Optional<Booking> bookingOpt = bookingRepository.findByIdWithAllDetails(bookingId);
-
+        Optional<Booking> bookingOpt = bookingRepository.findByIdWithAllRelations(bookingId);
         if (bookingOpt.isEmpty()) {
             throw new RuntimeException("Không tìm thấy booking với ID: " + bookingId);
         }
-
         Booking booking = bookingOpt.get();
         BookingDTO dto = bookingMapper.toDTO(booking);
-        
- if (booking.getCar() != null) {
+        // Set tổng tiền từ BookingFinancialsService
+        try {
+            BookingFinancialsDTO financials = financialsService.getOrCreateFinancials(dto);
+            if (financials != null && financials.getTotalFare() != null) {
+                dto.setTotalAmount(financials.getTotalFare());
+            }
+        } catch (Exception e) {
+            dto.setTotalAmount(java.math.BigDecimal.ZERO);
+        }
+        if (booking.getCar() != null) {
             dto.setCarModel(booking.getCar().getModel());
             dto.setCarLicensePlate(booking.getCar().getLicensePlate());
             dto.setSeatNumber(booking.getCar().getNumOfSeats());
-            
             logger.info("🚗 Car info loaded: model={}, plate={}, seats={}", 
                 dto.getCarModel(), dto.getCarLicensePlate(), dto.getSeatNumber());
         } else {
             logger.warn("⚠️ No car info found for booking {}", bookingId);
         }
-
-
         // ✅ Load payment info sử dụng helper method
         loadPaymentInfo(dto, bookingId);
-
         // ✅ THÊM: Load detailed payment information - ĐƠN GIẢN
         List<PaymentDTO> paymentDetails = getBookingPaymentDetails(bookingId);
         dto.setPaymentDetails(paymentDetails);
-        
         logger.info("✅ Loaded {} payment records for booking {}", paymentDetails.size(), bookingId);
-
         // Check hasRated
         boolean hasRated = ratingRepository.existsByBookingId(bookingId);
         dto.setHasRated(hasRated);
-
         logger.info("✅ Successfully fetched booking details: {}, hasRated: {}, paymentStatus: {}", 
             dto.getBookingId(), hasRated, dto.getPaymentStatus());
         return dto;
-
     } catch (Exception e) {
         logger.error("❌ Error fetching booking with id: {}", bookingId, e);
         throw new RuntimeException("Không thể tải chi tiết đặt xe");
@@ -646,6 +643,16 @@ public BookingDTO confirmReturn(Integer bookingId, Boolean isSupplier) {
             boolean hasRated = ratingRepository.existsByBookingId(booking.getId());
             dto.setHasRated(hasRated);
             
+            // Set tổng tiền từ BookingFinancialsService
+            try {
+                BookingFinancialsDTO financials = financialsService.getOrCreateFinancials(dto);
+                if (financials != null && financials.getTotalFare() != null) {
+                    dto.setTotalAmount(financials.getTotalFare());
+                }
+            } catch (Exception e) {
+                dto.setTotalAmount(java.math.BigDecimal.ZERO);
+            }
+            
             return dto;
         }).collect(Collectors.toList());
         
@@ -663,50 +670,39 @@ public BookingDTO confirmReturn(Integer bookingId, Boolean isSupplier) {
 private void loadPaymentInfo(BookingDTO dto, Integer bookingId) {
     try {
         List<Payment> payments = paymentRepository.findByBookingIdAndIsDeleted(bookingId, false);
-        
         if (!payments.isEmpty()) {
-            logger.info("💰 Found {} payment(s) for booking {}", payments.size(), bookingId);
-            
-            BigDecimal totalPaid = payments.stream()
-                .filter(p -> !"refund".equals(p.getPaymentType()))
-                .map(Payment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-            
-            // ✅ SỬA: Sử dụng Comparator đã import
-            Payment latestPayment = payments.stream()
-                .filter(p -> !"refund".equals(p.getPaymentType()))
+            // Ưu tiên lấy payment mới nhất theo paymentDate, loại deposit trước, nếu không có thì full_payment
+            Payment latestDeposit = payments.stream()
+                .filter(p -> "deposit".equals(p.getPaymentType()))
                 .max(Comparator.comparing(Payment::getPaymentDate))
-                .orElse(payments.get(0));
-            
-            boolean hasFullPayment = payments.stream()
-                .anyMatch(p -> "full_payment".equals(p.getPaymentType()));
-            
-            boolean hasDeposit = payments.stream()
-                .anyMatch(p -> "deposit".equals(p.getPaymentType()));
-            
-            logger.info("💰 Payment summary for booking {}: totalPaid={}, hasDeposit={}, hasFullPayment={}", 
-                bookingId, totalPaid, hasDeposit, hasFullPayment);
-            
-            dto.setPaymentStatus("paid");
-            dto.setPaymentAmount(totalPaid);
-            dto.setPaymentType(latestPayment.getPaymentType());
-            
-            // ✅ SỬA: Convert Instant to LocalDateTime đúng cách
-            if (latestPayment.getPaymentDate() != null) {
-                dto.setPaymentDate(LocalDateTime.ofInstant(
-                    latestPayment.getPaymentDate(), // Đây là Instant
-                    ZoneId.systemDefault()
-                ));
+                .orElse(null);
+            Payment latestFull = payments.stream()
+                .filter(p -> "full_payment".equals(p.getPaymentType()))
+                .max(Comparator.comparing(Payment::getPaymentDate))
+                .orElse(null);
+            Payment latest = latestDeposit != null ? latestDeposit : latestFull;
+            if (latest == null) {
+                // fallback: lấy payment mới nhất bất kỳ
+                latest = payments.stream()
+                    .max(Comparator.comparing(Payment::getPaymentDate))
+                    .orElse(payments.get(0));
+            }
+            String status = latest.getPaymentStatus().getStatusName();
+            dto.setPaymentStatus(status);
+            dto.setPaymentType(latest.getPaymentType());
+            dto.setPaymentAmount("paid".equals(status) ? latest.getAmount() : BigDecimal.ZERO);
+            if (latest.getPaymentDate() != null) {
+                dto.setPaymentDate(LocalDateTime.ofInstant(latest.getPaymentDate(), ZoneId.systemDefault()));
             } else {
                 dto.setPaymentDate(null);
             }
-            
-            dto.setHasFullPayment(hasFullPayment);
-            dto.setHasDeposit(hasDeposit);
-            
+            dto.setHasFullPayment(
+                payments.stream().anyMatch(p -> "full_payment".equals(p.getPaymentType()) && "paid".equals(p.getPaymentStatus().getStatusName()))
+            );
+            dto.setHasDeposit(
+                payments.stream().anyMatch(p -> "deposit".equals(p.getPaymentType()) && "paid".equals(p.getPaymentStatus().getStatusName()))
+            );
         } else {
-            logger.info("❌ No payment found for booking {}", bookingId);
-            
             dto.setPaymentStatus("pending");
             dto.setPaymentType(null);
             dto.setPaymentAmount(null);
@@ -716,7 +712,6 @@ private void loadPaymentInfo(BookingDTO dto, Integer bookingId) {
         }
     } catch (Exception e) {
         logger.error("💥 Error loading payment for booking {}: {}", bookingId, e.getMessage());
-        
         dto.setPaymentStatus("error");
         dto.setPaymentType(null);
         dto.setPaymentAmount(null);
@@ -759,7 +754,7 @@ public BookingDTO customerConfirmDelivery(Integer bookingId, Integer customerId)
         if (booking.getCustomerReceiveConfirm()) {
             throw new RuntimeException("Bạn đã xác nhận nhận xe trước đó");
         }
-        
+
         // Check payment status
         List<Payment> payments = paymentRepository.findByBookingIdAndIsDeleted(bookingId, false);
         boolean hasFullPayment = payments.stream()
@@ -957,5 +952,64 @@ public List<PaymentDTO> getBookingPaymentDetails(Integer bookingId) {
         return new ArrayList<>();
     }
 }
+
+    public List<BookingDTO> findRecentBookings(int size) {
+        return bookingRepository.findAllByIsDeletedFalseOrderByBookingDateDesc(PageRequest.of(0, size))
+                .stream()
+                .map(bookingMapper::toDTO)
+                .collect(Collectors.toList());
+    }
+
+    public Integer getNextBookingId() {
+        return bookingRepository.getNextBookingId();
+    }
+
+    public List<UserDTO> findRecentBookingUsers(int size) {
+        return bookingRepository.findRecentBookingUsers(PageRequest.of(0, size))
+                .stream()
+                .map(userMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    // Scheduled job: Xóa booking failed quá 1 ngày
+    @Scheduled(cron = "0 0 3 * * *") // chạy mỗi ngày lúc 3h sáng
+    public void deleteFailedBookingsOlderThanOneDay() {
+        logger.info("[Scheduled] Đang kiểm tra và xóa booking failed quá 1 ngày...");
+        Status failedStatus = statusRepository.findByStatusName("failed").orElse(null);
+        if (failedStatus == null) return;
+        LocalDateTime oneDayAgo = LocalDateTime.now().minusDays(1);
+        List<Booking> failedBookings = bookingRepository.findByStatusAndCreatedAtBeforeAndIsDeletedFalse(failedStatus, oneDayAgo);
+        for (Booking booking : failedBookings) {
+            // Xóa payment liên quan
+            List<Payment> payments = paymentRepository.findByBookingIdAndIsDeletedFalse(booking.getId());
+            for (Payment payment : payments) {
+                paymentRepository.delete(payment);
+            }
+            // Gửi email cho user
+            try {
+                String email = booking.getCustomer().getEmail();
+                String subject = "Đơn đặt xe thất bại đã bị xóa";
+                String content = "Chào " + booking.getCustomer().getUsername() + ",\n\n" +
+                        "Đơn đặt xe #" + booking.getId() + " đã bị xóa khỏi hệ thống do không thanh toán thành công trong vòng 24h.\n" +
+                        "Nếu bạn cần hỗ trợ, vui lòng liên hệ RentCar.";
+                // Gửi email (giả lập, bạn có thể dùng service thực tế)
+                logger.info("[Scheduled] Sending email to {}: {}", email, subject);
+            } catch (Exception e) {
+                logger.warn("[Scheduled] Không gửi được email thông báo xóa booking: {}", booking.getId());
+            }
+            // Log audit
+            logger.info("[Scheduled] [AUDIT] Booking {} deleted by system at {} (auto cleanup)", booking.getId(), LocalDateTime.now());
+            bookingRepository.delete(booking);
+            logger.info("[Scheduled] Đã xóa cứng booking failed: {}", booking.getId());
+        }
+
+    }
+
+    public void deleteAllPaymentsForBooking(Integer bookingId) {
+        List<Payment> payments = paymentRepository.findByBookingIdAndIsDeletedFalse(bookingId);
+        for (Payment payment : payments) {
+            paymentRepository.delete(payment);
+        }
+    }
 
 }

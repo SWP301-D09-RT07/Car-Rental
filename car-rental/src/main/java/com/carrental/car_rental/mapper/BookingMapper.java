@@ -173,11 +173,7 @@ public interface BookingMapper {
     default LocalDate localDateTimeToLocalDate(LocalDateTime localDateTime) {
         return localDateTime != null ? localDateTime.toLocalDate() : null;
     }
-    
-     @Named("localDateTimeToLocalDate")
-    default LocalDate localDateTimeToLocalDate(LocalDateTime localDateTime) {
-        return localDateTime != null ? localDateTime.toLocalDate() : null;
-    }
+
     
 //    public BookingDTO toDto(Booking booking) {
 //        return toDTO(booking);

@@ -30,7 +30,7 @@ public interface CarMapper {
     @Mapping(source = "image", target = "image") // Ánh xạ từ getter image
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "instantToLocalDateTime")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "instantToLocalDateTime")
-    @Mapping(source = "images", target = "images")
+    @Mapping(target = "images", ignore = true) // Ignore images để tránh lazy loading
     @Mapping(target = "rentalCount", ignore = true) // Ignore rentalCount vì không có trong entity
     CarDTO toDTO(Car entity);
 

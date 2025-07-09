@@ -113,12 +113,17 @@ public class Car {
     // Thêm getter tính toán cho image (hình ảnh chính)
     @Transient // Đánh dấu không ánh xạ trực tiếp với cột trong bảng
     public String getImage() {
+        try {
         if (images != null && !images.isEmpty()) {
             return images.stream()
                     .filter(Image::getIsMain)
                     .findFirst()
                     .map(Image::getImageUrl)
                     .orElse(images.get(0).getImageUrl()); // Lấy hình đầu tiên nếu không có is_main
+            }
+        } catch (org.hibernate.LazyInitializationException e) {
+            // Nếu images chưa được load (lazy loading), trả về null
+            return null;
         }
         return null; // Trả về null nếu không có hình ảnh
     }

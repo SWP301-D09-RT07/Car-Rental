@@ -2,6 +2,7 @@ package com.carrental.car_rental.repository;
 
 import com.carrental.car_rental.entity.Booking;
 import com.carrental.car_rental.entity.User;
+import com.carrental.car_rental.entity.Status;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,12 +36,19 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
 
     @Query("SELECT b FROM Booking b " +
            "LEFT JOIN FETCH b.car c " +
-           "LEFT JOIN FETCH b.driver d " +
-           "LEFT JOIN FETCH b.status s " +
-           "LEFT JOIN FETCH b.region r " +
+           "LEFT JOIN FETCH c.brand cb " +
+           "LEFT JOIN FETCH c.fuelType ft " +
+           "LEFT JOIN FETCH c.region car_region " +
+           "LEFT JOIN FETCH c.supplier s " +
+           "LEFT JOIN FETCH s.status s_status " +
+           "LEFT JOIN FETCH c.status car_status " +
            "LEFT JOIN FETCH b.customer cu " +
+           "LEFT JOIN FETCH cu.status cu_status " +
+           "LEFT JOIN FETCH b.status st " +
+           "LEFT JOIN FETCH b.region r " +
+           "LEFT JOIN FETCH b.driver d " +
            "WHERE b.id = :bookingId")
-    Optional<Booking> findByIdWithAllDetails(@Param("bookingId") Integer bookingId);
+    Optional<Booking> findByIdWithAllRelations(@Param("bookingId") Integer bookingId);
 
     @Query("SELECT b FROM Booking b " +
            "LEFT JOIN FETCH b.car c " +
@@ -132,5 +141,7 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
     boolean existsByCustomerIdAndCarIdAndStatusName(@Param("customerId") Integer customerId, 
                                                    @Param("carId") Integer carId, 
                                                    @Param("statusName") String statusName);
+
+    List<Booking> findByStatusAndCreatedAtBeforeAndIsDeletedFalse(Status status, LocalDateTime createdAt);
 
 }

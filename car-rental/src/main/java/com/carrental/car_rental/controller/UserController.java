@@ -15,6 +15,7 @@ import com.carrental.car_rental.dto.ToggleUserStatusRequest;
 
 import com.carrental.car_rental.service.UserService;
 import com.carrental.car_rental.service.BookingService;
+import com.carrental.car_rental.service.PaymentService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -48,13 +49,15 @@ public class UserController {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final BookingService bookingService;
+    private final PaymentService paymentService;
 
     @Autowired
-    public UserController(UserService userService, JwtTokenProvider jwtTokenProvider, UserRepository userRepository, BookingService bookingService) {
+    public UserController(UserService userService, JwtTokenProvider jwtTokenProvider, UserRepository userRepository, BookingService bookingService, PaymentService paymentService) {
         this.userService = userService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
         this.bookingService = bookingService;
+        this.paymentService = paymentService;
     }
 
     @GetMapping("/profile")
@@ -339,34 +342,19 @@ public class UserController {
     @PreAuthorize("hasRole('CUSTOMER')")
     @Transactional(readOnly = true)
     public ResponseEntity<?> getUserBookingHistory(Authentication authentication) {
-        logger.info("🔍 Getting booking history for user: {}", authentication.getName());
+        logger.info("Getting booking history for user: {}", authentication.getName());
         
         try {
             String username = authentication.getName();
-            logger.info("🔍 Looking up user with username: {}", username);
-            
             Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
             
             if (userOpt.isEmpty()) {
-                logger.error("❌ User not found for username: {}", username);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("success", false, "error", "Không tìm thấy người dùng"));
             }
             
-            User currentUser = userOpt.get();
-            logger.info("✅ Found user with ID: {}", currentUser.getId());
-            
-            // ✅ SỬA: Gọi method có load payment info
-            List<BookingDTO> bookingHistory = bookingService.getUserBookingHistory(currentUser.getId());
-            
-            logger.info("📋 Found {} bookings for user", bookingHistory.size());
-            
-            // ✅ Debug payment info cho từng booking
-            bookingHistory.forEach(booking -> {
-                logger.info("💰 Booking {}: paymentStatus={}, paymentType={}, paymentAmount={}", 
-                    booking.getBookingId(), booking.getPaymentStatus(), 
-                    booking.getPaymentType(), booking.getPaymentAmount());
-            });
+            // Sử dụng BookingService thay vì repository trực tiếp
+            List<BookingDTO> bookingHistory = bookingService.findByUserId(userOpt.get().getId());
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -376,9 +364,7 @@ public class UserController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            logger.error("❌ Error getting booking history for user {}: {}", 
-                authentication.getName(), e.getMessage(), e);
-            
+            logger.error("Error getting booking history", e);
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("error", "Lỗi khi tải lịch sử đặt xe: " + e.getMessage());
@@ -484,5 +470,17 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(createErrorResponse("Không tìm thấy người dùng với ID: " + id));
         }
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/bookings/{id}/refund")
+    public ResponseEntity<?> refundDeposit(@PathVariable Integer id) {
+        return paymentService.refundDeposit(id);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/bookings/{id}/payout")
+    public ResponseEntity<?> payoutSupplier(@PathVariable Integer id) {
+        return paymentService.payoutSupplier(id);
     }
 }

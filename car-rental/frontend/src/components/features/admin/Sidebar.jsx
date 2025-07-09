@@ -8,7 +8,8 @@ import {
     FaBars,
     FaTimes,
     FaClipboardList,
-    FaSignOutAlt
+    FaSignOutAlt,
+    FaMoneyCheckAlt
 } from "react-icons/fa";
 import { useAuth } from "../../../hooks/useAuth";
 
@@ -17,6 +18,7 @@ const menuItems = [
     { path: "/admin/users", icon: <FaUsers />, label: "Người dùng" },
     { path: "/admin/reports", icon: <FaChartBar />, label: "Báo cáo" },
     { path: "/admin/owner-requests", icon: <FaClipboardList />, label: "Đơn đăng ký chủ xe" },
+    { path: "/admin/payments", icon: <FaMoneyCheckAlt />, label: "Thanh toán" },
 ];
 
 export const Sidebar = () => {
