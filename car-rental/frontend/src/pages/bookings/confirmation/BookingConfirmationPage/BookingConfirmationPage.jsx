@@ -37,6 +37,7 @@ import { getItem } from '@/utils/auth'
 
 // Enhanced Loading Spinner Component
 const LoadingSpinner = ({ size = "medium", color = "blue", text }) => {
+
   const sizeClasses = {
     small: "w-4 h-4",
     medium: "w-8 h-8",
@@ -554,7 +555,6 @@ const BookingConfirmationPage = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const { bookingData } = location.state || {}
-
   const [car, setCar] = useState(null)
   const [promoCode, setPromoCode] = useState("")
   const [agreeTerms, setAgreeTerms] = useState(false)
@@ -790,7 +790,6 @@ const BookingConfirmationPage = () => {
       toast.error("Vui lòng nhập mã giảm giá")
       return
     }
-
     try {
       setIsApplyingPromo(true)
       const response = await post("/api/promotions/apply", { promoCode })
@@ -798,19 +797,16 @@ const BookingConfirmationPage = () => {
       if (!discountPercentage) {
         throw new Error("Mã giảm giá không hợp lệ")
       }
-
       const discount = Math.round(priceBreakdown.basePrice * (discountPercentage / 100))
       const newTotal =
         priceBreakdown.basePrice + priceBreakdown.extraFee + priceBreakdown.serviceFee + priceBreakdown.tax - discount
       const newDeposit = Math.round(newTotal * 0.3)
-
       setPriceBreakdown((prev) => ({
         ...prev,
         discount,
         total: newTotal,
         deposit: newDeposit,
       }))
-
       setError(null)
       toast.success(`Áp dụng mã giảm giá thành công! Giảm ${discountPercentage}%`)
     } catch (err) {
@@ -832,7 +828,6 @@ const BookingConfirmationPage = () => {
 
     try {
       setIsLoading(true)
-
       // Save form data for next time
       saveFormData({
         fullName: contactInfo.fullName,
@@ -982,7 +977,6 @@ const BookingConfirmationPage = () => {
                   placeholder="Nhập họ và tên"
                   error={contactErrors.fullName}
                 />
-
                 <FormInput
                   label="Số điện thoại"
                   icon={FaPhone}
@@ -995,7 +989,6 @@ const BookingConfirmationPage = () => {
                   error={contactErrors.phone}
                 />
               </div>
-
               <FormInput
                 label="Email"
                 icon={FaEnvelope}
@@ -1020,7 +1013,6 @@ const BookingConfirmationPage = () => {
                   placeholder="Nhập địa chỉ nhận xe"
                   error={contactErrors.pickupAddress}
                 />
-
                 <FormInput
                   label="Địa chỉ trả xe"
                   icon={FaMapMarkerAlt}

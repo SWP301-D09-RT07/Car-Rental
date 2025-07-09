@@ -11,7 +11,14 @@ const SupplierCarForm = ({ onSuccess }) => {
     dailyRate: "",
     description: "",
     statusName: "Có sẵn",
-    images: []
+    images: [],
+    licensePlate: "",
+    brand: "",
+    region: "",
+    fuelType: "",
+    transmission: "",
+    numOfSeats: ""
+
   });
   const [imagePreviews, setImagePreviews] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -91,63 +98,105 @@ const SupplierCarForm = ({ onSuccess }) => {
     if (form.images.length === 0) {
       newErrors.images = 'Vui lòng chọn ít nhất 1 ảnh';
     }
+
+    if (!form.licensePlate.trim()) {
+      newErrors.licensePlate = 'Biển số xe là bắt buộc';
+    }
     
+    if (!form.brand.trim()) {
+      newErrors.brand = 'Hãng xe là bắt buộc';
+    }
+    
+    if (!form.region.trim()) {
+      newErrors.region = 'Khu vực là bắt buộc';
+    }
+    
+    if (!form.fuelType.trim()) {
+      newErrors.fuelType = 'Loại nhiên liệu là bắt buộc';
+    }
+    
+    if (!form.transmission.trim()) {
+      newErrors.transmission = 'Hộp số là bắt buộc';
+    }
+    
+    if (!form.numOfSeats) {
+      newErrors.numOfSeats = 'Số chỗ ngồi là bắt buộc';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast.error('Vui lòng kiểm tra lại thông tin');
       return;
     }
-    
+
     setLoading(true);
     try {
-      // Upload ảnh trước, lấy về url
+      const token = localStorage.getItem('token');
+      // Tạo FormData gửi cả thông tin xe và ảnh
       const formData = new FormData();
-      form.images.forEach(img => formData.append("images", img));
-      
-      const res = await fetch("/api/supplier/cars/upload", {
-        method: "POST",
-        body: formData
-      });
-      
-      if (!res.ok) {
-        throw new Error('Upload ảnh thất bại');
-      }
-      
-      const imageUrls = await res.json();
-
-      // Gửi thông tin xe
-      await addSupplierCar({
-        ...form,
+      // Tạo object carData từ form
+      const carData = {
+        name: form.model,
         year: parseInt(form.year),
-        dailyRate: parseFloat(form.dailyRate),
-        imageUrls
+        color: form.color,
+        rentalPrice: parseFloat(form.dailyRate),
+        description: form.description,
+        licensePlate: form.licensePlate,
+        brand: form.brand,
+        region: form.region,
+        fuelType: form.fuelType,
+        transmission: form.transmission,
+        numOfSeats: parseInt(form.numOfSeats)
+      };
+      formData.append('carData', JSON.stringify(carData));
+      // Thêm tất cả ảnh
+      for (const img of form.images) {
+        formData.append('images', img);
+      }
+      // Gửi 1 request duy nhất lên backend
+      const res = await fetch('/api/supplier/cars', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
-      
-      toast.success("Đăng tin xe thành công!");
-      
-      // Reset form
+      if (!res.ok) {
+        throw new Error('Đăng tin thất bại!');
+      }
+      const response = await res.json();
+      if (response && response.message) {
+        toast.success(response.message);
+      } else {
+        toast.success('Xe đã được gửi lên hệ thống thành công. Vui lòng chờ admin duyệt.');
+      }
       setForm({
-        model: "",
-        year: "",
-        color: "",
-        dailyRate: "",
-        description: "",
-        statusName: "Có sẵn",
-        images: []
+        model: '',
+        year: '',
+        color: '',
+        dailyRate: '',
+        description: '',
+        statusName: 'Có sẵn',
+        images: [],
+        licensePlate: '',
+        brand: '',
+        region: '',
+        fuelType: '',
+        transmission: '',
+        numOfSeats: ''
       });
       setImagePreviews([]);
       setErrors({});
-      
       if (onSuccess) onSuccess();
     } catch (err) {
       console.error('Error adding car:', err);
-      toast.error(err.message || "Đăng tin thất bại!");
+      toast.error(err.message || 'Đăng tin thất bại!');
     } finally {
       setLoading(false);
     }
@@ -278,6 +327,109 @@ const SupplierCarForm = ({ onSuccess }) => {
           </select>
         </div>
 
+        {/* Biển số xe */}
+        <div>
+          <label className="block mb-2 font-semibold text-gray-700">
+            Biển số xe <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="licensePlate"
+            value={form.licensePlate}
+            onChange={handleChange}
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.licensePlate ? 'border-red-500' : 'border-gray-300'}`}
+            placeholder="Ví dụ: 30A-123.45"
+            required
+          />
+          {errors.licensePlate && <p className="text-red-500 text-sm mt-1">{errors.licensePlate}</p>}
+        </div>
+
+        {/* Hãng xe */}
+        <div>
+          <label className="block mb-2 font-semibold text-gray-700">
+            Hãng xe <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="brand"
+            value={form.brand}
+            onChange={handleChange}
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.brand ? 'border-red-500' : 'border-gray-300'}`}
+            placeholder="Ví dụ: Toyota, Honda, Kia..."
+            required
+          />
+          {errors.brand && <p className="text-red-500 text-sm mt-1">{errors.brand}</p>}
+        </div>
+
+        {/* Khu vực */}
+        <div>
+          <label className="block mb-2 font-semibold text-gray-700">
+            Khu vực <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="region"
+            value={form.region}
+            onChange={handleChange}
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.region ? 'border-red-500' : 'border-gray-300'}`}
+            placeholder="Ví dụ: Hà Nội, TP.HCM..."
+            required
+          />
+          {errors.region && <p className="text-red-500 text-sm mt-1">{errors.region}</p>}
+        </div>
+
+        {/* Loại nhiên liệu */}
+        <div>
+          <label className="block mb-2 font-semibold text-gray-700">
+            Loại nhiên liệu <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="fuelType"
+            value={form.fuelType}
+            onChange={handleChange}
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.fuelType ? 'border-red-500' : 'border-gray-300'}`}
+            placeholder="Ví dụ: Xăng, Dầu, Điện..."
+            required
+          />
+          {errors.fuelType && <p className="text-red-500 text-sm mt-1">{errors.fuelType}</p>}
+        </div>
+
+        {/* Hộp số */}
+        <div>
+          <label className="block mb-2 font-semibold text-gray-700">
+            Hộp số <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="transmission"
+            value={form.transmission}
+            onChange={handleChange}
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.transmission ? 'border-red-500' : 'border-gray-300'}`}
+            placeholder="Ví dụ: Số tự động, Số sàn..."
+            required
+          />
+          {errors.transmission && <p className="text-red-500 text-sm mt-1">{errors.transmission}</p>}
+        </div>
+
+        {/* Số chỗ ngồi */}
+        <div>
+          <label className="block mb-2 font-semibold text-gray-700">
+            Số chỗ ngồi <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            name="numOfSeats"
+            value={form.numOfSeats}
+            onChange={handleChange}
+            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.numOfSeats ? 'border-red-500' : 'border-gray-300'}`}
+            placeholder="Ví dụ: 4, 5, 7..."
+            min="1"
+            required
+          />
+          {errors.numOfSeats && <p className="text-red-500 text-sm mt-1">{errors.numOfSeats}</p>}
+        </div>
+
         {/* Hình ảnh xe */}
         <div>
           <label className="block mb-2 font-semibold text-gray-700">
@@ -339,7 +491,13 @@ const SupplierCarForm = ({ onSuccess }) => {
                 dailyRate: "",
                 description: "",
                 statusName: "Có sẵn",
-                images: []
+                images: [],
+                licensePlate: '',
+                brand: '',
+                region: '',
+                fuelType: '',
+                transmission: '',
+                numOfSeats: ''
               });
               setImagePreviews([]);
               setErrors({});

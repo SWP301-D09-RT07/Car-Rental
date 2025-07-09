@@ -30,14 +30,13 @@ public class CarDTO {
     private Integer fuelTypeId;
     private String fuelTypeName;
     private String features;
-    private String image; // Thêm trường image
+    private String image;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ImageDTO> images;
     private Integer rentalCount;
- 
-    // Thêm các trường mới
     private String transmission;
     private String describe;
     private Double averageRating;
+
 }

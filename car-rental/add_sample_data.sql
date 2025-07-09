@@ -124,6 +124,13 @@ VALUES
 (10, '/images/Mazda_3_2021_6.jpg', 'Mazda 3 2021 - Nội thất', 0, GETDATE(), GETDATE(), 0),
 (10, '/images/Mazda_3_2021_7.jpg', 'Mazda 3 2021 - Góc sau', 0, GETDATE(), GETDATE(), 0);
 
+-- Thêm trạng thái "Chờ duyệt" cho xe mới
+INSERT INTO Status (status_name, description)
+VALUES ('pending_approval', N'Chờ duyệt');
+
+-- Kiểm tra trạng thái đã thêm
+SELECT * FROM Status WHERE status_name = 'pending_approval';
+
 PRINT 'Đã thêm dữ liệu mẫu thành công!';
 PRINT 'Xe Honda Civic sẽ là xe phổ biến nhất với 8 lượt đặt';
 PRINT 'Xe Hyundai Accent sẽ là xe phổ biến thứ 2 với 6 lượt đặt'; 

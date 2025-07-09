@@ -81,6 +81,7 @@ const LoginRegisterPage = () => {
         username: response.username || data.username,
         email: response.email || data.username,
         rememberMe
+
       });
 
       // Lưu email vào localStorage
@@ -140,7 +141,6 @@ const LoginRegisterPage = () => {
     try {
       // Ghép country code với số điện thoại
       const fullPhone = `${countryCode}${data.phone}`;
-      
       const userData = {
         username: data.username,
         email: data.email,

@@ -146,6 +146,7 @@ const SupplierCarDashboard = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/');
+
   };
 
   const renderContent = () => {

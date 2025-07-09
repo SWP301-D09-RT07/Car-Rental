@@ -212,6 +212,7 @@ public class UserService {
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already exists: " + dto.getEmail());
                 });
         validateRelations(dto.getRoleId(), dto.getStatusId(), dto.getCountryCode(), dto.getPreferredLanguage());
+
         
         // Use mapper to create updated entity, then set ID and other preserved fields
         User updatedUser = userMapper.toEntity(dto);
@@ -223,7 +224,7 @@ public class UserService {
         updatedUser.setUpdatedAt(Instant.now());
         updatedUser.setLastLogin(existingUser.getLastLogin());
         updatedUser.setIsDeleted(false);
-        
+
         log.info("[UserService][Update] Before save User: ID={}, instance={}, username={}", updatedUser.getId(), System.identityHashCode(updatedUser), updatedUser.getUsername());
         userRepository.save(updatedUser);
         log.info("[UserService][Update] After save User: ID={}, instance={}, username={}", updatedUser.getId(), System.identityHashCode(updatedUser), updatedUser.getUsername());
@@ -488,5 +489,19 @@ public class UserService {
             .stream()
             .map(userMapper::toDto)
             .collect(Collectors.toList());
+    }
+
+    public List<UserDTO> getRecentBookingUsers(int size) {
+        // Use BookingRepository's findRecentBookingUsers query
+        Pageable pageable = PageRequest.of(0, size);
+        List<User> recentUsers = userRepository.findRecentBookingUsers(pageable);
+        return recentUsers.stream()
+                .map(user -> {
+                    UserDTO dto = userMapper.toDto(user);
+                    userDetailRepository.findByUserIdAndIsDeletedFalse(user.getId())
+                        .ifPresent(ud -> dto.setUserDetail(userDetailMapper.toDTO(ud)));
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 }

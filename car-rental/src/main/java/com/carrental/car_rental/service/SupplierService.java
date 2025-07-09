@@ -15,6 +15,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
@@ -33,6 +38,11 @@ public class SupplierService {
     private final CarMapper carMapper;
     private final BookingFinancialsService bookingFinancialsService;
     private final PaymentRepository paymentRepository;
+    private final CarBrandRepository carBrandRepository;
+    private final RegionRepository regionRepository;
+    private final FuelTypeRepository fuelTypeRepository;
+    private static final Logger logger = LoggerFactory.getLogger(SupplierService.class);
+
 
     public SupplierService(CarRepository carRepository,
                           BookingRepository bookingRepository,
@@ -42,7 +52,10 @@ public class SupplierService {
                           StatusRepository statusRepository,
                           CarMapper carMapper,
                           BookingFinancialsService bookingFinancialsService,
-                          PaymentRepository paymentRepository) {
+                          PaymentRepository paymentRepository,
+                          CarBrandRepository carBrandRepository,
+                          RegionRepository regionRepository,
+                          FuelTypeRepository fuelTypeRepository) {
         this.carRepository = carRepository;
         this.bookingRepository = bookingRepository;
         this.userRepository = userRepository;
@@ -52,6 +65,9 @@ public class SupplierService {
         this.carMapper = carMapper;
         this.bookingFinancialsService = bookingFinancialsService;
         this.paymentRepository = paymentRepository;
+        this.carBrandRepository = carBrandRepository;
+        this.regionRepository = regionRepository;
+        this.fuelTypeRepository = fuelTypeRepository;
     }
 
     private User getCurrentSupplier() {
@@ -61,8 +77,11 @@ public class SupplierService {
     }
 
     @Transactional
-    public ResponseEntity<?> addCar(VehicleDTO vehicleDTO) {
+    public ResponseEntity<?> addCar(String carDataJson, List<MultipartFile> images) {
         try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            VehicleDTO vehicleDTO = objectMapper.readValue(carDataJson, VehicleDTO.class);
+
             User supplier = getCurrentSupplier();
             if (carRepository.findByLicensePlateAndIsDeletedFalse(vehicleDTO.getLicensePlate()).isPresent()) {
                 return ResponseEntity.status(409).body("Biển số xe đã tồn tại");
@@ -75,14 +94,60 @@ public class SupplierService {
                 car.setDailyRate(java.math.BigDecimal.valueOf(vehicleDTO.getRentalPrice()));
             car.setSupplier(supplier);
             car.setIsDeleted(false);
-            Status availableStatus = statusRepository.findByStatusName("available").orElse(null);
-            if (availableStatus == null) {
-                return ResponseEntity.badRequest().body("Không tìm thấy trạng thái AVAILABLE");
+            Status pendingStatus = statusRepository.findByStatusName("pending").orElse(null);
+            if (pendingStatus == null) {
+                return ResponseEntity.badRequest().body("Không tìm thấy trạng thái pending");
             }
-            car.setStatus(availableStatus);
-            return ResponseEntity.ok(carRepository.save(car));
+            car.setStatus(pendingStatus);
+            // Mapping brand
+            CarBrand brand = carBrandRepository.findAll().stream()
+                .filter(b -> b.getBrandName().equalsIgnoreCase(vehicleDTO.getBrand()))
+                .findFirst()
+                .orElse(null);
+            if (brand == null) {
+                return ResponseEntity.badRequest().body("Không tìm thấy hãng xe: " + vehicleDTO.getBrand());
+            }
+            car.setBrand(brand);
+            // Mapping region
+            Region region = regionRepository.findAll().stream()
+                .filter(r -> r.getRegionName().equalsIgnoreCase(vehicleDTO.getRegion()))
+                .findFirst()
+                .orElse(null);
+            if (region == null) {
+                return ResponseEntity.badRequest().body("Không tìm thấy khu vực: " + vehicleDTO.getRegion());
+            }
+            car.setRegion(region);
+            // Mapping fuelType
+            FuelType fuelType = fuelTypeRepository.findAll().stream()
+                .filter(f -> f.getFuelTypeName().equalsIgnoreCase(vehicleDTO.getFuelType()))
+                .findFirst()
+                .orElse(null);
+            if (fuelType == null) {
+                return ResponseEntity.badRequest().body("Không tìm thấy loại nhiên liệu: " + vehicleDTO.getFuelType());
+            }
+            car.setFuelType(fuelType);
+            // Transmission
+            car.setTransmission(vehicleDTO.getTransmission());
+            // Num of seats
+            car.setNumOfSeats(vehicleDTO.getNumOfSeats() != null ? vehicleDTO.getNumOfSeats().shortValue() : (short)4);
+            if (vehicleDTO.getYear() != null) {
+                car.setYear(vehicleDTO.getYear().shortValue());
+            }
+            car.setColor(vehicleDTO.getColor());
+            Car savedCar = carRepository.save(car);
+            if (images != null) {
+                for (MultipartFile file : images) {
+                    Image image = new Image();
+                    image.setCar(savedCar);
+                    imageService.saveImage(image, file);
+                }
+            }
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đăng xe thành công!"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error uploading image: " + e.getMessage());
+            System.err.println("[DEBUG] carDataJson: " + carDataJson);
+            e.printStackTrace(); // log ra console
+            logger.error("Lỗi khi đăng xe:", e);
+            return ResponseEntity.status(500).body("Lỗi hệ thống: " + e.getMessage());
         }
     }
 
@@ -116,6 +181,7 @@ public class SupplierService {
         if (!car.getSupplier().equals(getCurrentSupplier())) {
             return ResponseEntity.status(403).body("Not authorized to delete this car");
         }
+
         if (bookingRepository.existsByCar_IdAndStatus_StatusNameNot(id, "completed")) {
             return ResponseEntity.badRequest().body("Cannot delete car with active bookings");
         }
@@ -277,11 +343,12 @@ public class SupplierService {
         if (!booking.getCar().getSupplier().equals(getCurrentSupplier())) {
             return ResponseEntity.status(403).body("Not authorized to complete this booking");
         }
-        Status rentingStatus = statusRepository.findByStatusName("in progress").orElse(null);
+
+        Status rentingStatus = statusRepository.findByStatusName("RENTING").orElse(null);
         if (rentingStatus == null || !booking.getStatus().equals(rentingStatus)) {
             return ResponseEntity.badRequest().body("Booking is not in renting status");
         }
-        Status completedStatus = statusRepository.findByStatusName("completed").orElse(null);
+        Status completedStatus = statusRepository.findByStatusName("COMPLETED").orElse(null);
         if (completedStatus == null) {
             return ResponseEntity.badRequest().body("Status COMPLETED not found");
         }
@@ -308,6 +375,7 @@ public class SupplierService {
             summary.put("totalVehicles", carRepository.countBySupplierAndIsDeletedFalse(supplier));
             summary.put("availableVehicles", carRepository.countBySupplierAndStatusAndIsDeletedFalse(supplier, "available"));
             summary.put("rentedVehicles", carRepository.countBySupplierAndStatusAndIsDeletedFalse(supplier, "rented"));
+            summary.put("pendingApprovalVehicles", carRepository.countBySupplierAndStatusAndIsDeletedFalse(supplier, "pending_approval"));
             summary.put("totalBookings", bookingRepository.countByCar_Supplier(supplier));
             summary.put("pendingBookings", bookingRepository.countByCar_SupplierAndStatus_StatusName(supplier, "pending"));
             summary.put("activeBookings", bookingRepository.countByCar_SupplierAndStatus_StatusName(supplier, "in progress"));

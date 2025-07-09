@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import {
@@ -306,3 +307,4 @@ function Home() {
 }
 
 export default Home;
+

@@ -25,4 +25,11 @@ public class VehicleDTO {
     private Double rentalPrice;
 
     private MultipartFile image;
+    private String region;
+    private String fuelType;
+    private String transmission;
+    private Integer numOfSeats;
+    private Integer year;
+    private String color;
+
 } 

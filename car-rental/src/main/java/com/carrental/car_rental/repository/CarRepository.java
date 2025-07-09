@@ -56,7 +56,6 @@ public interface CarRepository extends JpaRepository<Car, Integer>, JpaSpecifica
 
     @Query("SELECT c FROM Car c JOIN FETCH c.supplier JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.isDeleted = false")
     Page<Car> findAllWithRelations(Pageable pageable);
-
     @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.region.id = :regionId AND c.isDeleted = false")
     List<Car> findByRegionIdAndIsDeletedFalse(Integer regionId);
 
@@ -136,11 +135,34 @@ public interface CarRepository extends JpaRepository<Car, Integer>, JpaSpecifica
     List<Car> findBySupplierAndIsDeletedFalse(User supplier);
 
     @Query("SELECT c FROM Car c " +
-            "LEFT JOIN FETCH c.brand " +
-            "LEFT JOIN FETCH c.fuelType " +
-            "LEFT JOIN FETCH c.region " +
-            "LEFT JOIN FETCH c.status " +
-            "LEFT JOIN FETCH c.images " +
-            "WHERE c.supplier = :supplier AND c.isDeleted = false")
+           "LEFT JOIN FETCH c.supplier s " +
+           "LEFT JOIN FETCH s.role " +
+           "LEFT JOIN FETCH s.status " +
+           "LEFT JOIN FETCH s.userDetail " +
+           "LEFT JOIN FETCH c.brand " +
+           "LEFT JOIN FETCH c.fuelType " +
+           "LEFT JOIN FETCH c.region " +
+           "LEFT JOIN FETCH c.status " +
+           "LEFT JOIN FETCH c.images " +
+           "WHERE c.supplier = :supplier AND c.isDeleted = false")
     List<Car> findBySupplierAndIsDeletedFalseWithAllRelations(@Param("supplier") User supplier);
+
+    @Query("SELECT c FROM Car c " +
+           "JOIN FETCH c.supplier s " +
+           "LEFT JOIN FETCH s.role " +
+           "LEFT JOIN FETCH s.status " +
+           "LEFT JOIN FETCH s.userDetail " +
+           "JOIN FETCH c.brand " +
+           "JOIN FETCH c.fuelType " +
+           "JOIN FETCH c.region " +
+           "JOIN FETCH c.status " +
+           "LEFT JOIN FETCH c.images " +
+           "WHERE c.status.statusName = 'pending_approval' AND c.isDeleted = false")
+    List<Car> findByStatus_StatusNameAndIsDeletedFalse(@Param("statusName") String statusName);
+
+    // Count methods for admin dashboard
+    long countByIsDeletedFalse();
+    
+    @Query("SELECT COUNT(c) FROM Car c WHERE c.status.statusName = :statusName AND c.isDeleted = false")
+    long countByStatus_StatusNameAndIsDeletedFalse(@Param("statusName") String statusName);
 }

@@ -12,4 +12,5 @@ public interface StatusRepository extends JpaRepository<Status, Integer> {
     @Query("SELECT s FROM Status s WHERE s.id = :id")
     Optional<Status> findByIdSafe(@Param("id") Integer id);
     Status findByStatusNameIgnoreCase(String statusName);
+
 }

@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { FaClipboardList, FaCheck, FaTimes, FaEye, FaFilter, FaSyncAlt, FaCheckCircle, FaTimesCircle, FaFileExport, FaSearch, FaMoneyCheckAlt } from "react-icons/fa";
 import Papa from 'papaparse';
 
+
 const SupplierOrderManagement = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -482,6 +483,7 @@ const SupplierOrderManagement = () => {
           </div>
         </div>
       )}
+
       {/* Summary */}
       {orders.length > 0 && (
         <div className="mt-8 grid grid-cols-1 md:grid-cols-5 gap-4">

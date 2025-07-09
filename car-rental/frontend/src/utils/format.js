@@ -112,6 +112,7 @@ export const formatAddress = (address) => {
     .map(part => part.trim())
     .filter(part => part)
     .join(', ');
+<<<<<<< HEAD
 };
 
 /**
@@ -214,3 +215,6 @@ export const formatDiscountPrice = (originalPrice, discountPercent, compact = fa
     savings: formatVND(originalPrice - discountedPrice, compact)
   };
 };
+=======
+}; 
+>>>>>>> supplier

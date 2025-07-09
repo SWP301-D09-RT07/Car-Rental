@@ -7,7 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 @RestController
@@ -23,8 +23,10 @@ public class SupplierController {
 
     // Quản lý xe
     @PostMapping("/cars")
-    public ResponseEntity<?> addCar(@Valid @RequestBody VehicleDTO vehicleDTO) {
-        return supplierService.addCar(vehicleDTO);
+    public ResponseEntity<?> addCar(
+        @RequestPart("carData") String carDataJson,
+        @RequestPart(value = "images", required = false) List<MultipartFile> images) {
+        return supplierService.addCar(carDataJson, images);
     }
 
     @PutMapping("/cars/{id}")

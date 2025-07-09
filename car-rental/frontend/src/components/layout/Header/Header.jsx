@@ -255,10 +255,9 @@ const Header = ({
                                         <span>Đăng nhập</span>
                                     </Link>
                                     <Link
-                                        to="/register"
+                                        to="/login"
                                         state={{ showRegister: true }}
-                                        className="flex items-center text-white bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-xl space-x-3 font-semibold shadow-lg"
-                                        onClick={() => setIsMobileMenuOpen(false)}
+                                        className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white py-2 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-sm"
                                     >
                                         <FaUserPlus className="text-lg" />
                                         <span>Đăng ký</span>

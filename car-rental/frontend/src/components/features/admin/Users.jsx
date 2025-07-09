@@ -37,7 +37,6 @@ function Users() {
       console.log("Current page:", currentPage);
       console.log("Filter role:", filterRole);
       console.log("Filter status:", filterStatus);
-
       try {
         setIsLoading(true);
         setError(null);
@@ -48,14 +47,12 @@ function Users() {
           ...(filterRole !== "all" && { role: filterRole }),
           ...(filterStatus !== "all" && { status: filterStatus }),
         });
-
         console.log("API URL:", `/api/users?${params.toString()}`);
         console.log("Request params:", Object.fromEntries(params));
 
         const response = await api.get(`/api/users?${params.toString()}`);
         console.log("Response status:", response.status);
         console.log("Response data:", response.data);
-
         setUsers(response.data.content);
         setTotalPages(response.data.totalPages);
         console.log("Users loaded:", response.data.content.length);
@@ -94,7 +91,6 @@ function Users() {
     console.log("=== BẮT ĐẦU CONFIRM BLOCK ===");
     console.log("Selected user:", selectedUser);
     console.log("Block reason:", blockReason);
-
     try {
       setError(null);
       console.log("Toggling user:", selectedUser.userId);

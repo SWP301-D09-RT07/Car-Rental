@@ -5,7 +5,7 @@ Username: PhamQuocAnh, Password: Anh$90123
 Username: LeHongNgoc, Password: Ngoc%4567
 Username: HoangMinhTuan, Password: Tuan&8901
 Supplier#
-Username: NguyenThiLan, Password: Lan@34567,
+Username: NguyenThiLan, Password: Lan@34567
 Username: TranVanNam, Password: Nam#78901
 Username: PhamThiHoa, Password: Hoa$12345
 Username: LeMinhDuc, Password: Duc%56789

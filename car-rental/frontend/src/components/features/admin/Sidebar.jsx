@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+
 import { motion } from "framer-motion";
 import {
     FaHome,
@@ -25,7 +26,6 @@ export const Sidebar = () => {
     const [isOpen, setIsOpen] = useState(true);
     const location = useLocation();
     const { logout } = useAuth();
-
     const toggleSidebar = () => {
         setIsOpen(!isOpen);
     };

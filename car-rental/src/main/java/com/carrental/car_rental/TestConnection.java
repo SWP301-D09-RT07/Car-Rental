@@ -7,6 +7,7 @@ public class TestConnection {
         String url = "jdbc:sqlserver://localhost:1433;databaseName=CarRentalDB;encrypt=true;trustServerCertificate=true";
         String username = "sa";
         String password = "admin";
+
         try {
             Connection connection = DriverManager.getConnection(url, username, password);
             System.out.println("Kết nối thành công!");
