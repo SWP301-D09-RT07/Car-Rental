@@ -126,13 +126,11 @@ public class UserService {
         user.setIsDeleted(false);
 
         // preferredLanguage
-        if (dto.getPreferredLanguage() != null) {
+        if (dto.getPreferredLanguage() != null && !dto.getPreferredLanguage().isBlank()) {
             Language lang = languageRepository.findById(dto.getPreferredLanguage())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid preferredLanguage: " + dto.getPreferredLanguage()));
             user.setPreferredLanguage(lang);
-        } else {
-            user.setPreferredLanguage(null);
-        }
+        } // Nếu không truyền preferredLanguage thì giữ nguyên giá trị cũ, không set lại
 
         User savedUser = userRepository.save(user);
 
@@ -196,7 +194,16 @@ public class UserService {
         updatedUser.setUpdatedAt(Instant.now());
         updatedUser.setLastLogin(existingUser.getLastLogin());
         updatedUser.setIsDeleted(false);
-        
+
+        // Fix: Chỉ set lại preferredLanguage nếu DTO truyền ID hợp lệ, nếu không thì giữ nguyên giá trị cũ
+        if (dto.getPreferredLanguage() != null && !dto.getPreferredLanguage().isBlank()) {
+            Language lang = languageRepository.findById(dto.getPreferredLanguage())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid preferredLanguage: " + dto.getPreferredLanguage()));
+            updatedUser.setPreferredLanguage(lang);
+        } else {
+            updatedUser.setPreferredLanguage(existingUser.getPreferredLanguage());
+        }
+
         log.info("Before save: ID={}", updatedUser.getId());
         userRepository.save(updatedUser);
         log.info("After save: successful");        Optional<UserDetail> userDetailOptional = userDetailRepository.findByUserIdAndIsDeletedFalse(id);

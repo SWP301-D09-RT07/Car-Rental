@@ -6,8 +6,9 @@ import com.carrental.car_rental.dto.UserDTO;
 import com.carrental.car_rental.entity.User;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 
-@Mapper(componentModel = "spring", uses = UserDetailMapper.class)
+@Mapper(componentModel = "spring", uses = UserDetailMapper.class, nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
 public interface UserMapper {
     @Mapping(source = "id", target = "userId")
     @Mapping(source = "role.id", target = "roleId")

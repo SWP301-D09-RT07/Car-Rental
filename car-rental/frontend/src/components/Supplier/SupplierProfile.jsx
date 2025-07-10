@@ -25,7 +25,9 @@ const SupplierProfile = () => {
         name: data.userDetail?.name || '',
         email: data.email || '',
         phone: data.phone || '',
-        address: data.userDetail?.address || ''
+        address: data.userDetail?.address || '',
+        countryCode: data.countryCode || '',
+        username: data.username || ''
       });
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -47,7 +49,32 @@ const SupplierProfile = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      await updateProfile(formData);
+      // Đảm bảo countryCode và username luôn có trong dữ liệu gửi đi
+      const dataToSend = {
+        ...formData,
+        countryCode: formData.countryCode || profile.countryCode || '',
+        username: formData.username || profile.username || ''
+      };
+
+      function deepRemoveLanguage(obj) {
+        if (Array.isArray(obj)) return obj.map(deepRemoveLanguage);
+        if (obj && typeof obj === 'object') {
+          const newObj = {};
+          for (const key in obj) {
+            if (key !== 'language' && key !== 'languageId') {
+              newObj[key] = deepRemoveLanguage(obj[key]);
+            }
+          }
+          return newObj;
+        }
+        return obj;
+      }
+      const cleanedData = deepRemoveLanguage(dataToSend);
+      if ('preferredLanguage' in cleanedData) {
+        delete cleanedData.preferredLanguage;
+      }
+      console.log('DATA SENT TO API:', cleanedData);
+      await updateProfile(cleanedData);
       await fetchProfile(); // Refresh data
       setIsEditing(false);
       toast.success('Cập nhật hồ sơ thành công!');
