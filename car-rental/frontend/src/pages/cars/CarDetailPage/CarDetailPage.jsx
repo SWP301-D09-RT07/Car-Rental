@@ -1776,7 +1776,20 @@ const CarDetailPage = () => {
           )}
         </div>
       </div>
-
+      {/* <div className="fixed bottom-8 right-8 z-30 flex flex-col space-y-4">           
+          {showScrollToTop && (
+            <button
+              onClick={scrollToTop}
+                className="group relative bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white w-14 h-14 rounded-full shadow-xl hover:shadow-2xl flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+                  aria-label="Lên đầu trang"
+            >
+            <FaArrowUp className="text-lg" />
+            <div className="absolute right-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                  Lên đầu trang
+            </div>
+            </button>
+          )}
+        </div>     */}
       {/* Booking Modal */}
       <BookingModal
         isOpen={isBookingModalOpen}

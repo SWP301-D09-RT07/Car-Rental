@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
+import com.carrental.car_rental.mapper.RatingMapper;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -48,6 +49,7 @@ public class BookingService {
     private final PaymentRepository paymentRepository;
     private final RatingRepository ratingRepository;
     private final UserMapper userMapper;
+    private final RatingMapper ratingMapper;
 
     private static final int AVAILABLE_STATUS_ID = 11;
     private static final int PENDING_STATUS_ID = 1;
@@ -67,7 +69,7 @@ public class BookingService {
             BookingFinancialsService financialsService,
             PromotionRepository promotionRepository,
             PaymentRepository paymentRepository,
-            RatingRepository ratingRepository, UserMapper userMapper) {
+            RatingRepository ratingRepository, UserMapper userMapper, RatingMapper ratingMapper) {
         this.bookingRepository = bookingRepository;
         this.carRepository = carRepository;
         this.insuranceRepository = insuranceRepository;
@@ -82,6 +84,7 @@ public class BookingService {
         this.paymentRepository = paymentRepository;
         this.ratingRepository = ratingRepository;
         this.userMapper = userMapper;
+        this.ratingMapper = ratingMapper;
     }
 
     @Transactional(readOnly = true)
@@ -205,8 +208,10 @@ public class BookingService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found or has been deleted"));
 
         // Check if car is available for the specified dates
+        Instant startInstant = dto.getPickupDateTime().atZone(java.time.ZoneId.systemDefault()).toInstant();
+        Instant endInstant = dto.getDropoffDateTime().atZone(java.time.ZoneId.systemDefault()).toInstant();
         List<Booking> conflictingBookings = bookingRepository.findByCarIdAndOverlappingDates(
-            dto.getCarId(), dto.getPickupDateTime().toLocalDate(), dto.getDropoffDateTime().toLocalDate());
+            dto.getCarId(), startInstant, endInstant);
         
         if (!conflictingBookings.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, 
@@ -219,8 +224,9 @@ public class BookingService {
         booking.setCustomer(user);
         booking.setPickupLocation(dto.getPickupLocation());
         booking.setDropoffLocation(dto.getDropoffLocation());
-        booking.setStartDate(dto.getPickupDateTime().toLocalDate());
-        booking.setEndDate(dto.getDropoffDateTime().toLocalDate());
+        // SỬA: Chuyển LocalDateTime -> Instant khi set vào entity
+        booking.setStartDate(dto.getPickupDateTime() != null ? dto.getPickupDateTime().atZone(java.time.ZoneId.systemDefault()).toInstant() : null);
+        booking.setEndDate(dto.getDropoffDateTime() != null ? dto.getDropoffDateTime().atZone(java.time.ZoneId.systemDefault()).toInstant() : null);
         booking.setBookingDate(Instant.now());
         booking.setStatus(statusRepository.findById(PENDING_STATUS_ID)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Default status not found")));
@@ -372,8 +378,8 @@ public class BookingService {
                 .filter(b -> !b.getIsDeleted())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found or has been deleted."));
 
-        LocalDate startDate = dto.getPickupDateTime() != null ? dto.getPickupDateTime().toLocalDate() : booking.getStartDate();
-        LocalDate endDate = dto.getDropoffDateTime() != null ? dto.getDropoffDateTime().toLocalDate() : booking.getEndDate();
+        LocalDateTime startDate = dto.getPickupDateTime();
+        LocalDateTime endDate = dto.getDropoffDateTime();
         if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date range");
         }
@@ -389,8 +395,9 @@ public class BookingService {
 
         if (dto.getPickupLocation() != null) booking.setPickupLocation(dto.getPickupLocation());
         if (dto.getDropoffLocation() != null) booking.setDropoffLocation(dto.getDropoffLocation());
-        if (startDate != null) booking.setStartDate(startDate);
-        if (endDate != null) booking.setEndDate(endDate);
+        // SỬA: Chuyển LocalDateTime -> Instant khi set vào entity
+        if (startDate != null) booking.setStartDate(startDate.atZone(java.time.ZoneId.systemDefault()).toInstant());
+        if (endDate != null) booking.setEndDate(endDate.atZone(java.time.ZoneId.systemDefault()).toInstant());
 
         booking.setUpdatedAt(Instant.now());
         Booking updatedBooking = bookingRepository.save(booking);
@@ -653,6 +660,11 @@ public BookingDTO confirmReturn(Integer bookingId, Boolean isSupplier) {
                 dto.setTotalAmount(java.math.BigDecimal.ZERO);
             }
             
+            // ✅ THÊM: Load ratings cho từng booking
+            List<RatingDTO> ratings = ratingRepository.findByBookingIdAndCustomerIdAndIsDeletedFalse(booking.getId(), userId)
+                .stream().map(ratingMapper::toDTO).collect(Collectors.toList());
+            dto.setRatings(ratings != null ? ratings : new ArrayList<>());
+
             return dto;
         }).collect(Collectors.toList());
         
@@ -1010,6 +1022,15 @@ public List<PaymentDTO> getBookingPaymentDetails(Integer bookingId) {
         for (Payment payment : payments) {
             paymentRepository.delete(payment);
         }
+    }
+
+    // Method for admin dashboard
+    public long count() {
+        return bookingRepository.count();
+    }
+
+    public BigDecimal calculateTotalRevenue() {
+        return bookingRepository.calculateTotalRevenue();
     }
 
 }

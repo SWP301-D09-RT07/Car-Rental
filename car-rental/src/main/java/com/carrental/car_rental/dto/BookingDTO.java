@@ -52,8 +52,6 @@ public class BookingDTO {
     private String carModel;
     private String driverName;
     private String regionName;
-    private LocalDate startDate;
-    private LocalDate endDate;
 
     private Boolean supplierDeliveryConfirm;
     private Boolean customerReceiveConfirm;
@@ -207,4 +205,15 @@ public class BookingDTO {
     public void setRefundStatus(String refundStatus) { this.refundStatus = refundStatus; }
     public String getPayoutStatus() { return payoutStatus; }
     public void setPayoutStatus(String payoutStatus) { this.payoutStatus = payoutStatus; }
+
+    // Thêm trường này vào DTO
+    private List<RatingDTO> ratings = new ArrayList<>();
+
+    // Thêm getter/setter cho ratings
+    public List<RatingDTO> getRatings() {
+        return ratings != null ? ratings : new ArrayList<>();
+    }
+    public void setRatings(List<RatingDTO> ratings) {
+        this.ratings = ratings != null ? ratings : new ArrayList<>();
+    }
 }

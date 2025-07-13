@@ -155,6 +155,21 @@ const PickupPaymentSummary = ({
         )}
       </button>
 
+      {/* ✅ THÊM: Hiển thị trạng thái đã thanh toán tiền mặt */}
+      {bookingInfo?.paymentDetails?.find(
+        p => p.paymentType === 'full_payment' && p.paymentStatus === 'paid' && p.paymentMethod === 'cash'
+      ) && (
+        <div className="mt-4 px-4 py-3 bg-green-100 border border-green-200 rounded-2xl text-center">
+          <div className="flex items-center justify-center gap-2 text-green-700 font-semibold">
+            <FaCheckCircle className="text-lg" />
+            <span>Đã nhận đủ tiền mặt</span>
+          </div>
+          <p className="text-green-600 text-sm mt-1">
+            Thanh toán đã được xác nhận
+          </p>
+        </div>
+      )}
+
       {/* Security Notice */}
       <div className="mt-6 text-center">
         <div className="flex items-center justify-center gap-4 text-xs text-gray-500 mb-2">

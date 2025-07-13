@@ -19,6 +19,20 @@ import com.carrental.car_rental.service.UserService;
 import com.carrental.car_rental.service.EmailService;
 import com.carrental.car_rental.repository.RoleRepository;
 import com.carrental.car_rental.repository.StatusRepository;
+import com.carrental.car_rental.repository.CountryCodeRepository;
+import com.carrental.car_rental.repository.UserRepository;
+import com.carrental.car_rental.repository.UserDetailRepository;
+import com.carrental.car_rental.entity.Role;
+import com.carrental.car_rental.entity.Status;
+import com.carrental.car_rental.entity.CountryCode;
+import com.carrental.car_rental.entity.User;
+import com.carrental.car_rental.entity.UserDetail;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.server.ResponseStatusException;
+import java.time.Instant;
+import org.springframework.http.HttpStatus;
+import com.carrental.car_rental.service.AuthService;
+
 
 @RestController
 @RequestMapping("/api/registration-requests")
@@ -30,9 +44,19 @@ public class RegistrationRequestController {
     @Autowired
     private EmailService emailService;
     @Autowired
+    private AuthService authService;
+    @Autowired
     private RoleRepository roleRepository;
     @Autowired
     private StatusRepository statusRepository;
+    @Autowired
+    private CountryCodeRepository countryCodeRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private UserDetailRepository userDetailRepository;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     private final String UPLOAD_DIR = "uploads/";
 
@@ -43,10 +67,22 @@ public class RegistrationRequestController {
             @RequestParam String address,
             @RequestParam String phoneNumber,
             @RequestParam String email,
+            @RequestParam String password,
             @RequestParam MultipartFile carDocuments,
             @RequestParam MultipartFile businessLicense,
             @RequestParam MultipartFile driverLicense
     ) throws IOException {
+        // Log các trường nhận được
+        System.out.println("[RegistrationRequestController] Nhận đăng ký chủ xe:");
+        System.out.println("  fullName: " + fullName);
+        System.out.println("  idNumber: " + idNumber);
+        System.out.println("  address: " + address);
+        System.out.println("  phoneNumber: " + phoneNumber);
+        System.out.println("  email: " + email);
+        System.out.println("  password: " + password);
+        System.out.println("  carDocuments: " + (carDocuments != null ? carDocuments.getOriginalFilename() : null));
+        System.out.println("  businessLicense: " + (businessLicense != null ? businessLicense.getOriginalFilename() : null));
+        System.out.println("  driverLicense: " + (driverLicense != null ? driverLicense.getOriginalFilename() : null));
         // Lưu file
         String carDocPath = saveFile(carDocuments);
         String businessLicensePath = saveFile(businessLicense);
@@ -58,6 +94,7 @@ public class RegistrationRequestController {
         req.setAddress(address);
         req.setPhoneNumber(phoneNumber);
         req.setEmail(email);
+        req.setPassword(password);
         req.setCarDocuments(carDocPath);
         req.setBusinessLicense(businessLicensePath);
         req.setDriverLicense(driverLicensePath);
@@ -87,38 +124,57 @@ public class RegistrationRequestController {
             service.save(req);
 
             // Tạo user mới từ thông tin hồ sơ
-            String tempPassword = generateTempPassword();
+            String passwordToUse = (req.getPassword() != null && !req.getPassword().isEmpty()) ? req.getPassword() : generateTempPassword();
             CreateUserDTO dto = new CreateUserDTO();
             dto.setUsername(req.getEmail());
             dto.setEmail(req.getEmail());
-            dto.setPassword(tempPassword);
-            dto.setPhone(req.getPhoneNumber());
-            // Lấy role supplier
-            dto.setRoleId(roleRepository.findByRoleName("supplier").map(r -> r.getId()).orElse(2));
-            // Lấy status active
-            dto.setStatusId(statusRepository.findByStatusName("active").map(s -> s.getId()).orElse(1));
-            dto.setCountryCode("+84");
-            dto.setPreferredLanguage(null);
-            UserDetailDTO detail = new UserDetailDTO();
-            detail.setFullName(req.getFullName());
-            detail.setAddress(req.getAddress());
-            dto.setUserDetail(detail);
-            userService.save(dto);
+            dto.setPassword(passwordToUse);
+            // Tách country code và số điện thoại
+            String fullPhone = req.getPhoneNumber();
+            String countryCode = "+84";
+            if (fullPhone != null && fullPhone.startsWith("+") && fullPhone.length() > 3) {
+                countryCode = fullPhone.substring(0, 3); // ví dụ: +84
+            }
+            dto.setCountryCode(countryCode);
+            dto.setPhone(fullPhone);
+            dto.setRoleId(2); // Chủ xe
+            dto.setStatusId(8); // Đã duyệt
+            dto.setPreferredLanguage("vi"); // hoặc null nếu không dùng
+            UserDetailDTO detailDTO = new UserDetailDTO();
+            detailDTO.setFullName(req.getFullName());
+            detailDTO.setAddress(req.getAddress());
+            dto.setUserDetail(detailDTO);
+
+            // Gọi service tạo user mới (đã xử lý đúng transaction, mapping, cascade)
+            try {
+                authService.register(dto); // <-- Sửa lại gọi authService.register thay vì userService.save
+            } catch (Exception e) {
+                System.out.println("[RegistrationRequestController] LỖI khi tạo user: " + e.getMessage());
+                e.printStackTrace();
+                return ResponseEntity.status(500).body("Lỗi khi tạo user: " + e.getMessage());
+            }
 
             // Gửi email thông báo
             String subject = "Tài khoản chủ xe của bạn đã được duyệt";
-            String body = "Xin chào " + req.getFullName() + ",\n\n" +
-                    "Tài khoản chủ xe của bạn đã được duyệt.\n" +
-                    "Thông tin đăng nhập:\n" +
-                    "Email: " + req.getEmail() + "\n" +
-                    "Mật khẩu tạm thời: " + tempPassword + "\n" +
-                    "Vui lòng đăng nhập và đổi mật khẩu ngay sau khi đăng nhập.\n\n" +
-                    "Trân trọng,\nĐội ngũ Car Rental";
+            String body;
+            if (req.getPassword() != null && !req.getPassword().isEmpty()) {
+                body = "Xin chào " + req.getFullName() + ",\n\n" +
+                        "Tài khoản chủ xe của bạn đã được duyệt. Bạn có thể đăng nhập bằng email và mật khẩu đã đăng ký.\n\n" +
+                        "Trân trọng,\nĐội ngũ Car Rental";
+            } else {
+                body = "Xin chào " + req.getFullName() + ",\n\n" +
+                        "Tài khoản chủ xe của bạn đã được duyệt.\n" +
+                        "Thông tin đăng nhập:\n" +
+                        "Email: " + req.getEmail() + "\n" +
+                        "Vui lòng đăng nhập và đổi mật khẩu ngay sau khi đăng nhập.\n\n" +
+                        "Trân trọng,\nĐội ngũ Car Rental";
+            }
             emailService.sendEmail(req.getEmail(), subject, body);
 
-            return ResponseEntity.ok("Đã duyệt yêu cầu và tạo tài khoản user, đã gửi email cho user.");
+            return ResponseEntity.ok("Đã duyệt và tạo tài khoản thành công!");
+        } else {
+            return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.notFound().build();
     }
 
     @PostMapping("/{id}/reject")

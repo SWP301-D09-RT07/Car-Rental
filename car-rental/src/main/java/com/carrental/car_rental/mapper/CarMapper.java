@@ -20,6 +20,7 @@ public interface CarMapper {
     @Mapping(source = "region.currency", target = "currency")
     @Mapping(source = "dailyRate", target = "dailyRate")
     @Mapping(source = "region.id", target = "regionId")
+    @Mapping(source = "region.regionName", target = "regionName")
     @Mapping(source = "fuelType.id", target = "fuelTypeId")
     @Mapping(source = "fuelType.fuelTypeName", target = "fuelTypeName")
     @Mapping(source = "status.id", target = "statusId")
@@ -30,7 +31,7 @@ public interface CarMapper {
     @Mapping(source = "image", target = "image") // Ánh xạ từ getter image
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "instantToLocalDateTime")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "instantToLocalDateTime")
-    @Mapping(target = "images", ignore = true) // Ignore images để tránh lazy loading
+    @Mapping(source = "images", target = "images") // Bổ sung mapping images
     @Mapping(target = "rentalCount", ignore = true) // Ignore rentalCount vì không có trong entity
     CarDTO toDTO(Car entity);
 

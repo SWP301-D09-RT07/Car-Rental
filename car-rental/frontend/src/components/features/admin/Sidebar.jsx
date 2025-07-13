@@ -10,7 +10,8 @@ import {
     FaTimes,
     FaClipboardList,
     FaSignOutAlt,
-    FaMoneyCheckAlt
+    FaMoneyCheckAlt,
+    FaCar
 } from "react-icons/fa";
 import { useAuth } from "../../../hooks/useAuth";
 
@@ -19,6 +20,7 @@ const menuItems = [
     { path: "/admin/users", icon: <FaUsers />, label: "Người dùng" },
     { path: "/admin/reports", icon: <FaChartBar />, label: "Báo cáo" },
     { path: "/admin/owner-requests", icon: <FaClipboardList />, label: "Đơn đăng ký chủ xe" },
+    { path: "/admin/car-approval", icon: <FaCar />, label: "Duyệt xe" },
     { path: "/admin/payments", icon: <FaMoneyCheckAlt />, label: "Thanh toán" },
 ];
 

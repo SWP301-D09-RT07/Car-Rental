@@ -101,41 +101,56 @@ public class RatingService {
                 boolean hasCompletedBooking = bookingRepository.existsByCustomerIdAndCarIdAndStatusName(
                     dto.getCustomerId(), 
                     dto.getCarId(), 
-                    "completed" // Hoặc tên status tương ứng trong database của bạn
+                    "completed"
+                ) || bookingRepository.existsByCustomerIdAndCarIdAndStatusName(
+                    dto.getCustomerId(),
+                    dto.getCarId(),
+                    "refunded"
+                ) || bookingRepository.existsByCustomerIdAndCarIdAndStatusName(
+                    dto.getCustomerId(),
+                    dto.getCarId(),
+                    "payout"
                 );
-                
                 if (!hasCompletedBooking) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, 
                         "Bạn chỉ có thể đánh giá xe sau khi đã hoàn thành chuyến đi");
                 }
             }
-            
-            Rating entity = new Rating();
-            entity.setRatingScore(dto.getRatingScore().shortValue());
-            entity.setComment(dto.getComment());
-            entity.setRatingDate(dto.getRatingDate() != null ? dto.getRatingDate() : Instant.now());
-            entity.setIsDeleted(false);
-            entity.setIsAnonymous(dto.getIsAnonymous() != null ? dto.getIsAnonymous() : false);
-
-            // Set relationships
-            if (dto.getCustomerId() != null) {
-                User customer = userRepository.findById(dto.getCustomerId())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
-                entity.setCustomer(customer);
+            // Tìm rating cũ của user cho booking này
+            List<Rating> existing = ratingRepository.findByBookingIdAndCustomerIdAndIsDeletedFalse(dto.getBookingId(), dto.getCustomerId());
+            Rating entity;
+            if (!existing.isEmpty()) {
+                // Update đánh giá cũ
+                entity = existing.get(0);
+                entity.setRatingScore(dto.getRatingScore().shortValue());
+                entity.setComment(dto.getComment());
+                entity.setIsAnonymous(dto.getIsAnonymous() != null ? dto.getIsAnonymous() : false);
+                entity.setRatingDate(dto.getRatingDate() != null ? dto.getRatingDate() : Instant.now());
+            } else {
+                // Tạo mới
+                entity = new Rating();
+                entity.setRatingScore(dto.getRatingScore().shortValue());
+                entity.setComment(dto.getComment());
+                entity.setRatingDate(dto.getRatingDate() != null ? dto.getRatingDate() : Instant.now());
+                entity.setIsDeleted(false);
+                entity.setIsAnonymous(dto.getIsAnonymous() != null ? dto.getIsAnonymous() : false);
+                // Set relationships
+                if (dto.getCustomerId() != null) {
+                    User customer = userRepository.findById(dto.getCustomerId())
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
+                    entity.setCustomer(customer);
+                }
+                if (dto.getCarId() != null) {
+                    Car car = carRepository.findById(dto.getCarId())
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Car not found"));
+                    entity.setCar(car);
+                }
+                if (dto.getBookingId() != null) {
+                    Booking booking = bookingRepository.findById(dto.getBookingId())
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
+                    entity.setBooking(booking);
+                }
             }
-
-            if (dto.getCarId() != null) {
-                Car car = carRepository.findById(dto.getCarId())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Car not found"));
-                entity.setCar(car);
-            }
-
-            if (dto.getBookingId() != null) {
-                Booking booking = bookingRepository.findById(dto.getBookingId())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
-                entity.setBooking(booking);
-            }
-
             return ratingMapper.toDTO(ratingRepository.save(entity));
         } catch (Exception e) {
             e.printStackTrace();

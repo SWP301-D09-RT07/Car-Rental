@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import com.carrental.car_rental.repository.StatusRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +48,7 @@ public class CarService {
     private final RegionRepository regionRepository;
     private final CountryCodeRepository countryCodeRepository;
     private final RatingRepository ratingRepository; // Thêm dependency này
+    private final StatusRepository statusRepository;
 
     @Autowired
     private UserDetailRepository userDetailRepository;
@@ -487,9 +489,7 @@ public class CarService {
     }
 
     private boolean isCarAvailable(Integer carId, Instant startDate, Instant endDate) {
-        LocalDate startLocalDate = startDate.atZone(ZoneId.of("UTC")).toLocalDate();
-        LocalDate endLocalDate = endDate.atZone(ZoneId.of("UTC")).toLocalDate();
-        List<Booking> bookings = bookingRepository.findByCarIdAndOverlappingDates(carId, startLocalDate, endLocalDate);
+        List<Booking> bookings = bookingRepository.findByCarIdAndOverlappingDates(carId, startDate, endDate);
         return bookings.isEmpty();
     }
 
@@ -712,9 +712,10 @@ public class CarService {
             List<String> bookedDates = new ArrayList<>();
 
             for (Booking booking : bookings) {
-                LocalDate startDate = booking.getStartDate();
-                LocalDate endDate = booking.getEndDate();
-
+                // SỬA: Chuyển Instant -> LocalDate
+                LocalDate startDate = booking.getStartDate() != null ? booking.getStartDate().atZone(ZoneId.systemDefault()).toLocalDate() : null;
+                LocalDate endDate = booking.getEndDate() != null ? booking.getEndDate().atZone(ZoneId.systemDefault()).toLocalDate() : null;
+                if (startDate == null || endDate == null) continue;
                 // Thêm tất cả ngày từ startDate đến endDate
                 LocalDate currentDate = startDate;
                 while (!currentDate.isAfter(endDate)) {
@@ -755,5 +756,30 @@ private Integer getRentalCountForCar(Integer carId) {
         logger.error("Lỗi khi lấy rental count cho carId {}: {}", carId, e.getMessage());
         return 0;
     }
+}
+
+    // --- ADMIN METHODS ---
+    public List<CarDTO> findByStatusName(String statusName) {
+        // Sử dụng custom query join fetch để tránh LazyInitializationException
+        return repository.findByStatusNameWithSupplierAndRelations(statusName)
+                .stream().map(mapper::toDTO).toList();
+    }
+
+    public void approveCar(Integer carId) {
+        Car car = repository.findById(carId)
+                .orElseThrow(() -> new RuntimeException("Car not found"));
+        Status availableStatus = statusRepository.findByStatusNameIgnoreCase("available");
+        if (availableStatus == null) throw new RuntimeException("Status 'available' not found");
+        car.setStatus(availableStatus);
+        repository.save(car);
+    }
+
+    public void rejectCar(Integer carId) {
+        Car car = repository.findById(carId)
+                .orElseThrow(() -> new RuntimeException("Car not found"));
+        Status rejectedStatus = statusRepository.findByStatusNameIgnoreCase("rejected");
+        if (rejectedStatus == null) throw new RuntimeException("Status 'rejected' not found");
+        car.setStatus(rejectedStatus);
+        repository.save(car);
 }
 }

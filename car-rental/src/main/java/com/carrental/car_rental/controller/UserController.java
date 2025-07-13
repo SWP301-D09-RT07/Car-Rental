@@ -82,7 +82,7 @@ public class UserController {
     }
 
     @GetMapping("/profile")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') or hasRole('SUPPLIER')")
     public ResponseEntity<?> getCurrentUserProfile(Authentication authentication) {
         logger.info("=== DEBUG PROFILE REQUEST ===");
         logger.info("Authentication: {}", authentication);
@@ -160,7 +160,7 @@ public class UserController {
         }
     }
     @PutMapping("/profile")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') or hasRole('SUPPLIER')")
     public ResponseEntity<?> updateCurrentUserProfile(@Valid @RequestBody UpdateProfileDTO dto, Authentication authentication) {
         logger.info("=== UPDATE PROFILE REQUEST ===");
         logger.info("Request data: {}", dto);
@@ -301,7 +301,7 @@ public class UserController {
     }
 
     @GetMapping("/user-profile")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') or hasRole('SUPPLIER')")
     public ResponseEntity<?> getCurrentProfile(Authentication authentication) {
         logger.info("Yêu cầu lấy thông tin hồ sơ người dùng hiện tại từ IP: {}", getClientIp(authentication));
         try {

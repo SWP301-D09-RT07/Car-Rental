@@ -1052,8 +1052,37 @@ export const getSupplierCars = async () => {
 };
 
 // Thêm xe mới cho supplier
-export const addSupplierCar = async (carData) => {
-    const res = await api.post('/api/supplier/cars', carData);
+export const addSupplierCar = async (carData, images = []) => {
+    const formData = new FormData();
+    formData.append('carData', JSON.stringify(carData));
+    images.forEach(img => formData.append('images', img));
+    const token = getItem('token');
+    const res = await api.post('/api/supplier/cars', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+            ...(token && { Authorization: `Bearer ${token}` })
+        }
+    });
+    return res.data;
+};
+
+// Xóa xe của supplier
+export const deleteSupplierCar = async (carId) => {
+    if (!carId) throw new Error('Vui lòng cung cấp ID xe');
+    const token = getToken?.() || getItem('token');
+    const res = await api.delete(`/api/supplier/cars/${carId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.data;
+};
+
+// Cập nhật xe của supplier
+export const updateSupplierCar = async (carId, carData) => {
+    if (!carId) throw new Error('Vui lòng cung cấp ID xe');
+    const token = getToken?.() || getItem('token');
+    const res = await api.put(`/api/supplier/cars/${carId}`, carData, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
     return res.data;
 };
 
@@ -1075,9 +1104,12 @@ export const getSupplierRecentBookings = async () => {
 };
 
 export const getSupplierMonthlyStats = async () => {
-    const res = await api.get('/api/supplier/dashboard/monthly-stats');
+    const token = getToken?.() || getItem('token');
+    const res = await api.get('/api/supplier/dashboard/monthly-stats', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
     return res.data;
-};
+  };
 
 export const getNextBookingId = async () => {
     try {
@@ -1111,6 +1143,7 @@ export const createOwnerRegistrationRequest = async (data) => {
     formData.append('address', data.address);
     formData.append('phoneNumber', data.phoneNumber);
     formData.append('email', data.email);
+    formData.append('password', data.password);
     formData.append('carDocuments', data.carDocuments);
     formData.append('businessLicense', data.businessLicense);
     formData.append('driverLicense', data.driverLicense);
@@ -1326,3 +1359,30 @@ export const getPayoutAmount = async (bookingId) => {
 };
 
 export default api;
+
+// Lấy danh sách xe chờ duyệt (admin)
+export const getPendingCars = async () => {
+  const token = getToken?.() || getItem('token');
+  const res = await api.get('/api/cars/admin/pending-cars', {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return res.data;
+};
+
+// Duyệt xe (admin)
+export const approveCar = async (carId) => {
+  const token = getToken?.() || getItem('token');
+  const res = await api.post(`/api/cars/admin/approve-car/${carId}`, {}, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return res.data;
+};
+
+// Từ chối xe (admin)
+export const rejectCar = async (carId) => {
+  const token = getToken?.() || getItem('token');
+  const res = await api.post(`/api/cars/admin/reject-car/${carId}`, {}, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return res.data;
+};

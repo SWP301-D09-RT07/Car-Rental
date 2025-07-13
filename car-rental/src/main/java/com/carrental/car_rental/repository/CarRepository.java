@@ -152,11 +152,8 @@ public interface CarRepository extends JpaRepository<Car, Integer>, JpaSpecifica
            "LEFT JOIN FETCH s.role " +
            "LEFT JOIN FETCH s.status " +
            "LEFT JOIN FETCH s.userDetail " +
-           "JOIN FETCH c.brand " +
-           "JOIN FETCH c.fuelType " +
-           "JOIN FETCH c.region " +
-           "JOIN FETCH c.status " +
-           "LEFT JOIN FETCH c.images " +
+           "LEFT JOIN FETCH s.status " + // Thêm dòng này!
+           "JOIN FETCH c.status st " +
            "WHERE c.status.statusName = 'pending_approval' AND c.isDeleted = false")
     List<Car> findByStatus_StatusNameAndIsDeletedFalse(@Param("statusName") String statusName);
 
@@ -165,4 +162,20 @@ public interface CarRepository extends JpaRepository<Car, Integer>, JpaSpecifica
     
     @Query("SELECT COUNT(c) FROM Car c WHERE c.status.statusName = :statusName AND c.isDeleted = false")
     long countByStatus_StatusNameAndIsDeletedFalse(@Param("statusName") String statusName);
+
+    // Lấy danh sách xe theo status (không phân biệt hoa thường, không bị xóa)
+    List<Car> findByStatus_StatusNameIgnoreCaseAndIsDeletedFalse(String statusName);
+
+    @Query("SELECT c FROM Car c " +
+           "JOIN FETCH c.supplier s " +
+           "LEFT JOIN FETCH s.role " +
+           "LEFT JOIN FETCH s.userDetail " +
+           "LEFT JOIN FETCH s.status " + // Thêm dòng này!
+           "JOIN FETCH c.status st " +
+           "LEFT JOIN FETCH c.brand " +
+           "LEFT JOIN FETCH c.fuelType " +
+           "LEFT JOIN FETCH c.region " +
+           "LEFT JOIN FETCH c.images " +
+           "WHERE UPPER(st.statusName) = UPPER(:statusName) AND c.isDeleted = false")
+    List<Car> findByStatusNameWithSupplierAndRelations(@Param("statusName") String statusName);
 }

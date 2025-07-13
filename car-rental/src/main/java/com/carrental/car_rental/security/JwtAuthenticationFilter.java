@@ -36,7 +36,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             "/api/car-brands/",
             "/api/fuel-types/",
             "/api/regions/",
-            "/api/cars/",
             "/api/service-types/",
 
             "/api/ratings/",

@@ -1,11 +1,14 @@
 package com.carrental.car_rental.repository;
 
 import com.carrental.car_rental.entity.Payment;
+import com.carrental.car_rental.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,4 +61,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
            "LEFT JOIN FETCH s.userDetail sud " +
            "WHERE p.isDeleted = false")
     List<Payment> findAllWithRegionAndStatusAndBookingAndUsers();
+
+    @Query("SELECT SUM(p.amount) FROM Payment p WHERE p.booking.car.supplier = :supplier AND p.paymentType = 'payout' AND p.isDeleted = false")
+    BigDecimal sumPayoutBySupplier(@Param("supplier") User supplier);
+
+    @Query("SELECT SUM(p.amount) FROM Payment p WHERE p.booking.car.supplier = :supplier AND p.paymentType = 'payout' AND p.isDeleted = false AND p.paymentDate >= :start AND p.paymentDate <= :end")
+    BigDecimal sumMonthlyPayoutBySupplier(@Param("supplier") User supplier, @Param("start") Instant start, @Param("end") Instant end);
 }

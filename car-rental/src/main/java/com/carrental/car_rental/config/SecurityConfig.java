@@ -60,14 +60,15 @@ public class SecurityConfig {
                         .requestMatchers("/login/oauth2/code/**", "/oauth2/authorization/**").permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-email", "/oauth2/**").permitAll()
                         .requestMatchers("/api/registration-requests", "/api/registration-requests/**", "/uploads/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/api/cars/**", "/api/languages/**", "/api/country-codes/**",
+                        .requestMatchers(HttpMethod.GET, "/api/cars/**").permitAll()
+                        .requestMatchers("/api/cars/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/auth/**", "/api/languages/**", "/api/country-codes/**",
                                 "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**",
                                 "/api/cars/*/features", "/api/service-types/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/ratings", "/api/ratings/summary", "/api/ratings/**").permitAll()
                         .requestMatchers("/api/payments/callback", "/api/payments/test", "/api/payments/test-cash", "/api/payments/momo-callback").permitAll()
                         .requestMatchers(HttpMethod.GET,"/api/bookings/**").authenticated()
-
-                        .requestMatchers("/api/admin/**").hasRole("admin")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/customer/**").hasRole("customer")
                         .requestMatchers("/api/users/**").authenticated()
                         .anyRequest().authenticated()

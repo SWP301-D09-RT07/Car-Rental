@@ -29,6 +29,7 @@ import {
   FaPhone,
   FaInfoCircle,
   FaEye,
+  FaEyeSlash,
   FaCrown,
   FaRocket,
   FaRegCommentDots,
@@ -397,22 +398,28 @@ const OwnerRegistrationPage = () => {
     address: "",
     phoneNumber: "",
     email: "",
+    password: "",
+    confirmPassword: "",
   });
   const [files, setFiles] = useState({ carDocuments: null, businessLicense: null, driverLicense: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState("vehicle");
   const [faqOpen, setFaqOpen] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Nhận thông tin từ trang đăng ký
   useEffect(() => {
     if (location.state) {
-      const { email, username, phone } = location.state;
+      const { email, username, phone, password } = location.state;
       setFormData((prev) => ({
         ...prev,
         email: email || "",
         fullName: username || "",
         phoneNumber: phone ? formatPhoneNumber(phone) : "",
+        password: password || "",
+        confirmPassword: password || "", // tự động điền xác nhận mật khẩu luôn
       }));
     }
   }, [location.state]);
@@ -437,6 +444,10 @@ const OwnerRegistrationPage = () => {
     else if (!/^\+?[1-9]\d{1,14}$/.test(formData.phoneNumber.replace(/\s/g, ""))) newErrors.phoneNumber = "Số điện thoại không hợp lệ";
     if (!formData.email.trim()) newErrors.email = "Vui lòng nhập email";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = "Email không hợp lệ";
+    if (!formData.password) newErrors.password = "Vui lòng nhập mật khẩu";
+    else if (!/^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(formData.password)) newErrors.password = "Mật khẩu phải tối thiểu 8 ký tự, có chữ hoa, số và ký tự đặc biệt";
+    if (!formData.confirmPassword) newErrors.confirmPassword = "Vui lòng xác nhận mật khẩu";
+    else if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Mật khẩu xác nhận không khớp";
     if (!files.carDocuments) newErrors.carDocuments = "Vui lòng tải lên giấy tờ xe";
     if (!files.businessLicense) newErrors.businessLicense = "Vui lòng tải lên giấy phép kinh doanh";
     if (!files.driverLicense) newErrors.driverLicense = "Vui lòng tải lên bằng lái xe";
@@ -1245,6 +1256,66 @@ const OwnerRegistrationPage = () => {
                             <p className="text-red-500 text-sm mt-2 flex items-center gap-2">
                               <FaExclamationTriangle className="w-4 h-4" />
                               {errors.email}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-lg font-bold text-gray-800 mb-4">
+                            Mật khẩu <span className="text-red-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <Input
+                              type={showPassword ? "text" : "password"}
+                              name="password"
+                              value={formData.password}
+                              onChange={handleInputChange}
+                              placeholder="Nhập mật khẩu"
+                              className={`h-16 text-lg px-6 rounded-2xl border-2 transition-all duration-300 ${errors.password ? "border-red-500 focus:border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-6 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                              onClick={() => setShowPassword((v) => !v)}
+                              tabIndex={-1}
+                              aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                            >
+                              {showPassword ? <FaEyeSlash className="w-5 h-5" /> : <FaEye className="w-5 h-5" />}
+                            </button>
+                          </div>
+                          {errors.password && (
+                            <p className="text-red-500 text-sm mt-2 flex items-center gap-2">
+                              <FaExclamationTriangle className="w-4 h-4" />
+                              {errors.password}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-lg font-bold text-gray-800 mb-4">
+                            Xác nhận mật khẩu <span className="text-red-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <Input
+                              type={showConfirmPassword ? "text" : "password"}
+                              name="confirmPassword"
+                              value={formData.confirmPassword}
+                              onChange={handleInputChange}
+                              placeholder="Nhập lại mật khẩu"
+                              className={`h-16 text-lg px-6 rounded-2xl border-2 transition-all duration-300 ${errors.confirmPassword ? "border-red-500 focus:border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-6 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                              onClick={() => setShowConfirmPassword((v) => !v)}
+                              tabIndex={-1}
+                              aria-label={showConfirmPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                            >
+                              {showConfirmPassword ? <FaEyeSlash className="w-5 h-5" /> : <FaEye className="w-5 h-5" />}
+                            </button>
+                          </div>
+                          {errors.confirmPassword && (
+                            <p className="text-red-500 text-sm mt-2 flex items-center gap-2">
+                              <FaExclamationTriangle className="w-4 h-4" />
+                              {errors.confirmPassword}
                             </p>
                           )}
                         </div>

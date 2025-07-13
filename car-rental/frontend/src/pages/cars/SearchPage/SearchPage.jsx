@@ -43,10 +43,11 @@ import {
     FaUsers,
     FaAward,
     FaCheckCircle,
+    FaBuilding,
 } from "react-icons/fa"
 import Skeleton from "react-loading-skeleton"
 import "react-loading-skeleton/dist/skeleton.css"
-import api, { filterCars, findCars, searchCars } from "@/services/api.js"
+import api, { filterCars, findCars, searchCars, getUserById } from "@/services/api.js"
 import { getToken } from "@/utils/auth.js"
 import "react-toastify/dist/ReactToastify.css"
 import BookingModal from '@/components/features/cars/BookingModal.jsx';
@@ -625,8 +626,12 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                                 />
                                 {/* Status Badge */}
                                 <div className="absolute top-4 left-4">
-                                    <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                                        Có sẵn
+                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                        car.statusName?.toLowerCase() === "available" 
+                                            ? "bg-green-500 text-white" 
+                                            : "bg-red-500 text-white"
+                                    }`}>
+                                        {car.statusName?.toLowerCase() === "available" ? "Có sẵn" : "Đang thuê"}
                                     </span>
                                 </div>
                             </div>
@@ -635,13 +640,16 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                         {/* Info Section */}
                         <div className="space-y-6">
                             {/* Rating */}
-                            <div className="flex items-center space-x-2">
-                                <div className="flex items-center space-x-1">
-                                    <FaStar className="text-yellow-400" />
-                                    <span className="font-bold text-lg">{car.rating || "4.8"}</span>
+                            {car.averageRating && car.averageRating > 0 ? (
+                                <div className="flex items-center space-x-2">
+                                    {renderStars(car.averageRating)}
+                                    <span className="text-gray-500">({car.reviewCount || "0"} đánh giá)</span>
                                 </div>
-                                <span className="text-gray-500">({car.reviewCount || "124"} đánh giá)</span>
-                            </div>
+                            ) : (
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-gray-500">Chưa có đánh giá</span>
+                                </div>
+                            )}
 
                             {/* Basic Info */}
                             <div className="grid grid-cols-2 gap-4">
@@ -667,10 +675,36 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                             <div>
                                 <h4 className="font-bold text-gray-900 mb-3">Tính năng nổi bật:</h4>
                                 <div className="flex flex-wrap gap-2">
-                                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">GPS</span>
-                                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">Bluetooth</span>
-                                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">AC</span>
-                                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">Sunroof</span>
+                                    {(() => {
+                                        // Xử lý features từ string
+                                        let featuresArray = [];
+                                        
+                                        if (car.features && typeof car.features === 'string' && car.features.trim()) {
+                                            // Tách features string bằng dấu phẩy, semicolon hoặc pipe
+                                            featuresArray = car.features
+                                                .split(/[,;|]/)
+                                                .map(f => f.trim())
+                                                .filter(f => f.length > 0);
+                                        }
+                                        
+                                        return featuresArray.length > 0 ? (
+                                            featuresArray.map((feature, index) => (
+                                                <span 
+                                                    key={index}
+                                                    className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm"
+                                                >
+                                                    {feature}
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">Điều hòa</span>
+                                                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">Bluetooth</span>
+                                                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">GPS</span>
+                                                <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">USB</span>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 
@@ -732,6 +766,54 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
     const CarCard = ({ car, isRented = false, onBookNow }) => {
         const [imageLoaded, setImageLoaded] = useState(false)
         const [isHovered, setIsHovered] = useState(false)
+        const [supplier, setSupplier] = useState(null)
+        const [loadingSupplier, setLoadingSupplier] = useState(false)
+
+        // Fetch supplier info when component mounts
+        useEffect(() => {
+            const fetchSupplier = async () => {
+                if (!car.supplier && car.supplierId) {
+                    setLoadingSupplier(true)
+                    try {
+                        const supplierData = await getUserById(car.supplierId)
+                        setSupplier(supplierData)
+                    } catch (error) {
+                        console.error('Error fetching supplier:', error)
+                        setSupplier(null)
+                    } finally {
+                        setLoadingSupplier(false)
+                    }
+                } else if (car.supplier) {
+                    setSupplier(car.supplier)
+                } else {
+                    setSupplier(null)
+                }
+            }
+
+            fetchSupplier()
+        }, [car.supplierId, car.supplier])
+
+        // Function to get supplier display name
+        const getSupplierName = () => {
+            if (supplier) {
+                return supplier.userDetail?.fullName || 
+                       supplier.username || 
+                       supplier.email || 
+                       'Chủ xe'
+            }
+            return car.supplierName || 'Chủ xe'
+        }
+
+        // Function to get supplier initial
+        const getSupplierInitial = () => {
+            if (supplier) {
+                return supplier.userDetail?.fullName?.charAt(0)?.toUpperCase() ||
+                       supplier.username?.charAt(0)?.toUpperCase() ||
+                       supplier.email?.charAt(0)?.toUpperCase() ||
+                       'C'
+            }
+            return car.supplierName?.charAt(0)?.toUpperCase() || 'C'
+        }
 
         return (
             <div
@@ -837,21 +919,26 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                         </div>
                     </div>
 
-                    {/* Owner Info */}
+                    {/* Supplier Info */}
                     <div className="flex items-center space-x-2 mb-4 pb-4 border-b border-gray-100">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                            <span className="text-xs font-semibold text-gray-600">
-                                {car.ownerName?.charAt(0) || 'N'}
-                            </span>
+                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                            {loadingSupplier ? (
+                                <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                                <span className="text-xs font-semibold text-white">
+                                    {getSupplierInitial()}
+                                </span>
+                            )}
                         </div>
                         <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-900">
-                                {car.ownerName || 'Nguyễn Văn A'}
-                            </span>
+                            <span className="text-xs text-gray-500">Chủ xe</span>
+                            <div className="text-sm font-medium text-gray-900">
+                                {loadingSupplier ? "Đang tải..." : getSupplierName()}
+                            </div>
                         </div>
                         <div className="flex items-center space-x-1">
                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="text-xs text-green-600 font-medium">Verified</span>
+                            <span className="text-xs text-green-600 font-medium">đang hoạt động</span>
                         </div>
                     </div>
 

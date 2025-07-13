@@ -193,7 +193,10 @@ const ProfilePage = () => {
             const deposit = bookingDetail.depositAmount || 0;
             const COLLATERAL_AMOUNT = 5000000;
             const customerInfo = {
-                fullName: bookingDetail.customer?.fullName || '',
+                fullName: bookingDetail.customer?.userDetail?.fullName
+                    || bookingDetail.customer?.fullName
+                    || bookingDetail.customer?.username
+                    || '',
                 phone: bookingDetail.customer?.phone || '',
                 email: bookingDetail.customer?.email || '',
                 pickupAddress: bookingDetail.pickupLocation || '',
@@ -227,7 +230,6 @@ const ProfilePage = () => {
                     customerInfo,
                     withDriver: bookingDetail.withDriver,
                     deliveryRequested: bookingDetail.deliveryRequested,
-                    fromHistory: true,
                     paymentType: 'full_payment',
                     pickupPayment: true
                 }
@@ -510,6 +512,16 @@ const handleCancelBooking = async (bookingId) => {
     };
     const handleShowReviewModal = (booking) => {
         setReviewBooking(booking);
+        // Nếu booking có ratings[0], điền sẵn dữ liệu
+        if (booking.ratings && booking.ratings.length > 0) {
+            setReviewData({
+                rating: booking.ratings[0].ratingScore,
+                comment: booking.ratings[0].comment,
+                isAnonymous: booking.ratings[0].isAnonymous
+            });
+        } else {
+            setReviewData({ rating: 0, comment: '', isAnonymous: false });
+        }
         setShowReviewModal(true);
     };
 
@@ -602,8 +614,6 @@ const handleCancelBooking = async (bookingId) => {
     // ✅ Get status badge class và text
     const getStatusInfo = (booking) => {
         let status = booking.statusName?.toLowerCase();
-        // Nếu là payout, hiển thị như refunded cho khách hàng
-        if (status === 'payout') status = 'refunded';
         switch (status) {
             case 'pending':
                 return { class: 'pending', text: 'Chờ duyệt', color: '#ffa500' };
@@ -621,6 +631,9 @@ const handleCancelBooking = async (bookingId) => {
                 return { class: 'failed', text: 'Thanh toán thất bại', color: '#f44336' };
             case 'refunded':
                 return { class: 'refunded', text: 'Đã hoàn cọc', color: '#1976d2' };
+            case 'payout':
+                // Ẩn hoặc hiển thị là "Hoàn thành"
+                return { class: 'completed', text: 'Hoàn thành', color: '#4caf50' };
             default:
                 return { class: 'unknown', text: status || 'N/A', color: '#9e9e9e' };
         }
@@ -1075,14 +1088,14 @@ const handleCancelBooking = async (bookingId) => {
                                         onError={err => {/* callback nếu cần */}}
                                     />
                                 )}
-                                {((booking.statusName === 'completed' || booking.statusName === 'refunded') && !booking.hasRated) && (
+                                {(['completed', 'refunded', 'payout'].includes(booking.statusName)) && (
                                   <button 
                                     className="btn-action review"
                                     onClick={() => handleShowReviewModal(booking)}
-                                    title="Đánh giá xe"
+                                    title={booking.hasRated ? "Chỉnh sửa đánh giá" : "Đánh giá xe"}
                                   >
                                     <i className="fas fa-star"></i>
-                                    <span>Đánh giá</span>
+                                    <span>{booking.hasRated ? "Đánh giá lại" : "Đánh giá"}</span>
                                   </button>
                                 )}
                                 {/* NÚT XÓA: Hiển thị nếu booking failed */}
@@ -1987,6 +2000,62 @@ const handleCancelBooking = async (bookingId) => {
                         fetchBookings();
                     }}
                 />
+            )}
+
+            {showReviewModal && reviewBooking && (
+              <div className="modal-overlay">
+                <div className="modal review-modal">
+                  <div className="modal-header">
+                    <h3>
+                      {(reviewBooking.hasRated || reviewBooking.rating || (reviewBooking.ratings && reviewBooking.ratings.length > 0))
+                        ? "Đánh giá lại"
+                        : "Đánh giá xe"}
+                    </h3>
+                    <button className="close-btn" onClick={() => setShowReviewModal(false)}>×</button>
+                  </div>
+                  <div className="modal-content">
+                    <div>
+                      <b>Xe:</b> {reviewBooking.car?.model} - {reviewBooking.carLicensePlate}
+                    </div>
+                    <div>
+                      <b>Chuyến đi:</b> #{reviewBooking.bookingId}
+                    </div>
+                    <div style={{margin: "16px 0"}}>
+                      <label>Số sao:</label>
+                      <StarRating
+                        rating={reviewData.rating}
+                        size="large"
+                        interactive={true}
+                        onRatingChange={r => setReviewData(prev => ({...prev, rating: r}))}
+                      />
+                    </div>
+                    <div>
+                      <label>Bình luận:</label>
+                      <textarea
+                        value={reviewData.comment}
+                        onChange={e => setReviewData(prev => ({...prev, comment: e.target.value}))}
+                        rows={4}
+                        style={{width: "100%"}}
+                        placeholder="Nhập nhận xét của bạn"
+                      />
+                    </div>
+                    <div>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={reviewData.isAnonymous}
+                          onChange={e => setReviewData(prev => ({...prev, isAnonymous: e.target.checked}))}
+                        />
+                        Ẩn danh
+                      </label>
+                    </div>
+                  </div>
+                  <div className="modal-actions">
+                    <button className="btn primary" onClick={handleSubmitReview}>Gửi đánh giá</button>
+                    <button className="btn secondary" onClick={() => setShowReviewModal(false)}>Hủy</button>
+                  </div>
+                </div>
+              </div>
             )}
         </div>
     );

@@ -144,21 +144,56 @@ public class PaymentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chỉ hỗ trợ thanh toán bằng VND");
         }
 
-        // Bổ sung kiểm tra paymentType
+        // Bổ sung kiểm tra paymentType - chỉ kiểm tra payment có trạng thái 'paid'
         if ("full_payment".equalsIgnoreCase(dto.getPaymentType())) {
-            boolean hasDeposit = repository.existsByBookingIdAndPaymentTypeAndIsDeleted(dto.getBookingId(), "deposit", false);
-            if (!hasDeposit) {
+            // Kiểm tra có deposit đã thanh toán thành công chưa
+            List<Payment> depositPayments = repository.findByBookingIdAndIsDeletedFalseWithBooking(dto.getBookingId())
+                .stream()
+                .filter(p -> "deposit".equals(p.getPaymentType()) && "paid".equals(p.getPaymentStatus().getStatusName()))
+                .toList();
+            if (depositPayments.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn cần thanh toán tiền cọc trước khi thanh toán phần còn lại.");
             }
-            boolean hasFullPayment = repository.existsByBookingIdAndPaymentTypeAndIsDeleted(dto.getBookingId(), "full_payment", false);
-            if (hasFullPayment) {
+            
+            // Kiểm tra có full_payment đã thanh toán thành công chưa
+            List<Payment> fullPayments = repository.findByBookingIdAndIsDeletedFalseWithBooking(dto.getBookingId())
+                .stream()
+                .filter(p -> "full_payment".equals(p.getPaymentType()) && "paid".equals(p.getPaymentStatus().getStatusName()))
+                .toList();
+            if (!fullPayments.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn này đã thanh toán đủ.");
+            }
+            
+            // Kiểm tra có full_payment pending/failed không - nếu có thì xóa để tạo lại
+            List<Payment> existingFullPayments = repository.findByBookingIdAndIsDeletedFalseWithBooking(dto.getBookingId())
+                .stream()
+                .filter(p -> "full_payment".equals(p.getPaymentType()) && !"paid".equals(p.getPaymentStatus().getStatusName()))
+                .toList();
+            for (Payment existingPayment : existingFullPayments) {
+                existingPayment.setIsDeleted(true);
+                repository.save(existingPayment);
+                logger.info("Deleted existing full_payment with status {} for booking {}", existingPayment.getPaymentStatus().getStatusName(), dto.getBookingId());
             }
         }
         if ("deposit".equalsIgnoreCase(dto.getPaymentType())) {
-            boolean hasDeposit = repository.existsByBookingIdAndPaymentTypeAndIsDeleted(dto.getBookingId(), "deposit", false);
-            if (hasDeposit) {
+            // Kiểm tra có deposit đã thanh toán thành công chưa
+            List<Payment> depositPayments = repository.findByBookingIdAndIsDeletedFalseWithBooking(dto.getBookingId())
+                .stream()
+                .filter(p -> "deposit".equals(p.getPaymentType()) && "paid".equals(p.getPaymentStatus().getStatusName()))
+                .toList();
+            if (!depositPayments.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn này đã thanh toán cọc.");
+            }
+            
+            // Kiểm tra có deposit pending/failed không - nếu có thì xóa để tạo lại
+            List<Payment> existingDepositPayments = repository.findByBookingIdAndIsDeletedFalseWithBooking(dto.getBookingId())
+                .stream()
+                .filter(p -> "deposit".equals(p.getPaymentType()) && !"paid".equals(p.getPaymentStatus().getStatusName()))
+                .toList();
+            for (Payment existingPayment : existingDepositPayments) {
+                existingPayment.setIsDeleted(true);
+                repository.save(existingPayment);
+                logger.info("Deleted existing deposit payment with status {} for booking {}", existingPayment.getPaymentStatus().getStatusName(), dto.getBookingId());
             }
         }
 
@@ -947,8 +982,12 @@ public class PaymentService {
         if (!(status.equals("completed") || status.equals("payout"))) {
             return ResponseEntity.badRequest().body("Booking chưa hoàn thành, không thể hoàn cọc.");
         }
-        boolean alreadyRefunded = repository.existsByBookingIdAndPaymentTypeAndIsDeleted(bookingId, "refund", false);
-        if (alreadyRefunded) {
+        // Kiểm tra có refund đã thanh toán thành công chưa
+        List<Payment> refundPayments = repository.findByBookingIdAndIsDeletedFalseWithBooking(bookingId)
+            .stream()
+            .filter(p -> "refund".equals(p.getPaymentType()) && "paid".equals(p.getPaymentStatus().getStatusName()))
+            .toList();
+        if (!refundPayments.isEmpty()) {
             return ResponseEntity.badRequest().body("Booking này đã hoàn cọc trước đó.");
         }
 
@@ -998,8 +1037,12 @@ public class PaymentService {
         if (!(status.equals("completed") || status.equals("refunded"))) {
             return ResponseEntity.badRequest().body("Booking chưa hoàn thành, không thể payout.");
         }
-        boolean alreadyPayout = repository.existsByBookingIdAndPaymentTypeAndIsDeleted(bookingId, "payout", false);
-        if (alreadyPayout) {
+        // Kiểm tra có payout đã thanh toán thành công chưa
+        List<Payment> payoutPayments = repository.findByBookingIdAndIsDeletedFalseWithBooking(bookingId)
+            .stream()
+            .filter(p -> "payout".equals(p.getPaymentType()) && "paid".equals(p.getPaymentStatus().getStatusName()))
+            .toList();
+        if (!payoutPayments.isEmpty()) {
             return ResponseEntity.badRequest().body("Booking này đã payout trước đó.");
         }
 

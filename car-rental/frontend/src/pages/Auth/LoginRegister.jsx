@@ -166,7 +166,8 @@ const LoginRegisterPage = () => {
             state: { 
               email: data.email, 
               username: data.username,
-              phone: fullPhone // Truyền số điện thoại đã ghép
+              phone: fullPhone, // Truyền số điện thoại đã ghép
+              password: data.password // truyền thêm password
             } 
           });
         }, 1000);

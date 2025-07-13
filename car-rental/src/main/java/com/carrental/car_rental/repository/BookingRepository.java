@@ -33,8 +33,8 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
             "AND ((b.startDate <= :endDate AND b.endDate >= :startDate))")
     List<Booking> findByCarIdAndOverlappingDates(
             @Param("carId") Integer carId,
-            @Param("startDate") LocalDate startDate,
-            @Param("endDate") LocalDate endDate);
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
 
     @Query("SELECT b FROM Booking b " +
             "LEFT JOIN FETCH b.car c " +
@@ -82,7 +82,7 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
 
     long countByCar_SupplierAndStatus_StatusName(User supplier, String statusName);
 
-    long countByCar_SupplierAndCreatedAtBetween(User supplier, java.time.Instant start, java.time.Instant end);
+    int countByCar_SupplierAndCreatedAtBetween(User supplier, java.time.Instant start, java.time.Instant end);
 
     @Query("SELECT COUNT(b) as count, b.status as status FROM Booking b " +
             "WHERE b.car.supplier = :supplier AND b.createdAt BETWEEN :start AND :end " +
@@ -150,7 +150,7 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
             "LEFT JOIN FETCH cu.status " +
             "LEFT JOIN FETCH cu.role " +
             "LEFT JOIN FETCH b.status " +
-            "WHERE c.supplier = :supplier")
+            "WHERE c.supplier = :supplier AND b.isDeleted = false")
     List<Booking> findByCar_SupplierWithAllRelations(@Param("supplier") com.carrental.car_rental.entity.User supplier);
 
     // Method for admin dashboard
@@ -158,4 +158,10 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
             "JOIN bf.booking b " +
             "WHERE b.status.statusName IN ('completed', 'confirmed')")
     BigDecimal calculateTotalRevenue();
+
+    // Lấy tất cả booking của supplier trong khoảng thời gian
+    List<Booking> findByCar_SupplierAndCreatedAtBetween(User supplier, Instant start, Instant end);
+
+    // Đếm số booking của supplier với 1 customer trước thời điểm chỉ định
+    int countByCar_SupplierAndCustomer_IdAndCreatedAtBefore(User supplier, Integer customerId, Instant before);
 }

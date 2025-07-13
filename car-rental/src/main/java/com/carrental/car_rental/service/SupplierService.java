@@ -25,6 +25,9 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.ZoneId;
 
 @Service
 public class SupplierService {
@@ -364,28 +367,42 @@ public class SupplierService {
         String username = null;
         try {
             username = SecurityContextHolder.getContext().getAuthentication().getName();
-            System.out.println("[DEBUG] Dashboard summary for user: " + username);
             User supplier = getCurrentSupplier();
             if (supplier == null) {
-                System.out.println("[ERROR] Supplier is null for user: " + username);
                 return ResponseEntity.status(401).body("Supplier not found or not authenticated");
             }
-            System.out.println("[DEBUG] Supplier: " + supplier.getUsername());
             Map<String, Object> summary = new HashMap<>();
+            // Tổng số xe
             summary.put("totalVehicles", carRepository.countBySupplierAndIsDeletedFalse(supplier));
+            // Doanh thu tổng payout
+            BigDecimal totalPayout = paymentRepository.sumPayoutBySupplier(supplier);
+            summary.put("totalRevenue", totalPayout != null ? totalPayout : BigDecimal.ZERO);
+            // Doanh thu payout tháng này
+            java.time.YearMonth currentMonth = java.time.YearMonth.now();
+            java.time.LocalDateTime startOfMonth = currentMonth.atDay(1).atStartOfDay();
+            java.time.LocalDateTime endOfMonth = currentMonth.atEndOfMonth().atTime(23, 59, 59);
+            java.time.Instant startOfMonthInstant = startOfMonth.atZone(java.time.ZoneId.systemDefault()).toInstant();
+            java.time.Instant endOfMonthInstant = endOfMonth.atZone(java.time.ZoneId.systemDefault()).toInstant();
+            BigDecimal monthlyPayout = paymentRepository.sumMonthlyPayoutBySupplier(supplier, startOfMonthInstant, endOfMonthInstant);
+            summary.put("monthlyRevenue", monthlyPayout != null ? monthlyPayout : BigDecimal.ZERO);
             summary.put("availableVehicles", carRepository.countBySupplierAndStatusAndIsDeletedFalse(supplier, "available"));
             summary.put("rentedVehicles", carRepository.countBySupplierAndStatusAndIsDeletedFalse(supplier, "rented"));
             summary.put("pendingApprovalVehicles", carRepository.countBySupplierAndStatusAndIsDeletedFalse(supplier, "pending_approval"));
             summary.put("totalBookings", bookingRepository.countByCar_Supplier(supplier));
             summary.put("pendingBookings", bookingRepository.countByCar_SupplierAndStatus_StatusName(supplier, "pending"));
             summary.put("activeBookings", bookingRepository.countByCar_SupplierAndStatus_StatusName(supplier, "in progress"));
-            summary.put("totalRevenue", bookingRepository.calculateTotalRevenueBySupplier(supplier));
-            java.time.YearMonth currentMonth = java.time.YearMonth.now();
-            java.time.LocalDateTime startOfMonth = currentMonth.atDay(1).atStartOfDay();
-            java.time.LocalDateTime endOfMonth = currentMonth.atEndOfMonth().atTime(23, 59, 59);
-            java.time.Instant startOfMonthInstant = startOfMonth.atZone(java.time.ZoneId.systemDefault()).toInstant();
-            java.time.Instant endOfMonthInstant = endOfMonth.atZone(java.time.ZoneId.systemDefault()).toInstant();
-            summary.put("monthlyRevenue", bookingRepository.calculateMonthlyRevenueBySupplier(supplier, startOfMonthInstant));
+            // --- TÍNH SỐ KHÁCH HÀNG MỚI TRONG THÁNG ---
+            List<Booking> bookingsThisMonth = bookingRepository.findByCar_SupplierAndCreatedAtBetween(supplier, startOfMonthInstant, endOfMonthInstant);
+            Set<Integer> newCustomerIds = new HashSet<>();
+            for (Booking b : bookingsThisMonth) {
+                int count = bookingRepository.countByCar_SupplierAndCustomer_IdAndCreatedAtBefore(
+                    supplier, b.getCustomer().getId(), startOfMonthInstant
+                );
+                if (count == 0) {
+                    newCustomerIds.add(b.getCustomer().getId());
+                }
+            }
+            summary.put("newCustomers", newCustomerIds.size());
             return ResponseEntity.ok(summary);
         } catch (Exception e) {
             System.out.println("[ERROR] Exception in getDashboardSummary for user: " + username + ", message: " + e.getMessage());
@@ -395,24 +412,120 @@ public class SupplierService {
     }
 
     public ResponseEntity<?> getRecentBookings() {
+        try {
         User supplier = getCurrentSupplier();
+            if (supplier == null) {
+                return ResponseEntity.status(401).body("Supplier not found or not authenticated");
+            }
         List<Booking> recentBookings = bookingRepository.findByCar_SupplierWithAllRelations(supplier);
+            if (recentBookings == null) recentBookings = Collections.emptyList();
         List<BookingDTO> bookingDTOs = recentBookings.stream()
-                .sorted(Comparator.comparing(Booking::getCreatedAt).reversed())
-                .limit(10)
-                .map(bookingMapper::toDTO)
+                    .filter(Objects::nonNull)
+                    .sorted(Comparator.comparing(Booking::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                    // .limit(10) // BỎ GIỚI HẠN NÀY để trả về tất cả booking
+                    .map(booking -> {
+                        try {
+                            BookingDTO dto = bookingMapper.toDTO(booking);
+                            // Set totalAmount như getBookings
+                            try {
+                                BookingFinancialsDTO financials = bookingFinancialsService.getOrCreateFinancials(dto);
+                                if (financials != null && financials.getTotalFare() != null) {
+                                    dto.setTotalAmount(financials.getTotalFare());
+                                } else {
+                                    dto.setTotalAmount(java.math.BigDecimal.ZERO);
+                                }
+                            } catch (Exception e) {
+                                dto.setTotalAmount(java.math.BigDecimal.ZERO);
+                            }
+
+                            // Set paymentDetails nếu có
+                            List<Payment> payments = paymentRepository.findByBookingIdAndIsDeleted(booking.getId(), false);
+                            List<PaymentDTO> paymentDetails = payments.stream()
+                                .map(payment -> {
+                                    PaymentDTO pdto = new PaymentDTO();
+                                    pdto.setPaymentId(payment.getId());
+                                    pdto.setBookingId(payment.getBooking().getId());
+                                    pdto.setAmount(payment.getAmount());
+                                    pdto.setCurrency(payment.getRegion().getCurrency());
+                                    pdto.setTransactionId(payment.getTransactionId());
+                                    pdto.setPaymentMethod(payment.getPaymentMethod());
+                                    pdto.setPaymentType(payment.getPaymentType());
+                                    if (payment.getPaymentDate() != null) {
+                                        pdto.setPaymentDate(java.time.LocalDateTime.ofInstant(
+                                            payment.getPaymentDate(), 
+                                            java.time.ZoneId.systemDefault()
+                                        ));
+                                    }
+                                    if (payment.getPaymentStatus() != null) {
+                                        pdto.setStatusName(payment.getPaymentStatus().getStatusName());
+                                    }
+                                    return pdto;
+                                })
+                                .sorted(java.util.Comparator.comparing(PaymentDTO::getPaymentDate, 
+                                    java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                                .collect(Collectors.toList());
+                            dto.setPaymentDetails(paymentDetails);
+                            return dto;
+                        } catch (Exception e) {
+                            logger.error("Error mapping booking to DTO: " + booking.getId(), e);
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(bookingDTOs);
+        } catch (Exception e) {
+            logger.error("Lỗi khi lấy recent bookings cho supplier", e);
+            return ResponseEntity.status(500).body("Lỗi hệ thống: " + e.getMessage());
+        }
     }
 
     public ResponseEntity<?> getMonthlyStats() {
-        Map<String, Object> result = new java.util.HashMap<>();
-        List<String> months = new java.util.ArrayList<>();
-        List<Double> revenueByMonth = new java.util.ArrayList<>();
-        List<Integer> bookingsByMonth = new java.util.ArrayList<>();
+        User supplier = getCurrentSupplier();
+        int monthsBack = 6;
+        List<String> months = new ArrayList<>();
+        List<Double> revenueByMonth = new ArrayList<>();
+        List<Integer> bookingsByMonth = new ArrayList<>();
+        YearMonth now = YearMonth.now();
+        List<Integer> newCustomersByMonth = new ArrayList<>();
+        Set<Integer> allPreviousCustomerIds = new HashSet<>();
+
+        for (int i = monthsBack - 1; i >= 0; i--) {
+            YearMonth ym = now.minusMonths(i);
+            String label = ym.getMonthValue() + "/" + ym.getYear();
+            months.add(label);
+            Instant start = ym.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
+            Instant end = ym.atEndOfMonth().atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+
+            // Lấy tất cả booking trong tháng này
+            List<Booking> bookingsThisMonth = bookingRepository.findByCar_SupplierAndCreatedAtBetween(supplier, start, end);
+
+            Set<Integer> newCustomerIdsThisMonth = new HashSet<>();
+            for (Booking b : bookingsThisMonth) {
+                int customerId = b.getCustomer().getId();
+                // Nếu khách này chưa từng xuất hiện trước đó
+                if (!allPreviousCustomerIds.contains(customerId)) {
+                    newCustomerIdsThisMonth.add(customerId);
+                }
+            }
+            // Cộng dồn khách đã xuất hiện vào set tổng
+            for (Booking b : bookingsThisMonth) {
+                allPreviousCustomerIds.add(b.getCustomer().getId());
+            }
+            newCustomersByMonth.add(newCustomerIdsThisMonth.size());
+
+            // Tổng payout (doanh thu) tháng này
+            BigDecimal payout = paymentRepository.sumMonthlyPayoutBySupplier(supplier, start, end);
+            revenueByMonth.add(payout != null ? payout.doubleValue() : 0.0);
+            // Số booking tháng này
+            int bookingCount = bookingRepository.countByCar_SupplierAndCreatedAtBetween(supplier, start, end);
+            bookingsByMonth.add(bookingCount);
+        }
+        Map<String, Object> result = new HashMap<>();
         result.put("months", months);
         result.put("revenueByMonth", revenueByMonth);
         result.put("bookingsByMonth", bookingsByMonth);
+        result.put("newCustomersByMonth", newCustomersByMonth);
         return ResponseEntity.ok(result);
     }
 

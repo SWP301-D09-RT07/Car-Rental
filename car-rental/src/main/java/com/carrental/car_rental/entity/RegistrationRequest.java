@@ -3,6 +3,7 @@ package com.carrental.car_rental.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Data
@@ -35,6 +36,10 @@ public class RegistrationRequest {
     private String driverLicense;
 
     private String status; // pending/approved/rejected
+
+    @NotNull
+    @Column(name = "password")
+    private String password;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;

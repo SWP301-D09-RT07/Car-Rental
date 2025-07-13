@@ -24,6 +24,7 @@ public class CarDTO {
     private Short numOfSeats;
     private BigDecimal dailyRate;
     private Integer regionId;
+    private String regionName;
     private String currency;
     private Integer carBrandId;
     private String brandName;
