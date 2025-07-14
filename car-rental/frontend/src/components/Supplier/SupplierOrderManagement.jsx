@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getSupplierOrders, supplierConfirmReturn, refundDeposit, supplierConfirmBooking, supplierRejectBooking, supplierConfirmFullPayment, getBookingDetails } from "@/services/api";
+import { getSupplierOrders, supplierConfirmReturn, refundDeposit, supplierConfirmBooking, supplierRejectBooking, supplierConfirmFullPayment, getBookingDetails, supplierPrepareCar, supplierConfirmDelivery } from "@/services/api";
 import { toast } from "react-toastify";
 import { FaClipboardList, FaCheck, FaTimes, FaEye, FaFilter, FaSyncAlt, FaCheckCircle, FaTimesCircle, FaFileExport, FaSearch, FaMoneyCheckAlt } from "react-icons/fa";
 import Papa from 'papaparse';
@@ -43,23 +43,55 @@ const SupplierOrderManagement = () => {
   };
 
   const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
+    const st = (status || '').toLowerCase();
+    switch (st) {
       case 'confirmed':
-      case 'xác nhận':
-        return 'bg-green-100 text-green-800';
+      case 'đã xác nhận':
+        return 'bg-green-100 text-green-700 border-green-300';
       case 'pending':
       case 'chờ xác nhận':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-700 border-yellow-300';
       case 'cancelled':
       case 'đã hủy':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-700 border-red-300';
       case 'completed':
       case 'hoàn thành':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-700 border-blue-300';
       case 'in_progress':
-        return 'bg-purple-100 text-purple-800';
+      case 'in progress':
+      case 'đang thuê':
+        return 'bg-purple-100 text-purple-700 border-purple-300';
+      case 'ready_for_pickup':
+      case 'sẵn sàng nhận xe':
+        return 'bg-cyan-100 text-cyan-700 border-cyan-300';
+      case 'delivered':
+      case 'đã giao xe':
+        return 'bg-indigo-100 text-indigo-700 border-indigo-300';
+      case 'refunded':
+      case 'đã hoàn cọc':
+        return 'bg-pink-100 text-pink-700 border-pink-300';
+      case 'payout':
+        return 'bg-teal-100 text-teal-700 border-teal-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-700 border-gray-300';
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'pending': return 'Chờ xác nhận';
+      case 'confirmed': return 'Đã xác nhận';
+      case 'ready_for_pickup': return 'Đã chuẩn bị xe';
+      case 'delivered': return 'Đã giao xe';
+      case 'in_progress':
+      case 'in progress': return 'Đang thuê';
+      case 'completed': return 'Hoàn thành';
+      case 'cancelled': return 'Đã hủy';
+      case 'refunded': return 'Đã hoàn cọc';
+      case 'payout': return 'Đã chuyển tiền';
+      case 'failed': return 'Thất bại';
+      case 'rejected': return 'Bị từ chối';
+      default: return status;
     }
   };
 
@@ -117,6 +149,26 @@ const SupplierOrderManagement = () => {
       } catch (err) {
         toast.error('Không thể lấy chi tiết thanh toán');
       }
+    }
+  };
+
+  const handlePrepareCar = async (bookingId) => {
+    try {
+      await supplierPrepareCar(bookingId);
+      toast.success('Đã chuyển sang trạng thái chờ nhận xe!');
+      fetchOrders();
+    } catch (err) {
+      toast.error(err.message || 'Không thể chuyển sang trạng thái chờ nhận xe');
+    }
+  };
+
+  const handleSupplierDeliveryConfirm = async (bookingId) => {
+    try {
+      await supplierConfirmDelivery(bookingId);
+      toast.success('Đã xác nhận giao xe cho khách!');
+      fetchOrders();
+    } catch (err) {
+      toast.error(err.message || 'Không thể xác nhận giao xe');
     }
   };
 
@@ -328,27 +380,9 @@ const SupplierOrderManagement = () => {
                   <td className="py-4 px-6">
   <div className="flex justify-center">
     <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-sm border-2 text-center min-w-[120px] transition-all
-      ${(() => {
-        const st = (order.status?.statusName || order.statusName || '').toLowerCase();
-        if (st === 'confirmed' || st === 'đã xác nhận') return 'bg-green-100 text-green-700 border-green-300';
-        if (st === 'pending' || st === 'chờ xác nhận') return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-        if (st === 'cancelled' || st === 'đã hủy') return 'bg-red-100 text-red-700 border-red-300';
-        if (st === 'completed' || st === 'hoàn thành') return 'bg-blue-100 text-blue-700 border-blue-300';
-        if (st === 'in_progress' || st === 'đang thuê') return 'bg-purple-100 text-purple-700 border-purple-300';
-        if (st === 'payout') return 'bg-blue-100 text-blue-700 border-blue-300';
-        return 'bg-gray-100 text-gray-700 border-gray-300';
-      })()}`}
-    >
-      {(() => {
-        const st = (order.status?.statusName || order.statusName || '').toLowerCase();
-        if (st === 'confirmed') return 'Đã xác nhận';
-        if (st === 'pending') return 'Chờ xác nhận';
-        if (st === 'cancelled') return 'Đã hủy';
-        if (st === 'completed') return 'Hoàn thành';
-        if (st === 'in_progress') return 'Đang thuê';
-        if (st === 'payout') return 'Đã payout';
-        return order.status?.statusName || order.statusName || 'N/A';
-      })()}
+      ${getStatusColor(order.status?.statusName || order.statusName || '')}
+    `}>
+      {getStatusLabel(order.status?.statusName || order.statusName || '')}
     </span>
   </div>
                       {isBookingFullyCompleted(order) && (
@@ -377,69 +411,89 @@ const SupplierOrderManagement = () => {
                   </td>
                   <td className="py-4 px-6">
   <div className="flex flex-wrap gap-2 justify-center items-center">
-                      <button 
-      className="flex items-center gap-1 bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-blue-200 transition-all text-sm"
-                        title="Xem chi tiết"
-                        onClick={() => openModal(order)}
-                      >
-      <FaEye className="w-4 h-4" />
-      <span>Chi tiết</span>
-                      </button>
-                      {(order.status?.statusName || order.statusName)?.toLowerCase() === 'pending' && (
-                        <>
-                          <button 
-                            onClick={() => handleConfirmOrder(order.bookingId)}
-          className="flex items-center gap-1 bg-green-100 text-green-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-green-200 transition-all text-sm"
-                            title="Xác nhận"
-                          >
-          <FaCheck className="w-4 h-4" />
-          <span>Xác nhận</span>
-                          </button>
-                          <button 
-                            onClick={() => handleRejectOrder(order.bookingId)}
-          className="flex items-center gap-1 bg-red-100 text-red-600 px-4 py-2 rounded-xl font-semibold shadow hover:bg-red-200 transition-all text-sm"
-                            title="Từ chối"
-                          >
-          <FaTimes className="w-4 h-4" />
-          <span>Từ chối</span>
-                          </button>
-                        </>
-                      )}
-                      {/* Nút Nhận đủ tiền chỉ hiển thị khi chưa xác nhận */}
-                      {(order.status?.statusName || order.statusName)?.toLowerCase() === 'confirmed' && order.hasFullPayment && !order.supplierConfirmedFullPayment && (
-                        <button
-                          onClick={() => handleConfirmFullPayment(order.bookingId)}
-                          className="flex items-center gap-1 bg-green-100 text-green-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-green-200 transition-all text-sm"
-                          title="Xác nhận đã nhận đủ tiền"
-                        >
-                          <FaCheck className="w-4 h-4" />
-                          <span>Nhận đủ tiền</span>
-                        </button>
-                      )}
-    {([
-      'in progress', 'in_progress'
-    ].includes((order.statusName || order.status?.statusName || order.status || '').toLowerCase())
-                          && Boolean(order.customerReturnConfirm)
-                          && !Boolean(order.supplierReturnConfirm)
-                        ) && (
-                        <button
-                          onClick={() => handleSupplierConfirmReturn(order.bookingId)}
+  <button 
+    className="flex items-center gap-1 bg-blue-100 text-blue-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-blue-200 transition-all text-sm"
+    title="Xem chi tiết"
+    onClick={() => openModal(order)}
+  >
+    <FaEye className="w-4 h-4" />
+    <span>Chi tiết</span>
+  </button>
+  {/* Xác nhận booking */}
+  {(order.status?.statusName || order.statusName)?.toLowerCase() === 'pending' && (
+    <>
+      <button 
+        onClick={() => handleConfirmOrder(order.bookingId)}
         className="flex items-center gap-1 bg-green-100 text-green-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-green-200 transition-all text-sm"
-                          title="Xác nhận nhận lại xe"
-                        >
+        title="Xác nhận"
+      >
         <FaCheck className="w-4 h-4" />
-        <span>Đã nhận lại xe</span>
-                        </button>
-                      )}
-                      <button
-      className="flex items-center gap-1 bg-purple-100 text-purple-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-purple-200 transition-all text-sm"
-                        title="Xem chi tiết thanh toán"
-                        onClick={() => handleViewPayment(order)}
-                      >
-      <FaMoneyCheckAlt className="w-4 h-4" />
-      <span>Thanh toán</span>
-                      </button>
-                    </div>
+        <span>Xác nhận</span>
+      </button>
+      <button 
+        onClick={() => handleRejectOrder(order.bookingId)}
+        className="flex items-center gap-1 bg-red-100 text-red-600 px-4 py-2 rounded-xl font-semibold shadow hover:bg-red-200 transition-all text-sm"
+        title="Từ chối"
+      >
+        <FaTimes className="w-4 h-4" />
+        <span>Từ chối</span>
+      </button>
+    </>
+  )}
+  {/* Xác nhận đã nhận đủ tiền */}
+  {(order.status?.statusName || order.statusName)?.toLowerCase() === 'confirmed' && order.hasFullPayment && !order.supplierConfirmedFullPayment && (
+    <button
+      onClick={() => handleConfirmFullPayment(order.bookingId)}
+      className="flex items-center gap-1 bg-green-100 text-green-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-green-200 transition-all text-sm"
+      title="Xác nhận đã nhận đủ tiền"
+    >
+      <FaCheck className="w-4 h-4" />
+      <span>Nhận đủ tiền</span>
+    </button>
+  )}
+  {/* Xác nhận nhận lại xe */}
+  {(['in progress', 'in_progress'].includes((order.statusName || order.status?.statusName || order.status || '').toLowerCase())
+    && Boolean(order.customerReturnConfirm)
+    && !Boolean(order.supplierReturnConfirm)) && (
+    <button
+      onClick={() => handleSupplierConfirmReturn(order.bookingId)}
+      className="flex items-center gap-1 bg-green-100 text-green-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-green-200 transition-all text-sm"
+      title="Xác nhận nhận lại xe"
+    >
+      <FaCheck className="w-4 h-4" />
+      <span>Đã nhận lại xe</span>
+    </button>
+  )}
+  {/* Đã chuẩn bị xe */}
+  {(order.status?.statusName || order.statusName)?.toLowerCase() === 'confirmed' && (!order.statusNext || order.statusNext !== 'ready_for_pickup') && (
+    <button
+      onClick={() => handlePrepareCar(order.bookingId)}
+      className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-yellow-200 transition-all text-sm"
+      title="Đã chuẩn bị xe"
+    >
+      <FaCheck className="w-4 h-4" />
+      <span>Đã chuẩn bị xe</span>
+    </button>
+  )}
+  {order.statusName === 'ready_for_pickup' && !order.supplierDeliveryConfirm && (
+    <button
+      className="flex items-center gap-1 bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-orange-200 transition-all text-sm border-2 border-orange-200 supplier-delivery-confirm"
+      onClick={() => handleSupplierDeliveryConfirm(order.bookingId)}
+      title="Đã giao xe cho khách"
+    >
+      <i className="fas fa-car mr-1"></i>
+      <span>Đã giao xe</span>
+    </button>
+  )}
+  <button
+    className="flex items-center gap-1 bg-purple-100 text-purple-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-purple-200 transition-all text-sm"
+    title="Xem chi tiết thanh toán"
+    onClick={() => handleViewPayment(order)}
+  >
+    <FaMoneyCheckAlt className="w-4 h-4" />
+    <span>Thanh toán</span>
+  </button>
+</div>
                   </td>
                 </tr>
                     ))}
@@ -552,25 +606,9 @@ const SupplierOrderManagement = () => {
                   <div className="flex items-center gap-3">
                     <span className="font-semibold text-gray-600">Trạng thái:</span>
                     <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-sm border-2 text-center min-w-[120px] transition-all
-      ${(() => {
-        const st = (selectedOrder.status?.statusName || selectedOrder.statusName || '').toLowerCase();
-        if (st === 'confirmed' || st === 'đã xác nhận') return 'bg-green-100 text-green-700 border-green-300';
-        if (st === 'pending' || st === 'chờ xác nhận') return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-        if (st === 'cancelled' || st === 'đã hủy') return 'bg-red-100 text-red-700 border-red-300';
-        if (st === 'completed' || st === 'hoàn thành') return 'bg-blue-100 text-blue-700 border-blue-300';
-        if (st === 'in_progress' || st === 'đang thuê') return 'bg-purple-100 text-purple-700 border-purple-300';
-        return 'bg-gray-100 text-gray-700 border-gray-300';
-      })()}`}
+      ${getStatusColor(selectedOrder.status?.statusName || selectedOrder.statusName || '')}`}
     >
-      {(() => {
-        const st = (selectedOrder.status?.statusName || selectedOrder.statusName || '').toLowerCase();
-        if (st === 'confirmed') return 'Đã xác nhận';
-        if (st === 'pending') return 'Chờ xác nhận';
-        if (st === 'cancelled') return 'Đã hủy';
-        if (st === 'completed') return 'Hoàn thành';
-        if (st === 'in_progress') return 'Đang thuê';
-        return selectedOrder.status?.statusName || selectedOrder.statusName || 'N/A';
-      })()}
+      {getStatusLabel(selectedOrder.status?.statusName || selectedOrder.statusName || '')}
     </span>
   </div>
                 </div>

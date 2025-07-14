@@ -197,7 +197,7 @@ public class PaymentService {
             }
         }
 
-        Booking booking = bookingRepository.findByIdWithAllRelations(dto.getBookingId())
+        Booking booking = bookingRepository.findByIdWithAllRelationsAndImages(dto.getBookingId())
                 .filter(b -> !b.getIsDeleted())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
         

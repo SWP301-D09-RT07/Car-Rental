@@ -11,11 +11,21 @@ import {
   FaCheckCircle,
   FaUser,
   FaSpinner,
+  FaStar,
 } from "react-icons/fa"
-import { getBookedDates, getProfile } from "@/services/api"
+import { getBookedDates, getProfile, getRatingsByCarId } from "@/services/api"
 import { useAuth } from "@/hooks/useAuth"
 
 const BookingModal = ({ isOpen, onClose, car, onSubmitBooking }) => {
+  console.log('[BookingModal] render - isOpen:', isOpen, '| car:', car, '| onClose:', typeof onClose, '| onSubmitBooking:', typeof onSubmitBooking);
+  if (!isOpen) {
+    console.warn('[BookingModal] Không render vì isOpen =', isOpen);
+    return null;
+  }
+  if (!car) {
+    console.warn('[BookingModal] Không render vì thiếu car:', car);
+    return null;
+  }
   const { isAuthenticated, user } = useAuth()
   const [userProfile, setUserProfile] = useState(null)
   const [userAddress, setUserAddress] = useState("")
@@ -36,6 +46,8 @@ const BookingModal = ({ isOpen, onClose, car, onSubmitBooking }) => {
   const [bookedDates, setBookedDates] = useState([])
   const [loading, setLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [carRatings, setCarRatings] = useState({ averageRating: null, ratingCount: 0 })
+  const [loadingRatings, setLoadingRatings] = useState(false)
 
   useEffect(() => {
     if (car && isOpen) {
@@ -50,12 +62,42 @@ const BookingModal = ({ isOpen, onClose, car, onSubmitBooking }) => {
       })
       setFormErrors({})
       fetchBookedDates()
+      fetchCarRatings()
 
       if (isAuthenticated) {
         loadUserProfile()
       }
     }
   }, [car, isOpen, isAuthenticated])
+  const fetchCarRatings = async () => {
+    if (!car?.id && !car?.carId) return
+
+    try {
+      setLoadingRatings(true)
+      const ratings = await getRatingsByCarId(car.id || car.carId)
+      if (ratings && ratings.length > 0) {
+        // Tính điểm trung bình
+        const totalScore = ratings.reduce((sum, rating) => sum + (rating.ratingScore || 0), 0)
+        const averageRating = totalScore / ratings.length
+        
+        setCarRatings({
+          averageRating: Math.round(averageRating * 10) / 10, // Làm tròn 1 chữ số thập phân
+          ratingCount: ratings.length
+        })
+      } else {
+        setCarRatings({ averageRating: null, ratingCount: 0 })
+      }
+    } catch (err) {
+      console.error("Error fetching car ratings:", err)
+      // Fallback sử dụng dữ liệu từ car object nếu có
+      setCarRatings({
+        averageRating: car?.averageRating || null,
+        ratingCount: 0
+      })
+    } finally {
+      setLoadingRatings(false)
+    }
+  }
 
   const fetchBookedDates = async () => {
     if (!car?.id && !car?.carId) return
@@ -97,6 +139,31 @@ const BookingModal = ({ isOpen, onClose, car, onSubmitBooking }) => {
       }
     }
   }
+
+  const renderStars = (rating) => {
+    if (!rating || rating === 0) return null;
+    
+    const stars = [];
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 >= 0.5;
+    
+    for (let i = 0; i < fullStars; i++) {
+      stars.push(<FaStar key={i} className="text-yellow-400" />);
+    }
+    
+    if (hasHalfStar) {
+      stars.push(<FaStar key="half" className="text-yellow-300" />);
+    }
+    
+    return (
+      <div className="flex items-center space-x-1">
+        <div className="flex text-sm">
+          {stars}
+        </div>
+        <span className="text-sm font-semibold text-gray-700">{rating.toFixed(1)}</span>
+      </div>
+    );
+  };
 
   if (!isOpen || !car) return null
 
@@ -331,7 +398,24 @@ const BookingModal = ({ isOpen, onClose, car, onSubmitBooking }) => {
                   <h2 className="text-2xl font-bold text-gray-900">Đặt xe ngay</h2>
                   <p className="text-gray-600">{car.model || car.name}</p>
                   <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
-                    <span>⭐ 4.8 (120 đánh giá)</span>
+                    {loadingRatings ? (
+                      <div className="flex items-center gap-1">
+                        <FaSpinner className="animate-spin text-xs" />
+                        <span>Đang tải đánh giá...</span>
+                      </div>
+                    ) : carRatings.averageRating ? (
+                      <div className="flex items-center gap-1">
+                        {renderStars(carRatings.averageRating)}
+                        <span>({carRatings.ratingCount} đánh giá)</span>
+                      </div>
+                    ) : (
+                      <span>
+                        {carRatings.ratingCount > 0 
+                          ? `${carRatings.ratingCount} đánh giá chưa có điểm`
+                          : "Chưa có đánh giá"
+                        }
+                      </span>
+                    )}
                     <span>🚗 {car.numOfSeats || 4} chỗ</span>
                   </div>
                 </div>

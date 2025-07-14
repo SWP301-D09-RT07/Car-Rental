@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth.js"
 import InitialPaymentSummary from "@/components/payments/InitialPaymentSummary.jsx"
 import PickupPaymentSummary from "@/components/payments/PickupPaymentSummary.jsx"
 import RetryPaymentSummary from '@/components/payments/RetryPaymentSummary'
+import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
 import {
   FaCreditCard,
   FaHandHoldingUsd,
@@ -29,6 +30,7 @@ import {
   FaMobile,
 } from "react-icons/fa"
 import { getItem } from '@/utils/auth'
+import Footer from '@/components/layout/Footer/Footer.jsx';
 
 // Enhanced Progress Steps Component
 const ProgressSteps = ({ currentStep = 1 }) => {
@@ -244,32 +246,6 @@ const PageFooter = () => {
         </div>
       </div>
     </footer>
-  )
-}
-
-// Enhanced LoadingSpinner component
-const LoadingSpinner = ({ size = "medium", color = "blue", text }) => {
-  const sizeClasses = {
-    small: "w-4 h-4",
-    medium: "w-8 h-8",
-    large: "w-12 h-12",
-  }
-
-  const colorClasses = {
-    blue: "border-blue-600",
-    white: "border-white",
-    gray: "border-gray-600",
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center">
-      <div
-        className={`animate-spin rounded-full border-2 border-t-transparent ${sizeClasses[size]} ${colorClasses[color]}`}
-      >
-        <div className="sr-only">Đang tải...</div>
-      </div>
-      {text && <p className="mt-3 text-gray-600 text-sm font-medium">{text}</p>}
-    </div>
   )
 }
 
@@ -812,10 +788,12 @@ const PaymentPage = () => {
               withDriver: withDriver,
               deliveryRequested: deliveryRequested,
               customerInfo: customerInfo,
-              bookingData: {
-                ...bookingInfo,
-                car: bookingInfo?.car || { model: "Không xác định" }
-              },
+              bookingInfo: bookingInfo,
+              depositAmount: depositAmount,
+              collateralAmount: collateralAmount,
+              paymentType: paymentType,
+              pickupPayment: pickupPayment,
+              fromHistory: fromHistory,
             },
           })
         }, 2000)
@@ -912,10 +890,9 @@ const PaymentPage = () => {
       {isProcessing && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-3xl p-10 max-w-sm w-full mx-4 text-center shadow-2xl">
-            <div className="w-20 h-20 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-            <h3 className="text-xl font-bold text-gray-900 mb-3">Đang xử lý thanh toán</h3>
-            <p className="text-gray-600 mb-6">Vui lòng không đóng trang này...</p>
-            <div className="bg-gray-200 rounded-full h-3">
+            <LoadingSpinner size="large" text="Đang xử lý thanh toán..." />
+            <h3 className="text-xl font-bold text-gray-900 mb-3">Vui lòng không đóng trang này</h3>
+            <div className="bg-gray-200 rounded-full h-3 mt-6">
               <div
                 className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full animate-pulse"
                 style={{ width: "75%" }}
@@ -1102,7 +1079,7 @@ const PaymentPage = () => {
         </div>
       </main>
 
-      <PageFooter />
+      <Footer />
     </div>
   )
 }

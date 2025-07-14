@@ -70,6 +70,16 @@ public class SupplierController {
         return supplierService.confirmFullPayment(id);
     }
 
+    @PutMapping("/bookings/{id}/prepare")
+    public ResponseEntity<?> prepareCar(@PathVariable Integer id) {
+        return supplierService.prepareCar(id);
+    }
+
+    @PutMapping("/bookings/{id}/supplier-delivery-confirm")
+    public ResponseEntity<?> supplierDeliveryConfirm(@PathVariable Integer id) {
+        return supplierService.supplierDeliveryConfirm(id);
+    }
+
     // Dashboard
     @GetMapping("/dashboard/summary")
     public ResponseEntity<?> getDashboardSummary() {

@@ -77,6 +77,30 @@ const SupplierCarList = () => {
     }
   };
 
+  // Thêm hàm getStatusLabel để chuyển trạng thái sang tiếng Việt
+  const getStatusLabel = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'available':
+      case 'có sẵn':
+        return 'Có sẵn';
+      case 'rented':
+      case 'đang thuê':
+        return 'Đang thuê';
+      case 'maintenance':
+      case 'bảo trì':
+        return 'Bảo trì';
+      case 'unavailable':
+      case 'không khả dụng':
+        return 'Không khả dụng';
+      case 'pending':
+        return 'Chờ duyệt';
+      case 'pending_approval':
+        return 'Chờ phê duyệt';
+      default:
+        return status;
+    }
+  };
+
   const handleViewDetail = (car) => {
     setSelectedCar(car);
     setShowDetailModal(true);
@@ -133,7 +157,7 @@ const SupplierCarList = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-      <LoadingSpinner size="large" />
+        <LoadingSpinner size="large" />
       </div>
     );
   }
@@ -306,7 +330,7 @@ const SupplierCarList = () => {
                   </td>
                   <td className="py-4 px-6">
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(car.statusName)}`}>
-                      {car.statusName}
+                      {getStatusLabel(car.statusName)}
                     </span>
                   </td>
                   <td className="py-4 px-6">
@@ -437,7 +461,7 @@ const SupplierCarList = () => {
                 </span></div>
                 <div><span className="font-semibold text-gray-600">Giá/ngày:</span> <span className="font-bold text-green-600">{(selectedCar.dailyRate || 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0 })}</span></div>
                 <div><span className="font-semibold text-gray-600">Số chỗ:</span> <span className="font-medium text-gray-800">{selectedCar.numOfSeats}</span></div>
-                <div><span className="font-semibold text-gray-600">Trạng thái:</span> <span className="font-medium text-gray-800">{selectedCar.statusName}</span></div>
+                <div><span className="font-semibold text-gray-600">Trạng thái:</span> <span className="font-medium text-gray-800">{getStatusLabel(selectedCar.statusName)}</span></div>
           </div>
             </div>
             {/* Mô tả */}

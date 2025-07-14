@@ -30,6 +30,7 @@ import {
   LineElement,
 } from 'chart.js';
 import { motion, AnimatePresence } from 'framer-motion';
+import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
 
 // Register Chart.js components
 ChartJS.register(
@@ -65,6 +66,8 @@ const SupplierCarDashboard = () => {
   const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [carsData, setCarsData] = useState([]);
+  const [mostPopularCar, setMostPopularCar] = useState(null);
+  const [ordersData, setOrdersData] = useState([]); // Thêm state lưu ordersData
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   
@@ -88,6 +91,7 @@ const SupplierCarDashboard = () => {
         
         // Fetch orders data for detailed stats
         const ordersData = await getSupplierOrders();
+        setOrdersData(ordersData || []); // Lưu lại ordersData để dùng cho tính toán xe phổ biến nhất
         
         // Fetch monthly stats for revenue chart
         const monthlyStatsData = await getSupplierMonthlyStats();
@@ -235,6 +239,31 @@ const SupplierCarDashboard = () => {
     }
   }, [selected]);
 
+  // Tính toán xe phổ biến nhất của supplier
+  useEffect(() => {
+    if (!ordersData || !carsData) return;
+    // Đếm số lượt đặt cho từng carId
+    const carBookingCount = {};
+    ordersData.forEach(order => {
+      const carId = order.car?.carId || order.carId;
+      if (carId) {
+        carBookingCount[carId] = (carBookingCount[carId] || 0) + 1;
+      }
+    });
+    // Tìm carId có số booking nhiều nhất
+    let maxCarId = null;
+    let maxCount = 0;
+    Object.entries(carBookingCount).forEach(([carId, count]) => {
+      if (count > maxCount) {
+        maxCarId = carId;
+        maxCount = count;
+      }
+    });
+    // Lấy thông tin xe từ carsData
+    const mostPopular = carsData.find(car => (car.carId || car.id) == maxCarId);
+    setMostPopularCar(mostPopular ? { ...mostPopular, bookingCount: maxCount } : null);
+  }, [ordersData, carsData]);
+
   // Refresh dashboard data
   const handleRefresh = async () => {
     if (selected === "dashboard") {
@@ -314,7 +343,7 @@ const SupplierCarDashboard = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="space-y-8"
-          >
+          >     
             {/* Enhanced Header with Modern Glass Design */}
             <div className="bg-gradient-to-r from-blue-600 via-indigo-700 to-purple-800 rounded-3xl shadow-2xl p-8 text-white relative overflow-hidden">
               {/* Animated Background Elements */}
@@ -406,11 +435,7 @@ const SupplierCarDashboard = () => {
             
             {loading ? (
               <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-blue-600 mx-auto mb-6"></div>
-                  <p className="text-gray-600 text-xl">Đang tải dữ liệu thống kê...</p>
-                  <p className="text-gray-500 text-sm mt-2">Vui lòng đợi trong giây lát</p>
-                </div>
+                <LoadingSpinner size="large" color="blue" />
               </div>
             ) : (
               <>
@@ -825,7 +850,7 @@ const SupplierCarDashboard = () => {
 
                 {/* Enhanced Popular Cars and Recent Activities */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Popular Cars Section - Enhanced */}
+                  {/* Popular Cars Section - Chỉ hiển thị xe phổ biến nhất */}
                   <motion.div 
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -837,45 +862,29 @@ const SupplierCarDashboard = () => {
                       <div className="flex items-center justify-between mb-6">
                         <div>
                           <h3 className="text-xl font-bold text-gray-800 font-heading">🔥 Xe được đặt nhiều nhất</h3>
-                          <p className="text-gray-500 text-sm">Top xe phổ biến trong tháng</p>
+                          <p className="text-gray-500 text-sm">Xe phổ biến nhất của bạn</p>
                         </div>
                         <div className="bg-gradient-to-r from-red-100 to-orange-200 p-3 rounded-xl">
                           <FaFire className="text-red-600 text-xl" />
                         </div>
                       </div>
-                      
-                      {popularCars.length > 0 ? (
-                        <div className="space-y-4">
-                          {popularCars.map((car, index) => (
-                            <motion.div 
-                              key={index}
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 1.2 + index * 0.1 }}
-                              whileHover={{ scale: 1.02, x: 5 }}
-                              className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border-l-4 border-yellow-400 hover:shadow-md transition-all cursor-pointer group"
-                            >
-                              <div className="flex items-center">
-                                <div className="bg-gradient-to-br from-yellow-100 to-yellow-200 p-3 rounded-xl mr-4 group-hover:scale-110 transition-transform">
-                                  <FaCar className="text-yellow-600 text-lg" />
-                                </div>
-                                <div>
-                                  <h4 className="font-semibold text-gray-800 font-heading">{car.model}</h4>
-                                  <p className="text-gray-600 text-sm">{car.bookings} lượt đặt</p>
-                                  <div className="flex items-center mt-1">
-                                    <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
-                                    <span className="text-xs text-green-600 font-medium">Tăng 15%</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center">
-                                <div className="bg-gradient-to-r from-yellow-400 to-orange-400 p-2 rounded-lg mr-2">
-                                  <FaStar className="text-white text-sm" />
-                                </div>
-                                <span className="text-orange-700 font-bold text-lg">#{index + 1}</span>
-                              </div>
-                            </motion.div>
-                          ))}
+                      {mostPopularCar ? (
+                        <div className="flex flex-col items-center justify-center text-center">
+                          <img
+                            src={
+                              mostPopularCar.images && mostPopularCar.images.length > 0 && mostPopularCar.images[0].imageUrl
+                                ? mostPopularCar.images[0].imageUrl
+                                : mostPopularCar.imageUrls && mostPopularCar.imageUrls.length > 0
+                                  ? mostPopularCar.imageUrls[0]
+                                  : '/images/default-car.jpg'
+                            }
+                            alt={mostPopularCar.model}
+                            className="w-64 h-40 object-cover rounded-2xl shadow-lg mb-4 border border-orange-100"
+                          />
+                          <h4 className="font-semibold text-gray-800 font-heading text-2xl mb-2">{mostPopularCar.model}</h4>
+                          <span className="bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-bold mb-2">{mostPopularCar.brand}</span>
+                          <p className="text-gray-600 mb-1">Số lượt thuê: <span className="font-bold text-emerald-600 text-lg">{mostPopularCar.bookingCount || mostPopularCar.totalBookings || 'N/A'}</span></p>
+                          <p className="text-gray-500 text-base">Giá: {mostPopularCar.dailyRate ? mostPopularCar.dailyRate.toLocaleString('vi-VN') + ' VNĐ/ngày' : 'N/A'}</p>
                         </div>
                       ) : (
                         <div className="text-center py-8 text-gray-500">

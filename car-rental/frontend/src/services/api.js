@@ -1217,6 +1217,19 @@ export const createRating = async (ratingData) => {
     }
 };
 
+export const updateRating = async (ratingId, ratingData) => {
+    try {
+        const response = await api.put(`/api/ratings/${ratingId}`, ratingData);
+        // Invalidate cache
+        invalidateCache('all-ratings');
+        if (ratingData.carId) invalidateCache(`ratings-car-${ratingData.carId}`);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating rating:', error);
+        throw new Error(error.response?.data?.message || 'Không thể sửa đánh giá');
+    }
+};
+
 export const getRatingSummaryByCarId = async (carId) => {
     try {
         const response = await api.get(`/api/ratings/summary?carId=${carId}`);
@@ -1358,6 +1371,16 @@ export const getPayoutAmount = async (bookingId) => {
   }
 };
 
+export const getRatingsByBookingId = async (bookingId) => {
+    if (!bookingId) throw new Error('Vui lòng cung cấp bookingId');
+    try {
+        const response = await api.get(`/api/ratings?bookingId=${bookingId}`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể lấy đánh giá theo booking');
+    }
+};
+
 export default api;
 
 // Lấy danh sách xe chờ duyệt (admin)
@@ -1385,4 +1408,28 @@ export const rejectCar = async (carId) => {
     headers: token ? { Authorization: `Bearer ${token}` } : {}
   });
   return res.data;
+};
+
+/**
+ * Supplier chuẩn bị xe (chuyển trạng thái sang ready_for_pickup)
+ */
+export const supplierPrepareCar = async (bookingId) => {
+    try {
+        const response = await api.put(`/api/supplier/bookings/${bookingId}/prepare`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể chuyển sang trạng thái chờ nhận xe');
+    }
+};
+
+/**
+ * Supplier xác nhận đã giao xe (chuyển supplierDeliveryConfirm = true)
+ */
+export const supplierConfirmDelivery = async (bookingId) => {
+    try {
+        const response = await api.put(`/api/supplier/bookings/${bookingId}/supplier-delivery-confirm`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể xác nhận giao xe');
+    }
 };

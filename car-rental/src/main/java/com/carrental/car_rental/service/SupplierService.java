@@ -565,4 +565,48 @@ public class SupplierService {
 
         return ResponseEntity.ok("Supplier đã xác nhận đã nhận đủ tiền");
     }
+
+    @Transactional
+    public ResponseEntity<?> prepareCar(Integer id) {
+        Booking booking = bookingRepository.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Booking not found"));
+        if (!booking.getCar().getSupplier().equals(getCurrentSupplier())) {
+            return ResponseEntity.status(403).body("Not authorized to prepare this booking");
+        }
+        String currentStatusName = booking.getStatus() != null ? booking.getStatus().getStatusName() : null;
+        if (!"confirmed".equalsIgnoreCase(currentStatusName)) {
+            return ResponseEntity.badRequest().body("Booking is not in confirmed status");
+        }
+        Status readyStatus = statusRepository.findByStatusNameIgnoreCase("ready_for_pickup");
+        if (readyStatus == null) {
+            return ResponseEntity.badRequest().body("Status 'ready_for_pickup' not found");
+        }
+        booking.setStatus(readyStatus);
+        bookingRepository.save(booking);
+        return ResponseEntity.ok("Booking is now ready for pickup");
+    }
+
+    @Transactional
+    public ResponseEntity<?> supplierDeliveryConfirm(Integer id) {
+        Booking booking = bookingRepository.findById(id)
+            .orElseThrow(() -> new EntityNotFoundException("Booking not found"));
+        if (!booking.getCar().getSupplier().equals(getCurrentSupplier())) {
+            return ResponseEntity.status(403).body("Not authorized to confirm delivery for this booking");
+        }
+        String currentStatusName = booking.getStatus() != null ? booking.getStatus().getStatusName() : null;
+        if (!"ready_for_pickup".equalsIgnoreCase(currentStatusName)) {
+            return ResponseEntity.badRequest().body("Booking is not in ready_for_pickup status");
+        }
+        if (Boolean.TRUE.equals(booking.getSupplierDeliveryConfirm())) {
+            return ResponseEntity.badRequest().body("Already confirmed delivery");
+        }
+        booking.setSupplierDeliveryConfirm(true);
+        // Cập nhật status sang 'delivered' (hoặc 'delivered_to_customer')
+        Status deliveredStatus = statusRepository.findByStatusNameIgnoreCase("delivered");
+        if (deliveredStatus != null) {
+            booking.setStatus(deliveredStatus);
+        }
+        bookingRepository.save(booking);
+        return ResponseEntity.ok("Supplier đã xác nhận giao xe cho khách");
+    }
 } 
