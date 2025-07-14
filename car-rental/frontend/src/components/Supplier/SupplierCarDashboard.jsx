@@ -15,7 +15,7 @@ import { AuthContext } from '../../store/AuthContext';
 import { getSupplierDashboardSummary, getSupplierCars, getSupplierOrders, getSupplierMonthlyStats } from '../../services/api';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
-import SupplierSidebar from "./SupplierSidebar";
+// import SupplierSidebar from "./SupplierSidebar";
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import api, { toggleUserStatus } from "../../../services/api.js";
 import {
   FaUsers,
@@ -125,26 +124,14 @@ function Users() {
     }
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
-  };
   const cardVariants = {
     hidden: { y: 30, opacity: 0 },
     visible: { y: 0, opacity: 1, transition: { duration: 0.5 } }
   };
 
   return (
-      <motion.div
-          className="min-h-screen p-8 bg-gray-50"
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-      >
-        <motion.div className="mb-8 text-center" variants={cardVariants}>
+      <div className="min-h-screen p-6 bg-gradient-to-br from-slate-100 to-blue-50">
+        <div className="mb-8 text-center" variants={cardVariants}>
           <div className="inline-flex items-center gap-4 p-6 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-xl text-white">
             <div className="p-3 bg-white bg-opacity-20 rounded-xl">
               <FaUsers className="text-3xl" />
@@ -154,20 +141,20 @@ function Users() {
               <p className="text-blue-100 text-lg">Theo dõi và quản lý tất cả người dùng trong hệ thống</p>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {error && (
-            <motion.div
+            <div
                 className="mb-6 p-4 bg-red-100 border border-red-300 rounded-xl text-red-700 flex items-center gap-2"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
             >
               <FaTimes className="text-red-500" />
               {error}
-            </motion.div>
+            </div>
         )}
 
-        <motion.div
+        <div
             className="bg-white rounded-2xl p-4 shadow mb-8 flex flex-col md:flex-row md:items-center md:gap-6 gap-4"
             variants={cardVariants}
         >
@@ -201,9 +188,9 @@ function Users() {
               </select>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div
+        <div
             className="bg-white rounded-2xl shadow-lg overflow-hidden"
             variants={cardVariants}
         >
@@ -228,7 +215,7 @@ function Users() {
               <tbody>
               {isLoading ? (
                   Array.from({length: ITEMS_PER_PAGE}).map((_, index) => (
-                      <motion.tr
+                      <tr
                           key={index}
                           className="border-b border-gray-100"
                           initial={{ opacity: 0 }}
@@ -253,7 +240,7 @@ function Users() {
                         <td className="py-4 px-6">
                           <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
                         </td>
-                      </motion.tr>
+                      </tr>
                   ))
               ) : users.length === 0 ? (
                   <tr>
@@ -263,7 +250,7 @@ function Users() {
                   </tr>
               ) : (
                   users.map((user, index) => (
-                      <motion.tr
+                      <tr
                           key={user.userId}
                           className="border-b border-gray-100 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300"
                           initial={{ opacity: 0, y: 20 }}
@@ -274,14 +261,14 @@ function Users() {
                         <td className="py-4 px-6 font-mono text-gray-700">{user.userId}</td>
                         <td className="py-4 px-6 font-semibold text-gray-800">{user.username}</td>
                         <td className="py-4 px-6">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${
-                          user.roleName === "supplier"
-                              ? "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border border-purple-200"
-                              : "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border border-blue-200"
-                      }`}>
-                        {user.roleName === "supplier" ? <FaUserTie className="mr-1" /> : <FaUser className="mr-1" />}
-                        {user.roleName === "customer" ? "Khách hàng" : "Chủ xe"}
-                      </span>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${
+                        user.roleName === "supplier"
+                            ? "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 border border-purple-200"
+                            : "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border border-blue-200"
+                    }`}>
+                      {user.roleName === "supplier" ? <FaUserTie className="mr-1" /> : <FaUser className="mr-1" />}
+                      {user.roleName === "customer" ? "Khách hàng" : "Chủ xe"}
+                    </span>
                         </td>
                         <td className="py-4 px-6 text-gray-700">{user.email}</td>
                         <td className="py-4 px-6">
@@ -293,7 +280,7 @@ function Users() {
                                       ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border border-green-200"
                                       : "bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border border-red-200"
                               }`}>
-                            {user.statusName === "active" ? <FaCheck className="mr-1" /> : <FaBan className="mr-1" />}
+                        {user.statusName === "active" ? <FaCheck className="mr-1" /> : <FaBan className="mr-1" />}
                                 {user.statusName === "active" ? "Hoạt động" : "Bị chặn"}
                           </span>
                             </div>
@@ -311,7 +298,7 @@ function Users() {
                           </div>
                         </td>
                         <td className="py-4 px-6 text-center">
-                          <motion.button
+                          <button
                               className={`inline-flex items-center px-4 py-2 rounded-xl font-medium text-sm transition-all duration-300 ${
                                   user.statusName === "active"
                                       ? "bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white shadow-lg hover:shadow-xl"
@@ -323,9 +310,9 @@ function Users() {
                           >
                             {user.statusName === "active" ? <FaBan className="mr-1" /> : <FaCheck className="mr-1" />}
                             {user.statusName === "active" ? "Chặn" : "Mở chặn"}
-                          </motion.button>
+                          </button>
                         </td>
-                      </motion.tr>
+                      </tr>
                   ))
               )}
               </tbody>
@@ -338,7 +325,7 @@ function Users() {
                 Trang {currentPage} của {totalPages}
               </div>
               <div className="flex gap-2">
-                <motion.button
+                <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                     className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
@@ -347,9 +334,9 @@ function Users() {
                 >
                   <FaChevronLeft />
                   Trước
-                </motion.button>
+                </button>
                 {Array.from({length: totalPages}, (_, i) => i + 1).map((page) => (
-                    <motion.button
+                    <button
                         key={page}
                         onClick={() => handlePageChange(page)}
                         className={`px-3 py-2 rounded-lg font-medium ${
@@ -361,9 +348,9 @@ function Users() {
                         whileTap={{ scale: 0.95 }}
                     >
                       {page}
-                    </motion.button>
+                    </button>
                 ))}
-                <motion.button
+                <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
@@ -372,21 +359,21 @@ function Users() {
                 >
                   Sau
                   <FaChevronRight />
-                </motion.button>
+                </button>
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Modal xác nhận */}
         {showModal && (
-            <motion.div
+            <div
                 className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
             >
-              <motion.div
+              <div
                   className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md"
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -421,15 +408,15 @@ function Users() {
                 )}
 
                 <div className="flex gap-4">
-                  <motion.button
+                  <button
                       onClick={() => setShowModal(false)}
                       className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                   >
                     Hủy
-                  </motion.button>
-                  <motion.button
+                  </button>
+                  <button
                       onClick={confirmBlock}
                       className={`flex-1 px-4 py-2 rounded-lg text-white font-medium ${
                           selectedUser?.statusName === "active"
@@ -440,12 +427,12 @@ function Users() {
                       whileTap={{ scale: 0.98 }}
                   >
                     Xác nhận
-                  </motion.button>
+                  </button>
                 </div>
-              </motion.div>
-            </motion.div>
+              </div>
+            </div>
         )}
-      </motion.div>
+      </div>
   );
 }
 

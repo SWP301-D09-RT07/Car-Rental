@@ -80,7 +80,6 @@ function PaymentsAdmin() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [processingId, setProcessingId] = useState(null);
   const [modal, setModal] = useState({ open: false, actionType: '', payment: null });
   const [detailModal, setDetailModal] = useState({ open: false, payments: [], bookingId: null });
   const [search, setSearch] = useState('');
@@ -138,7 +137,6 @@ function PaymentsAdmin() {
 
   const confirmAction = async () => {
     const { actionType, payment } = modal;
-    setProcessingId(payment.bookingId + '-' + actionType);
     try {
       if (actionType === 'refund') {
         await refundDeposit(payment.bookingId);
@@ -151,7 +149,6 @@ function PaymentsAdmin() {
     } catch (err) {
       toast.error((actionType === 'refund' ? 'Hoàn cọc' : 'Payout') + ' thất bại: ' + err.message);
     } finally {
-      setProcessingId(null);
       setModal({ open: false, actionType: '', payment: null });
     }
   };
@@ -201,14 +198,6 @@ function PaymentsAdmin() {
     return matchSearch && matchType && matchStatus;
   });
 
-  // Helper lấy payment full_payment đã paid cho mỗi booking
-  const getFullPayment = (bookingId) =>
-    payments.find(p =>
-      p.bookingId === bookingId &&
-      p.paymentType === 'full_payment' &&
-      (p.paymentStatus === 'paid' || p.statusName === 'paid')
-    );
-
   return (
     <div className="min-h-screen p-6 bg-gradient-to-br from-slate-100 to-blue-50">
       <div className="mb-8 text-center">
@@ -222,19 +211,22 @@ function PaymentsAdmin() {
           </div>
         </div>
       </div>
-      <div className="bg-white/90 rounded-3xl shadow-xl border border-gray-100 p-6 max-w-full overflow-x-auto mx-auto">
-        {/* Bộ lọc/tìm kiếm */}
-        <div className="flex flex-wrap gap-3 mb-4 items-center">
+      {/* Bộ lọc/tìm kiếm */}
+      <div className="mb-6 p-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl shadow flex flex-wrap gap-3 items-end border border-blue-200">
+        <div className="flex flex-col">
+          <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><span className="mr-1">🔍</span>Tìm kiếm</label>
           <input
             type="text"
             placeholder="Tìm Booking ID, khách, supplier..."
-            className="border rounded px-3 py-1"
+            className="border border-blue-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm min-w-[180px]"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ minWidth: 180 }}
           />
+        </div>
+        <div className="flex flex-col">
+          <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><span className="mr-1">📄</span>Loại giao dịch</label>
           <select
-            className="border rounded px-2 py-1"
+            className="border border-blue-200 rounded-xl px-2 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm min-w-[120px]"
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value)}
           >
@@ -244,160 +236,91 @@ function PaymentsAdmin() {
             <option value="refund">Hoàn cọc</option>
             <option value="payout">Payout</option>
           </select>
+        </div>
+        <div className="flex flex-col">
+          <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><span className="mr-1">📊</span>Trạng thái</label>
           <select
-            className="border rounded px-2 py-1"
+            className="border border-blue-200 rounded-xl px-2 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm min-w-[120px]"
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
           >
             <option value="all">Tất cả trạng thái</option>
-            <option value="pending">Chờ xử lý</option>
             <option value="paid">Đã thanh toán</option>
-            <option value="refunded">Đã hoàn</option>
-            <option value="completed">Hoàn thành</option>
+            <option value="pending">Chờ xử lý</option>
             <option value="failed">Thất bại</option>
           </select>
-          <button
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-1 rounded"
-            onClick={handleExportCSV}
-            type="button"
-          >
-            Xuất CSV
-          </button>
         </div>
-        {loading ? (
-          <div className="flex flex-col items-center justify-center min-h-[40vh]">
-            <FaSyncAlt className="animate-spin text-4xl text-blue-500 mb-4" />
-            <span className="text-xl text-gray-600 font-medium">Đang tải danh sách thanh toán...</span>
-          </div>
-        ) : error ? (
-          <div className="text-center text-red-600 font-medium py-8 flex flex-col items-center">
-            <FaTimesCircle className="text-3xl mb-2" />
-            {error}
-          </div>
-        ) : (
-          <table className="min-w-[900px] w-full border border-gray-200 rounded-xl text-sm md:text-base">
-            <thead className="bg-gradient-to-r from-blue-50 to-purple-50">
-              <tr>
-                <th className="px-4 py-2 font-bold text-gray-700">Booking ID</th>
-                <th className="px-4 py-2 font-bold text-gray-700">Customer</th>
-                <th className="px-4 py-2 font-bold text-gray-700">Supplier</th>
-                <th className="px-4 py-2 font-bold text-gray-700">Amount</th>
-                <th className="px-4 py-2 font-bold text-gray-700">Type</th>
-                <th className="px-4 py-2 font-bold text-gray-700">Status</th>
-                <th className="px-4 py-2 font-bold text-gray-700">Ngày tạo</th>
-                <th className="px-4 py-2 font-bold text-gray-700">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPayments.map((p, idx) => {
-                const fullPayment = getFullPayment(p.bookingId);
-                // Chỉ render nút refund/payout 1 lần cho mỗi bookingId (ở payment full_payment)
-                if (!fullPayment || p.paymentType !== 'full_payment') return (
-                  <tr key={p.paymentId || p.transactionId || p.bookingId}>
-                  <td className="px-4 py-2 text-blue-700 font-semibold">{p.bookingId}</td>
-                  <td className="px-4 py-2">{p.customerName || p.customer?.fullName || '-'}</td>
-                  <td className="px-4 py-2">{p.supplierName || p.supplier?.fullName || '-'}</td>
-                  <td className="px-4 py-2 text-right">{p.amount?.toLocaleString()} <span className="text-xs text-gray-500">VND</span></td>
-                  <td className="px-4 py-2 capitalize">
-                    <span className={
-                      p.paymentType === 'refund' ? 'bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full' :
-                      p.paymentType === 'payout' ? 'bg-green-100 text-green-700 px-2 py-1 rounded-full' :
-                      'bg-gray-100 text-gray-700 px-2 py-1 rounded-full'
-                    }>
-                      {p.paymentType}
-                    </span>
+        <button
+          className="ml-auto px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow transition-colors flex items-center gap-2"
+          onClick={handleExportCSV}
+        >
+          <span>⬇️</span> Xuất CSV
+        </button>
+      </div>
+      {/* Bảng dữ liệu */}
+      <div className="rounded-2xl shadow-lg overflow-hidden border border-purple-200 bg-white">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gradient-to-r from-purple-100 to-blue-50">
+              <th className="py-4 px-6 text-left font-bold text-purple-700">
+                <span className="inline-flex items-center gap-2">#️⃣ Booking ID</span>
+              </th>
+              <th className="py-4 px-6 text-left font-bold text-purple-700">
+                <span className="inline-flex items-center gap-2">👤 Khách hàng</span>
+              </th>
+              <th className="py-4 px-6 text-left font-bold text-purple-700">
+                <span className="inline-flex items-center gap-2">🚗 Supplier</span>
+              </th>
+              <th className="py-4 px-6 text-left font-bold text-purple-700">
+                <span className="inline-flex items-center gap-2">📄 Loại</span>
+              </th>
+              <th className="py-4 px-6 text-left font-bold text-purple-700">
+                <span className="inline-flex items-center gap-2">💰 Số tiền</span>
+              </th>
+              <th className="py-4 px-6 text-left font-bold text-purple-700">
+                <span className="inline-flex items-center gap-2">📊 Trạng thái</span>
+              </th>
+              <th className="py-4 px-6 text-left font-bold text-purple-700">
+                <span className="inline-flex items-center gap-2">📅 Ngày</span>
+              </th>
+              <th className="py-4 px-6 text-center font-bold text-purple-700">
+                <span className="inline-flex items-center gap-2">⚡ Hành động</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan="8" className="py-8 text-center text-blue-600 font-semibold">Đang tải dữ liệu...</td></tr>
+            ) : error ? (
+              <tr><td colSpan="8" className="py-8 text-center text-red-600 font-semibold">{error}</td></tr>
+            ) : filteredPayments.length === 0 ? (
+              <tr><td colSpan="8" className="py-8 text-center text-gray-500">Không có dữ liệu</td></tr>
+            ) : (
+              filteredPayments.map((p, idx) => (
+                <tr key={p.paymentId || p.transactionId || idx} className="border-b border-gray-100 hover:bg-blue-50 transition">
+                  <td className="py-4 px-6">{p.bookingId}</td>
+                  <td className="py-4 px-6">{p.customerName || p.customer?.fullName || '-'}</td>
+                  <td className="py-4 px-6">{p.supplierName || p.supplier?.fullName || '-'}</td>
+                  <td className="py-4 px-6 capitalize">{p.paymentType === 'deposit' ? 'Cọc' : p.paymentType === 'full_payment' ? 'Thanh toán đủ' : p.paymentType === 'refund' ? 'Hoàn cọc' : p.paymentType === 'payout' ? 'Payout' : p.paymentType}</td>
+                  <td className="py-4 px-6 font-bold">{Number(p.amount).toLocaleString('vi-VN')} {p.currency || 'VND'}</td>
+                  <td className="py-4 px-6">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${p.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : p.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{p.paymentStatus}</span>
                   </td>
-                  <td className="px-4 py-2">
-                    {p.paymentType === 'refund' && (p.paymentStatus === 'paid' || p.paymentStatus === 'refunded' || p.paymentStatus === 'completed') && (
-                      <span className="inline-flex items-center gap-1 text-green-600 font-semibold"><FaCheckCircle /> Đã hoàn cọc</span>
+                  <td className="py-4 px-6">{p.paymentDate ? new Date(p.paymentDate).toLocaleString('vi-VN') : '-'}</td>
+                  <td className="py-4 px-6 text-center">
+                    <button className="px-3 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 font-semibold mr-2 flex items-center gap-1" onClick={() => handleViewDetails(p.bookingId)}><span>🔎</span>Chi tiết</button>
+                    {p.paymentType === 'full_payment' && p.paymentStatus === 'paid' && (
+                      <button className="px-3 py-1 rounded-lg bg-yellow-400 hover:bg-yellow-500 text-white font-semibold mr-2 flex items-center gap-1" onClick={() => handleRefund(p.bookingId)}><span>↩️</span>Hoàn cọc</button>
                     )}
-                    {p.paymentType === 'payout' && (p.paymentStatus === 'paid' || p.paymentStatus === 'completed') && (
-                      <span className="inline-flex items-center gap-1 text-blue-600 font-semibold"><FaCheckCircle /> Đã payout</span>
-                    )}
-                    {p.paymentStatus === 'failed' && (
-                      <span className="inline-flex items-center gap-1 text-red-600 font-semibold"><FaTimesCircle /> {p.paymentStatus}</span>
-                    )}
-                    {p.paymentStatus === 'pending' && (
-                      <span className="inline-flex items-center gap-1 text-yellow-600 font-semibold"><FaSyncAlt className="animate-spin" /> Đang xử lý</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2">{p.paymentDate ? new Date(p.paymentDate).toLocaleString() : '-'}</td>
-                  <td className="px-4 py-2 space-x-2">
-                      <button className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded text-xs" onClick={() => handleViewDetails(p.bookingId)} title="Xem chi tiết thanh toán">Chi tiết</button>
-                    </td>
-                  </tr>
-                );
-                const canRefund =
-                  Boolean(fullPayment.supplierDeliveryConfirm) &&
-                  Boolean(fullPayment.customerReceiveConfirm) &&
-                  Boolean(fullPayment.customerReturnConfirm) &&
-                  Boolean(fullPayment.supplierReturnConfirm) &&
-                  !payments.some(x => x.bookingId === p.bookingId && x.paymentType === 'refund' && (x.paymentStatus === 'paid' || x.statusName === 'paid'));
-                const canPayout =
-                  Boolean(fullPayment.supplierDeliveryConfirm) &&
-                  Boolean(fullPayment.customerReceiveConfirm) &&
-                  Boolean(fullPayment.customerReturnConfirm) &&
-                  Boolean(fullPayment.supplierReturnConfirm) &&
-                  !payments.some(x => x.bookingId === p.bookingId && x.paymentType === 'payout' && (x.paymentStatus === 'paid' || x.statusName === 'paid'));
-                return (
-                  <tr key={p.paymentId || p.transactionId || p.bookingId}>
-                    <td className="px-4 py-2 text-blue-700 font-semibold">{p.bookingId}</td>
-                    <td className="px-4 py-2">{p.customerName || p.customer?.fullName || '-'}</td>
-                    <td className="px-4 py-2">{p.supplierName || p.supplier?.fullName || '-'}</td>
-                    <td className="px-4 py-2 text-right">{p.amount?.toLocaleString()} <span className="text-xs text-gray-500">VND</span></td>
-                    <td className="px-4 py-2 capitalize">
-                      <span className={
-                        p.paymentType === 'refund' ? 'bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full' :
-                        p.paymentType === 'payout' ? 'bg-green-100 text-green-700 px-2 py-1 rounded-full' :
-                        'bg-gray-100 text-gray-700 px-2 py-1 rounded-full'
-                      }>
-                        {p.paymentType}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      {p.paymentType === 'refund' && (p.paymentStatus === 'paid' || p.paymentStatus === 'refunded' || p.paymentStatus === 'completed') && (
-                        <span className="inline-flex items-center gap-1 text-green-600 font-semibold"><FaCheckCircle /> Đã hoàn cọc</span>
-                    )}
-                      {p.paymentType === 'payout' && (p.paymentStatus === 'paid' || p.paymentStatus === 'completed') && (
-                        <span className="inline-flex items-center gap-1 text-blue-600 font-semibold"><FaCheckCircle /> Đã payout</span>
-                      )}
-                      {p.paymentStatus === 'failed' && (
-                        <span className="inline-flex items-center gap-1 text-red-600 font-semibold"><FaTimesCircle /> {p.paymentStatus}</span>
-                      )}
-                      {p.paymentStatus === 'pending' && (
-                        <span className="inline-flex items-center gap-1 text-yellow-600 font-semibold"><FaSyncAlt className="animate-spin" /> Đang xử lý</span>
+                    {p.paymentType === 'full_payment' && p.paymentStatus === 'paid' && (
+                      <button className="px-3 py-1 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold flex items-center gap-1" onClick={() => handlePayout(p.bookingId)}><span>💸</span>Payout</button>
                     )}
                   </td>
-                    <td className="px-4 py-2">{p.paymentDate ? new Date(p.paymentDate).toLocaleString() : '-'}</td>
-                    <td className="px-4 py-2 space-x-2">
-                      {canRefund && (
-                        <button
-                          onClick={() => {
-                            handleRefund(p.bookingId);
-                          }}
-                          className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded transition flex items-center gap-2"
-                        >
-                          Hoàn cọc
-                        </button>
-                      )}
-                      {canPayout && (
-                        <button
-                          onClick={() => {
-                            handlePayout(p.bookingId);
-                          }}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded transition flex items-center gap-2"
-                        >
-                          Payout
-                        </button>
-                      )}
-                      <button className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded text-xs" onClick={() => handleViewDetails(p.bookingId)} title="Xem chi tiết thanh toán">Chi tiết</button>
-                    </td>
                 </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
       <ConfirmActionModal
         open={modal.open}

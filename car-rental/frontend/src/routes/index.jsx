@@ -22,13 +22,15 @@ import ResetPassword from '../pages/Auth/ResetPassword';
 import { ProtectedRoute } from '../components/features/auth/ProtectedRoute.jsx';
 
 // Admin Pages
+import CarsAdmin from '../components/features/admin/CarApprovalPage.jsx';
 import AdminHome from '../components/features/admin/Home';
 import Reports from '../components/features/admin/Reports';
 import Users from '../components/features/admin/Users';
 import Sidebar from '../components/features/admin/Sidebar';
 import OwnerRequests from '../components/features/admin/OwnerRequests';
 import PaymentsAdmin from '../components/features/admin/PaymentsAdmin';
-import AdminCarApproval from '../components/admin/AdminCarApproval';
+// import AdminCarApproval from '../components/admin/AdminCarApproval';//
+
 
 // Supplier Pages
 import SupplierCarDashboard from '../components/Supplier/SupplierCarDashboard';
@@ -165,7 +167,7 @@ const AppRoutes = () => {
                 <Route path="reports" element={<Reports />} />
                 <Route path="users" element={<Users />} />
                 <Route path="owner-requests" element={<OwnerRequests />} />
-                <Route path="car-approval" element={<AdminCarApproval />} />
+                <Route path="car-approval" element={<CarsAdmin />} />
                 <Route path="payments" element={<PaymentsAdmin />} />
             </Route>
 
