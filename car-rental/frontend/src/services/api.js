@@ -345,10 +345,11 @@ export const getFavorites = async () => {
     }
 };
 
-export const addFavorite = async (carId) => {
+export const addFavorite = async (carId, supplierId) => {
     if (!carId) throw new Error('Vui lòng cung cấp ID xe');
+    if (!supplierId) throw new Error('Vui lòng cung cấp ID chủ xe');
     try {
-        const response = await api.post('/api/favorites', { carId });
+        const response = await api.post('/api/favorites', { carId, supplierId });
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Thêm vào yêu thích thất bại');
@@ -1431,5 +1432,69 @@ export const supplierConfirmDelivery = async (bookingId) => {
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Không thể xác nhận giao xe');
+    }
+};
+
+/**
+ * Cash Payment Management APIs
+ */
+
+// Lấy danh sách cash payments cần xác nhận
+export const getPendingCashPayments = async () => {
+    try {
+        const response = await api.get('/api/cash-payments/pending');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể lấy danh sách thanh toán tiền mặt');
+    }
+};
+
+// Xác nhận đã nhận tiền mặt
+export const confirmCashReceived = async (paymentId, confirmationData) => {
+    try {
+        const response = await api.post(`/api/cash-payments/${paymentId}/confirm`, confirmationData);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể xác nhận nhận tiền mặt');
+    }
+};
+
+// Lấy danh sách platform fees chưa thanh toán
+export const getPendingPlatformFees = async () => {
+    try {
+        const response = await api.get('/api/cash-payments/platform-fees/pending');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể lấy danh sách phí platform');
+    }
+};
+
+// Lấy tổng số tiền platform fee chưa thanh toán
+export const getTotalPendingPlatformFees = async () => {
+    try {
+        const response = await api.get('/api/cash-payments/platform-fees/pending/total');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể lấy tổng phí platform');
+    }
+};
+
+// Thanh toán platform fee
+export const payPlatformFee = async (confirmationId) => {
+    try {
+        const response = await api.post(`/api/cash-payments/confirmations/${confirmationId}/pay-platform-fee`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể thanh toán phí platform');
+    }
+};
+
+// Admin: Lấy danh sách platform fees quá hạn
+export const getOverduePlatformFees = async () => {
+    try {
+        const response = await api.get('/api/cash-payments/platform-fees/overdue');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể lấy danh sách phí quá hạn');
     }
 };

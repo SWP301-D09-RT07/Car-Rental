@@ -1,10 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { getSupplierOrders, supplierConfirmReturn, refundDeposit, supplierConfirmBooking, supplierRejectBooking, supplierConfirmFullPayment, getBookingDetails, supplierPrepareCar, supplierConfirmDelivery } from "@/services/api";
+import { 
+  getSupplierOrders, 
+  supplierConfirmReturn, 
+  refundDeposit, 
+  supplierConfirmBooking, 
+  supplierRejectBooking, 
+  supplierConfirmFullPayment, 
+  getBookingDetails, 
+  supplierPrepareCar, 
+  supplierConfirmDelivery,
+  getPendingCashPayments,
+  confirmCashReceived,
+  getPendingPlatformFees,
+  getTotalPendingPlatformFees,
+  payPlatformFee
+} from "@/services/api";
 import { toast } from "react-toastify";
 import { FaClipboardList, FaCheck, FaTimes, FaEye, FaFilter, FaSyncAlt, FaCheckCircle, FaTimesCircle, FaFileExport, FaSearch, FaMoneyCheckAlt } from "react-icons/fa";
 import Papa from 'papaparse';
 import LoadingSpinner from "@/components/ui/Loading/LoadingSpinner";
 import ErrorMessage from "@/components/ui/ErrorMessage/ErrorMessage";
+import CashPaymentManagementModal from "./CashPaymentManagementModal";
 
 const SupplierOrderManagement = () => {
   const [orders, setOrders] = useState([]);
@@ -17,8 +33,16 @@ const SupplierOrderManagement = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPaymentOrder, setSelectedPaymentOrder] = useState(null);
 
+  // Cash payment management states
+  const [showCashPaymentModal, setShowCashPaymentModal] = useState(false);
+  const [pendingCashPayments, setPendingCashPayments] = useState([]);
+  const [pendingPlatformFees, setPendingPlatformFees] = useState([]);
+  const [totalPendingFees, setTotalPendingFees] = useState(0);
+  const [cashPaymentLoading, setCashPaymentLoading] = useState(false);
+
   useEffect(() => {
     fetchOrders();
+    fetchCashPaymentData();
   }, []);
 
   const fetchOrders = async () => {
@@ -27,31 +51,82 @@ const SupplierOrderManagement = () => {
       setError(null);
       const data = await getSupplierOrders();
       console.log('[SupplierOrderManagement] API response:', data);
-      if (Array.isArray(data)) {
-        data.forEach((order, idx) => {
-          console.log(`Order #${order.bookingId}:`, order);
-        });
+  // Fetch cash payment data
+  const fetchCashPaymentData = async () => {
+    try {
+      setCashPaymentLoading(true);
+      
+      // Temporary mock data for testing UI
+      const mockPendingPayments = [
+        {
+          paymentId: 1,
+          bookingId: 123,
+          amountReceived: 500000,
+          platformFee: 25000,
+          confirmationType: 'pickup'
+        },
+        {
+          paymentId: 2,
+          bookingId: 124,
+          amountReceived: 750000,
+          platformFee: 37500,
+          confirmationType: 'delivery'
+        }
+      ];
+      
+      const mockPendingFees = [
+        {
+          paymentId: 1,
+          bookingId: 121,
+          platformFee: 30000,
+          platformFeeDueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+          platformFeeStatus: 'pending'
+        },
+        {
+          paymentId: 2,
+          bookingId: 122,
+          platformFee: 45000,
+          platformFeeDueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+          platformFeeStatus: 'overdue'
+        }
+      ];
+      
+      // Try to fetch real data, fallback to mock
+      let pendingPayments = mockPendingPayments;
+      let pendingFees = mockPendingFees;
+      let totalFees = { totalAmount: 75000 };
+      
+      try {
+        pendingPayments = await getPendingCashPayments();
+      } catch (err) {
+        console.warn('Using mock data for pending payments:', err.message);
       }
-      setOrders(data || []);
+      
+      try {
+        pendingFees = await getPendingPlatformFees();
+      } catch (err) {
+        console.warn('Using mock data for platform fees:', err.message);
+      }
+      
+      try {
+        totalFees = await getTotalPendingPlatformFees();
+      } catch (err) {
+        console.warn('Using mock data for total fees:', err.message);
+      }
+      
+      setPendingCashPayments(pendingPayments);
+      setPendingPlatformFees(pendingFees);
+      setTotalPendingFees(totalFees.totalAmount || 75000);
     } catch (err) {
-      console.error('Error fetching supplier orders:', err);
-      setError(err.message || 'Không thể tải danh sách đơn đặt xe');
-      toast.error('Không thể tải danh sách đơn đặt xe');
+      console.error('Error fetching cash payment data:', err);
+      // Set mock data as fallback
+      setPendingCashPayments([]);
+      setPendingPlatformFees([]);
+      setTotalPendingFees(0);
     } finally {
-      setLoading(false);
+      setCashPaymentLoading(false);
     }
-  };
-
-  const getStatusColor = (status) => {
-    const st = (status || '').toLowerCase();
-    switch (st) {
-      case 'confirmed':
-      case 'đã xác nhận':
-        return 'bg-green-100 text-green-700 border-green-300';
-      case 'pending':
-      case 'chờ xác nhận':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-      case 'cancelled':
+  };  case 'cancelled':
       case 'đã hủy':
         return 'bg-red-100 text-red-700 border-red-300';
       case 'completed':
@@ -230,16 +305,41 @@ const SupplierOrderManagement = () => {
   const hasPayout = (order) =>
     order.paymentDetails?.some(p => p.paymentType === 'payout' && p.paymentStatus === 'paid');
 
-  return (
-    <div className="max-w-7xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-        {/* Header with gradient */}
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-700 to-purple-800 p-8 text-white relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-5 translate-x-5"></div>
-          <div className="relative z-10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
+  // Handle confirm cash received
+  const handleConfirmCashReceived = async (paymentId, confirmationData) => {
+    try {
+      const response = await fetch(`/api/cash-payments/${paymentId}/confirm`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(confirmationData)
+      });
+  // Handle confirm cash received
+  const handleConfirmCashReceived = async (paymentId, confirmationData) => {
+    try {
+      await confirmCashReceived(paymentId, confirmationData);
+      toast.success('Đã xác nhận nhận tiền mặt thành công');
+      fetchCashPaymentData();
+      fetchOrders();
+    } catch (err) {
+      console.error('Error confirming cash received:', err);
+      toast.error(err.message || 'Không thể xác nhận nhận tiền mặt');
+    }
+  };
+
+  // Handle pay platform fee
+  const handlePayPlatformFee = async (confirmationId) => {
+    try {
+      await payPlatformFee(confirmationId);
+      toast.success('Đã thanh toán phí platform thành công');
+      fetchCashPaymentData();
+    } catch (err) {
+      console.error('Error paying platform fee:', err);
+      toast.error(err.message || 'Không thể thanh toán phí platform');
+    }
+  };          <div className="flex items-center">
                 <div className="bg-white/20 p-4 rounded-2xl mr-6 backdrop-blur-sm border border-white/20">
                   <FaClipboardList className="text-4xl" />
           </div>
@@ -248,6 +348,22 @@ const SupplierOrderManagement = () => {
                   <p className="text-blue-100 text-lg">Xử lý giao xe, nhận lại xe, hoàn cọc</p>
                 </div>
               </div>
+              {/* Cash Payment Management Button */}
+        <button
+          onClick={() => {
+            setShowCashPaymentModal(true);
+            fetchCashPaymentData();
+          }}
+          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-xl hover:bg-orange-700 transition-all duration-200 shadow-lg"
+        >
+          <FaMoneyCheckAlt className="w-4 h-4" />
+          <span>Quản lý tiền mặt</span>
+          {(pendingCashPayments.length > 0 || pendingPlatformFees.length > 0) && (
+            <span className="bg-red-500 text-white rounded-full px-2 py-1 text-xs font-bold">
+              {pendingCashPayments.length + pendingPlatformFees.length}
+            </span>
+          )}
+        </button>
             </div>
           </div>
         </div>
@@ -260,22 +376,22 @@ const SupplierOrderManagement = () => {
               <div className="flex items-center gap-3 bg-gray-50/80 rounded-xl px-4 py-3 backdrop-blur-sm border border-gray-200/50">
                 <FaFilter className="text-blue-600 w-5 h-5" />
                 <span className="text-gray-700 font-semibold">Lọc theo trạng thái:</span>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-                  className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm min-w-[140px]"
-          >
-            <option value="all">Tất cả</option>
-            <option value="pending">Chờ xác nhận</option>
-            <option value="confirmed">Đã xác nhận</option>
-            <option value="in_progress">Đang thuê</option>
-            <option value="completed">Hoàn thành</option>
-            <option value="cancelled">Đã hủy</option>
-          </select>
-        </div>
-              {/* Search Section */}
-              <div className="flex items-center gap-3 bg-gray-50/80 rounded-xl px-4 py-3 backdrop-blur-sm border border-gray-200/50 flex-1">
-                <FaSearch className="text-blue-600 w-5 h-5" />
+              {/* Cash Payment Management Button */}
+        <button
+          onClick={() => {
+            setShowCashPaymentModal(true);
+            fetchCashPaymentData();
+          }}
+          className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-xl hover:bg-orange-700 transition-all duration-200 shadow-lg"
+        >
+          <FaMoneyCheckAlt className="w-4 h-4" />
+          <span>Quản lý tiền mặt</span>
+          {((pendingCashPayments && pendingCashPayments.length > 0) || (pendingPlatformFees && pendingPlatformFees.length > 0)) && (
+            <span className="bg-red-500 text-white rounded-full px-2 py-1 text-xs font-bold">
+              {(pendingCashPayments?.length || 0) + (pendingPlatformFees?.length || 0)}
+            </span>
+          )}
+        </button>FaSearch className="text-blue-600 w-5 h-5" />
           <input
             type="text"
             value={search}
@@ -768,6 +884,18 @@ const SupplierOrderManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Cash Payment Management Modal */}
+      <CashPaymentManagementModal
+        isOpen={showCashPaymentModal}
+        onClose={() => setShowCashPaymentModal(false)}
+        pendingCashPayments={pendingCashPayments}
+        pendingPlatformFees={pendingPlatformFees}
+        totalPendingFees={totalPendingFees}
+        onConfirmCashReceived={handleConfirmCashReceived}
+        onPayPlatformFee={handlePayPlatformFee}
+        loading={cashPaymentLoading}
+      />
     </div>
   );
 };

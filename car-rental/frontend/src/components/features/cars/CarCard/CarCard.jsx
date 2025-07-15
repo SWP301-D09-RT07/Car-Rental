@@ -255,18 +255,7 @@ const CarCard = ({ car, type = "default", isLoading = false, onBookNow }) => {
 
                 {/* Action Buttons */}
                 <div className="absolute top-4 right-4">
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite();
-                        }}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm ${isFavorite
-                                ? "bg-red-500 text-white"
-                                : "bg-white/90 text-gray-600 hover:text-red-500"
-                            }`}
-                    >
-                        <FaHeart className="text-sm" />
-                    </button>
+                    <FavoriteButton carId={car.carId} supplierId={car.supplierId} />
                 </div>
             </div>
 

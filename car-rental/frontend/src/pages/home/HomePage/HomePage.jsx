@@ -150,7 +150,7 @@ const brandLogoMap = {
     'Mercedes': '/images/logo-Mercedes.jpg',
     'Mazda': '/images/logo-Mazda.webp',
     'KIA': '/images/logo-KIA-1.jpg',
-    'Toyota': '/images/logo-Toyota.png',
+    'Toyota': '/images/logo_toyota.webp',
     'Ford': '/images/logo-ford.jpg',
     'Honda': '/images/logo-honda.webp',
     // Thêm các brand khác nếu có

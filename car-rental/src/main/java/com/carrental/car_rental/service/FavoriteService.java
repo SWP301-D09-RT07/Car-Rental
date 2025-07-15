@@ -6,6 +6,8 @@ import com.carrental.car_rental.entity.User;
 import com.carrental.car_rental.mapper.FavoriteMapper;
 import com.carrental.car_rental.repository.FavoriteRepository;
 import com.carrental.car_rental.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,6 +19,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class FavoriteService {
+    private static final Logger logger = LoggerFactory.getLogger(FavoriteService.class);
     private final FavoriteRepository favoriteRepository;
     private final FavoriteMapper favoriteMapper;
     private final UserRepository userRepository;
@@ -29,9 +32,9 @@ public class FavoriteService {
 
     public List<FavoriteDTO> findByCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName())
+        User user = userRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        return favoriteRepository.findByUserIdAndIsDeletedFalse(user.getId())
+        return favoriteRepository.findByUserIdAndIsDeletedFalseFetchCar(user.getId())
                 .stream()
                 .map(favoriteMapper::toDTO)
                 .collect(Collectors.toList());
@@ -39,11 +42,18 @@ public class FavoriteService {
 
     public FavoriteDTO save(FavoriteDTO dto) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName())
+        User user = userRepository.findByUsernameOrEmail(auth.getName(), auth.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        logger.info("[FavoriteService] Saving favorite: carId={}, supplierId={}, userId={}", dto.getCarId(), dto.getSupplierId(), user.getId());
         Favorite favorite = favoriteMapper.toEntity(dto);
         favorite.setUser(user);
-        return favoriteMapper.toDTO(favoriteRepository.save(favorite));
+        logger.info("[FavoriteService] Favorite entity before save: carId={}, supplierId={}, userId={}",
+            favorite.getCar() != null ? favorite.getCar().getId() : null,
+            favorite.getSupplier() != null ? favorite.getSupplier().getId() : null,
+            favorite.getUser() != null ? favorite.getUser().getId() : null);
+        Favorite saved = favoriteRepository.save(favorite);
+        logger.info("[FavoriteService] Favorite saved with id={}", saved.getId());
+        return favoriteMapper.toDTO(saved);
     }
 
     public void delete(Integer id) {
