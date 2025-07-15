@@ -12,4 +12,5 @@ public class PriceBreakdownDTO {
     private BigDecimal discount;
     private BigDecimal total;
     private BigDecimal deposit;
+    private BigDecimal serviceFee;
 }

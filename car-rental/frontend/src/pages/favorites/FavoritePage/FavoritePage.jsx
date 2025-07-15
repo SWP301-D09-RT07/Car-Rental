@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
 import { getFavorites, removeFavorite } from "../../../services/api"
 import FavoriteButton from '@/components/ui/FavoriteButton/FavoriteButton'
+import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
 
 const FavoritePage = () => {
   const [favorites, setFavorites] = useState([])
@@ -62,10 +63,7 @@ const FavoritePage = () => {
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center">
-              <div className="relative w-16 h-16 mx-auto mb-4">
-                <div className="absolute inset-0 border-4 border-blue-200 rounded-full animate-pulse"></div>
-                <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-              </div>
+              <LoadingSpinner size="large" color="blue" />
               <p className="text-gray-600 text-lg">Đang tải danh sách yêu thích...</p>
             </div>
           </div>

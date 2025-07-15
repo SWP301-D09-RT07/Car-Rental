@@ -19,6 +19,7 @@ public interface UserMapper {
     UserDTO toDto(User user);
 
     @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "userDetail", ignore = true)
     @Mapping(source = "roleId", target = "role.id")
     @Mapping(source = "statusId", target = "status.id")
     @Mapping(source = "countryCode", target = "countryCode.countryCode")
@@ -27,7 +28,10 @@ public interface UserMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "lastLogin", ignore = true)
-    User toEntity(CreateUserDTO dto);    @Mapping(target = "passwordHash", ignore = true)
+    User toEntity(CreateUserDTO dto);
+
+    @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "userDetail", ignore = true)
     @Mapping(target = "id", ignore = true)  // Don't map id from DTO to entity
     @Mapping(source = "roleId", target = "role.id")
     @Mapping(source = "statusId", target = "status.id")
@@ -40,6 +44,7 @@ public interface UserMapper {
     User toEntity(UpdateUserDTO dto);
 
     @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "userDetail", ignore = true)
     @Mapping(source = "roleId", target = "role.id")
     @Mapping(source = "statusId", target = "status.id")
     @Mapping(source = "countryCode", target = "countryCode.countryCode")

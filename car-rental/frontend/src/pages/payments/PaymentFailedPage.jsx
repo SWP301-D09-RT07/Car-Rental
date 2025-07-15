@@ -31,6 +31,8 @@ const PaymentFailedPage = () => {
         if (errorCode && VNPAY_ERROR_CODES[errorCode]) {
             setErrorMessage(VNPAY_ERROR_CODES[errorCode]);
         }
+        // Log khi trang thất bại mount
+        console.log('[PaymentFailedPage] Mounted. errorCode:', errorCode, 'errorMessage:', VNPAY_ERROR_CODES[errorCode] || errorMessage);
     }, [errorCode]);
 
     return (
@@ -59,9 +61,16 @@ const PaymentFailedPage = () => {
                     >
                         Về trang chủ
                     </Link>
+                    <Link
+                        to="/profile"
+                        className="block w-full border border-blue-300 text-blue-700 py-3 rounded-xl font-medium hover:bg-blue-50 transition-all duration-300"
+                    >
+                        Xem lịch sử đặt & thanh toán lại
+                    </Link>
                 </div>
                 <div className="mt-6 text-xs text-gray-400">
                     <p>Nếu bạn cần hỗ trợ, vui lòng liên hệ với chúng tôi.</p>
+                    <p className="text-red-500 font-semibold mt-2">Bạn có thể vào <Link to="/profile" className="underline text-blue-600">lịch sử đặt</Link> để thanh toán lại đơn này.</p>
                 </div>
             </div>
         </div>

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getItem } from '@/utils/auth';
 
 const BASE_URL = 'http://localhost:8080';
 
@@ -20,7 +21,7 @@ export const testConnection = async () => {
 // Test với token
 export const testWithToken = async () => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getItem('token');
         if (!token) {
             console.log('No token found');
             return false;
@@ -44,7 +45,7 @@ export const testWithToken = async () => {
 // Test booking endpoint
 export const testBookingEndpoint = async () => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getItem('token');
         if (!token) {
             console.log('No token found for booking test');
             return false;

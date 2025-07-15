@@ -57,7 +57,9 @@ import CarCard from '@/components/features/cars/CarCard/CarCard';
 import BookingModal from '@/components/features/cars/BookingModal';
 import Header from '@/components/layout/Header/Header';
 import Footer from '@/components/layout/Footer/Footer';
+import { getItem } from '@/utils/auth';
 import TestimonialCarousel from '@/components/Rating/TestimonialCarousel';
+import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
 
 // Images
 const bg1 = "/images/bg_1.jpg"
@@ -158,31 +160,6 @@ function getBrandLogo(brandName) {
     // Nếu không có thì trả về ảnh mặc định
     return brandLogoMap[brandName] || '/images/default-brand-logo.jpg';
 }
-// Enhanced Loading Spinner Component
-const LoadingSpinner = ({ size = "medium", color = "blue" }) => {
-    const sizeClasses = {
-        small: "w-4 h-4",
-        medium: "w-8 h-8",
-        large: "w-12 h-12",
-    }
-
-    const colorClasses = {
-        blue: "border-blue-600",
-        white: "border-white",
-        gray: "border-gray-600",
-    }
-
-    return (
-        <div className="flex justify-center items-center">
-            <div
-                className={`animate-spin rounded-full border-2 border-t-transparent ${sizeClasses[size]} ${colorClasses[color]}`}
-            >
-                <div className="sr-only">Đang tải...</div>
-            </div>
-        </div>
-    )
-}
-
 // Enhanced Error Message Component
 const ErrorMessage = ({ message, className = "" }) => {
     return (
@@ -249,7 +226,7 @@ const HomePage = () => {
     const popularSwiperRef = React.useRef(null);
 
     useEffect(() => {
-        const email = localStorage.getItem("userEmail");
+        const email = getItem('userEmail');
         if (email) setUserEmail(email);
     }, []);
 
@@ -260,9 +237,11 @@ const HomePage = () => {
                 setIsLoading(true)
                 setError("")
 
+                const token = getItem('token');
+                const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
                 const [featuredResponse, popularResponse, brandsResponse, regionsResponse] = await Promise.all([
-                    api.get("/api/cars/featured"),
-                    api.get("/api/cars/popular"),
+                    api.get("/api/cars/featured", config),
+                    api.get("/api/cars/popular", config),
                     getCarBrands(),
                     getRegions(),
                 ])
@@ -398,7 +377,7 @@ const HomePage = () => {
     const handleLogout = useCallback(async () => {
         try {
             await logout()
-            window.location.href = "/login"
+            window.location.href = "/";
         } catch (err) {
             toast.error(err.message || "Đăng xuất thất bại")
         }
@@ -433,19 +412,10 @@ const HomePage = () => {
 
     if (isLoading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-white">
-                <div className="text-center">
-                    <div className="mb-8">
-                        <div className="bg-gradient-to-r from-blue-600 to-sky-600 p-4 rounded-2xl inline-block shadow-2xl">
-                            <FaCarSide className="text-4xl text-white animate-bounce" />
-                        </div>
-                    </div>
-                    <LoadingSpinner size="large" />
-                    <p className="mt-6 text-gray-700 text-lg font-medium">Đang tải dữ liệu...</p>
-                    <p className="mt-2 text-gray-500">Vui lòng chờ trong giây lát</p>
-                </div>
+            <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-white">
+                <LoadingSpinner size="large" />
             </div>
-        )
+        );
     }
 
     const currentHero = heroSlides[heroIdx]
@@ -453,11 +423,8 @@ const HomePage = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
             <Header
-                isAuthenticated={isAuthenticated}
-                userEmail={userEmail}
                 isUserDropdownOpen={isUserDropdownOpen}
                 setIsUserDropdownOpen={setIsUserDropdownOpen}
-                handleLogout={handleLogout}
                 isMobileMenuOpen={isMobileMenuOpen}
                 setIsMobileMenuOpen={setIsMobileMenuOpen}
             />
@@ -729,6 +696,7 @@ const HomePage = () => {
                                 autoplay={{ delay: 3000, disableOnInteraction: false }}
                                 slidesPerView={6}
                                 spaceBetween={30}
+                                loop={true}
                                 breakpoints={{
                                     320: { slidesPerView: 2, spaceBetween: 15 },
                                     640: { slidesPerView: 3, spaceBetween: 20 },
@@ -815,6 +783,7 @@ const HomePage = () => {
                                     </button>
                                     <Swiper
                                         modules={[Pagination, Autoplay, Navigation]}
+                                        loop={true}
                                         pagination={{
                                             clickable: true,
                                             bulletClass: "swiper-pagination-bullet !bg-blue-600",
@@ -902,6 +871,7 @@ const HomePage = () => {
                                     </button>
                                     <Swiper
                                         modules={[Pagination, Autoplay, Navigation]}
+                                        loop={true}
                                         pagination={{
                                             clickable: true,
                                             bulletClass: "swiper-pagination-bullet !bg-emerald-600",

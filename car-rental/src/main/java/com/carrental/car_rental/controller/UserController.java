@@ -8,9 +8,14 @@ import com.carrental.car_rental.dto.UpdateUserDTO;
 import com.carrental.car_rental.dto.UserDTO;
 import com.carrental.car_rental.dto.UserDetailDTO;
 import com.carrental.car_rental.entity.User;
+import com.carrental.car_rental.entity.Car;
+import com.carrental.car_rental.entity.Status;
 import com.carrental.car_rental.repository.UserRepository;
+import com.carrental.car_rental.dto.ToggleUserStatusRequest;
 import com.carrental.car_rental.service.UserService;
 import com.carrental.car_rental.service.BookingService;
+import com.carrental.car_rental.service.PaymentService;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -18,10 +23,12 @@ import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +38,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
+
+import java.util.stream.Collectors;
+
+import com.carrental.car_rental.repository.CarRepository;
+import com.carrental.car_rental.repository.StatusRepository;
+import com.carrental.car_rental.repository.BookingRepository;
+import com.carrental.car_rental.dto.CarDTO;
+import com.carrental.car_rental.mapper.CarMapper;
+import com.carrental.car_rental.service.UserService;
+import com.carrental.car_rental.service.BookingService;
+import jakarta.persistence.EntityNotFoundException;
+
+
 
 @CrossOrigin(origins = "http://localhost:5173")
 @RestController
@@ -42,17 +62,27 @@ public class UserController {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final BookingService bookingService;
+    private final PaymentService paymentService;
+    private final CarRepository carRepository;
+    private final CarMapper carMapper;
+    private final StatusRepository statusRepository;
+    private final BookingRepository bookingRepository;
 
     @Autowired
-    public UserController(UserService userService, JwtTokenProvider jwtTokenProvider, UserRepository userRepository, BookingService bookingService) {
+    public UserController(UserService userService, JwtTokenProvider jwtTokenProvider, UserRepository userRepository, BookingService bookingService, CarRepository carRepository, CarMapper carMapper, StatusRepository statusRepository, BookingRepository bookingRepository, PaymentService paymentService) {
         this.userService = userService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.userRepository = userRepository;
         this.bookingService = bookingService;
+        this.carRepository = carRepository;
+        this.carMapper = carMapper;
+        this.statusRepository = statusRepository;
+        this.bookingRepository = bookingRepository;
+        this.paymentService = paymentService;
     }
 
     @GetMapping("/profile")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    @PreAuthorize("hasRole('CUSTOMER') or hasRole('SUPPLIER')")
     public ResponseEntity<?> getCurrentUserProfile(Authentication authentication) {
         logger.info("=== DEBUG PROFILE REQUEST ===");
         logger.info("Authentication: {}", authentication);
@@ -128,8 +158,9 @@ public class UserController {
             return ResponseEntity.badRequest()
                     .body(createErrorResponse("Lỗi khi thay đổi mật khẩu: " + e.getMessage()));
         }
-    }    @PutMapping("/profile")
-    @PreAuthorize("hasRole('CUSTOMER')")
+    }
+    @PutMapping("/profile")
+    @PreAuthorize("hasRole('CUSTOMER') or hasRole('SUPPLIER')")
     public ResponseEntity<?> updateCurrentUserProfile(@Valid @RequestBody UpdateProfileDTO dto, Authentication authentication) {
         logger.info("=== UPDATE PROFILE REQUEST ===");
         logger.info("Request data: {}", dto);
@@ -203,8 +234,10 @@ public class UserController {
         }
     }
 
-    @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+
+    // Lấy danh sách tất cả người dùng (của hoàng)
+    @GetMapping("/all")
+
     public ResponseEntity<?> getAllUsers(Authentication authentication) {
         logger.info("Yêu cầu lấy danh sách tất cả người dùng từ IP: {}", getClientIp(authentication));
         try {
@@ -217,8 +250,9 @@ public class UserController {
         }
     }
 
+    // Lấy người dùng theo role ID (của hoàng)
     @GetMapping("/role/{roleId}")
-    @PreAuthorize("hasRole('ADMIN')")
+
     public ResponseEntity<?> getUsersByRoleId(@PathVariable Integer roleId, Authentication authentication) {
         logger.info("Yêu cầu lấy người dùng theo roleId: {} từ IP: {}", roleId, getClientIp(authentication));
         try {
@@ -231,8 +265,9 @@ public class UserController {
         }
     }
 
+    // Lấy người dùng theo country code (của hoàng)
     @GetMapping("/country/{countryCode}")
-    @PreAuthorize("hasRole('ADMIN')")
+
     public ResponseEntity<?> getUsersByCountryCode(@PathVariable String countryCode, Authentication authentication) {
         logger.info("Yêu cầu lấy người dùng theo countryCode: {} từ IP: {}", countryCode, getClientIp(authentication));
         try {
@@ -245,8 +280,8 @@ public class UserController {
         }
     }
 
+    // Lấy người dùng theo email (của hoàng)
     @GetMapping("/email")
-    @PreAuthorize("hasRole('ADMIN') or (hasRole('CUSTOMER') and @securityService.canAccessEmail(authentication, #email))")
     public ResponseEntity<?> getUserByEmail(@RequestParam String email, Authentication authentication) {
         logger.info("Yêu cầu lấy thông tin người dùng theo email: {} từ IP: {}", email, getClientIp(authentication));
         try {
@@ -262,8 +297,28 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(createErrorResponse("Lỗi khi lấy thông tin người dùng: " + e.getMessage()));
         }
-    }    @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+
+    }
+
+    @GetMapping("/user-profile")
+    @PreAuthorize("hasRole('CUSTOMER') or hasRole('SUPPLIER')")
+    public ResponseEntity<?> getCurrentProfile(Authentication authentication) {
+        logger.info("Yêu cầu lấy thông tin hồ sơ người dùng hiện tại từ IP: {}", getClientIp(authentication));
+        try {
+            String email = authentication.getName();
+            Optional<UserDTO> userDTO = userService.findByEmail(email);
+            return userDTO.map(ResponseEntity::ok)
+                    .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body((UserDTO) createErrorResponse("Không tìm thấy thông tin người dùng hiện tại")));
+        } catch (Exception e) {
+            logger.error("Lỗi khi lấy thông tin hồ sơ người dùng hiện tại: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Lỗi khi lấy thông tin người dùng: " + e.getMessage()));
+        }
+    }
+
+    // Tạo người dùng mới (của hoàng)
+    @PostMapping
     public ResponseEntity<?> createUser(@Valid @RequestBody CreateUserDTO dto, Authentication authentication) {
         logger.info("Yêu cầu tạo người dùng mới với email: {} từ IP: {}", dto.getEmail(), getClientIp(authentication));
         try {
@@ -290,8 +345,8 @@ public class UserController {
         }
     }
 
+    // Xóa người dùng (của hoàng)
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteUser(@PathVariable Integer id, Authentication authentication) {
         logger.info("Yêu cầu xóa người dùng ID: {} từ IP: {}", id, getClientIp(authentication));
         try {
@@ -306,36 +361,22 @@ public class UserController {
 
     @GetMapping("/profile/bookings")
     @PreAuthorize("hasRole('CUSTOMER')")
+
     @Transactional(readOnly = true)
     public ResponseEntity<?> getUserBookingHistory(Authentication authentication) {
-        logger.info("🔍 Getting booking history for user: {}", authentication.getName());
+        logger.info("Getting booking history for user: {}", authentication.getName());
         
         try {
             String username = authentication.getName();
-            logger.info("🔍 Looking up user with username: {}", username);
-            
             Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
             
             if (userOpt.isEmpty()) {
-                logger.error("❌ User not found for username: {}", username);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("success", false, "error", "Không tìm thấy người dùng"));
             }
             
-            User currentUser = userOpt.get();
-            logger.info("✅ Found user with ID: {}", currentUser.getId());
-            
-            // ✅ SỬA: Gọi method có load payment info
-            List<BookingDTO> bookingHistory = bookingService.getUserBookingHistory(currentUser.getId());
-            
-            logger.info("📋 Found {} bookings for user", bookingHistory.size());
-            
-            // ✅ Debug payment info cho từng booking
-            bookingHistory.forEach(booking -> {
-                logger.info("💰 Booking {}: paymentStatus={}, paymentType={}, paymentAmount={}", 
-                    booking.getBookingId(), booking.getPaymentStatus(), 
-                    booking.getPaymentType(), booking.getPaymentAmount());
-            });
+            // Sử dụng BookingService thay vì repository trực tiếp
+            List<BookingDTO> bookingHistory = bookingService.findByUserId(userOpt.get().getId());
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
@@ -345,9 +386,7 @@ public class UserController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            logger.error("❌ Error getting booking history for user {}: {}", 
-                authentication.getName(), e.getMessage(), e);
-            
+            logger.error("Error getting booking history", e);
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("error", "Lỗi khi tải lịch sử đặt xe: " + e.getMessage());
@@ -387,5 +426,205 @@ public class UserController {
         @NotBlank(message = "New password is required")
         @Size(min = 8, message = "New password must be at least 8 characters")
         private String newPassword;
+    }
+
+    // Lấy danh sách người dùng có phân trang và lọc (của hoàng)
+    @GetMapping
+    public ResponseEntity<Page<UserDTO>> getUsers(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String status) {
+        logger.info("Xử lý yêu cầu GET /api/users với params: page={}, size={}, role={}, status={}", page, size, role, status);
+        Page<UserDTO> users = userService.findUsersWithFilters(role, status, page, size);
+        return ResponseEntity.ok(users);
+    }
+    // Chuyển đổi trạng thái người dùng (của hoàng)
+    @PutMapping("/{userId}/toggle-status")
+    public ResponseEntity<UserDTO> toggleUserStatus(
+            @PathVariable Integer userId,
+            @Valid @RequestBody ToggleUserStatusRequest request) {
+        logger.info("=== BẮT ĐẦU CHUYỂN ĐỔI TRẠNG THÁI NGƯỜI DÙNG ===");
+        logger.info("User ID: {}", userId);
+        logger.info("Request body: reason={}", request.getReason());
+        logger.info("Authentication: {}", SecurityContextHolder.getContext().getAuthentication());
+        
+        try {
+            logger.info("Gọi UserService.toggleUserStatus()...");
+            UserDTO updatedUser = userService.toggleUserStatus(userId, request);
+            logger.info("Chuyển đổi trạng thái thành công! User mới: {}", updatedUser);
+            logger.info("=== KẾT THÚC CHUYỂN ĐỔI TRẠNG THÁI NGƯỜI DÙNG (THÀNH CÔNG) ===");
+            return ResponseEntity.ok(updatedUser);
+        } catch (Exception e) {
+            logger.error("=== LỖI KHI CHUYỂN ĐỔI TRẠNG THÁI NGƯỜI DÙNG ===");
+            logger.error("User ID: {}", userId);
+            logger.error("Request: {}", request);
+            logger.error("Exception type: {}", e.getClass().getSimpleName());
+            logger.error("Exception message: {}", e.getMessage());
+            logger.error("Stack trace:", e);
+            logger.error("=== KẾT THÚC LỖI ===");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body((UserDTO) createErrorResponse("Lỗi khi cập nhật trạng thái: " + e.getMessage()));
+        }
+    }
+
+    // Lấy user role customer đăng ký trong tháng/năm (của hoàng)
+    @GetMapping("/new-by-month")
+    public ResponseEntity<List<UserDTO>> getNewUsersByMonth(@RequestParam int month, @RequestParam int year) {
+        List<UserDTO> users = userService.findNewUsersByMonth(month, year);
+        return ResponseEntity.ok(users);
+    }
+
+    @GetMapping("/recent-userbooking")
+    public ResponseEntity<List<UserDTO>> getRecentBookingUsers(@RequestParam(defaultValue = "5") int size) {
+        List<UserDTO> users = bookingService.findRecentBookingUsers(size);
+        return ResponseEntity.ok(users);
+    }
+
+    // --- PUBLIC ENDPOINT: Lấy thông tin user public theo ID (không cần xác thực) ---
+    @GetMapping("/public/{id}")
+    public ResponseEntity<?> getUserPublic(@PathVariable Integer id) {
+        try {
+            UserDTO userDTO = userService.findById(id);
+            return ResponseEntity.ok(userDTO);
+        } catch (Exception e) {
+            logger.error("Lỗi khi lấy thông tin user public ID: {} - {}", id, e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(createErrorResponse("Không tìm thấy người dùng với ID: " + id));
+        }
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/bookings/{id}/refund")
+    public ResponseEntity<?> refundDeposit(@PathVariable Integer id) {
+        return paymentService.refundDeposit(id);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/bookings/{id}/payout")
+    public ResponseEntity<?> payoutSupplier(@PathVariable Integer id) {
+        return paymentService.payoutSupplier(id);
+    }
+
+    // API cho admin: Lấy danh sách xe chờ duyệt
+    @GetMapping("/admin/pending-cars")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getPendingCars(Authentication authentication) {
+        logger.info("Admin yêu cầu lấy danh sách xe chờ duyệt từ IP: {}", getClientIp(authentication));
+        try {
+            List<Car> pendingCars = carRepository.findByStatus_StatusNameAndIsDeletedFalse("pending_approval");
+            List<CarDTO> carDTOs = pendingCars.stream()
+                    .map(carMapper::toDTO)
+                    .collect(Collectors.toList());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", carDTOs);
+            response.put("total", carDTOs.size());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Lỗi khi lấy danh sách xe chờ duyệt: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Lỗi khi lấy danh sách xe chờ duyệt: " + e.getMessage()));
+        }
+    }
+
+    // API cho admin: Duyệt xe (chuyển từ pending_approval sang available)
+    @PutMapping("/admin/approve-car/{carId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> approveCar(@PathVariable Integer carId, Authentication authentication) {
+        logger.info("Admin yêu cầu duyệt xe ID: {} từ IP: {}", carId, getClientIp(authentication));
+        try {
+            Car car = carRepository.findById(carId)
+                    .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy xe với ID: " + carId));
+            
+            if (!"pending_approval".equals(car.getStatus().getStatusName())) {
+                return ResponseEntity.badRequest()
+                        .body(createErrorResponse("Xe không ở trạng thái chờ duyệt"));
+            }
+            
+            Status availableStatus = statusRepository.findByStatusName("available")
+                    .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy trạng thái available"));
+            
+            car.setStatus(availableStatus);
+            carRepository.save(car);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Đã duyệt xe thành công");
+            response.put("car", carMapper.toDTO(car));
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Lỗi khi duyệt xe ID: {} - {}", carId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Lỗi khi duyệt xe: " + e.getMessage()));
+        }
+    }
+
+    // API cho admin: Từ chối xe (chuyển từ pending_approval sang unavailable)
+    @PutMapping("/admin/reject-car/{carId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> rejectCar(@PathVariable Integer carId, @RequestParam(required = false) String reason, Authentication authentication) {
+        logger.info("Admin yêu cầu từ chối xe ID: {} từ IP: {}", carId, getClientIp(authentication));
+        try {
+            Car car = carRepository.findById(carId)
+                    .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy xe với ID: " + carId));
+            
+            if (!"pending_approval".equals(car.getStatus().getStatusName())) {
+                return ResponseEntity.badRequest()
+                        .body(createErrorResponse("Xe không ở trạng thái chờ duyệt"));
+            }
+            
+            Status unavailableStatus = statusRepository.findByStatusName("unavailable")
+                    .orElseThrow(() -> new EntityNotFoundException("Không tìm thấy trạng thái unavailable"));
+            
+            car.setStatus(unavailableStatus);
+            carRepository.save(car);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Đã từ chối xe thành công");
+            response.put("reason", reason != null ? reason : "Không có lý do cụ thể");
+            response.put("car", carMapper.toDTO(car));
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Lỗi khi từ chối xe ID: {} - {}", carId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Lỗi khi từ chối xe: " + e.getMessage()));
+        }
+    }
+
+    // API cho admin: Lấy thống kê dashboard
+    @GetMapping("/admin/dashboard-stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getDashboardStats(Authentication authentication) {
+        logger.info("Admin yêu cầu lấy thống kê dashboard từ IP: {}", getClientIp(authentication));
+        try {
+            Map<String, Object> stats = new HashMap<>();
+            
+            // Tổng số người dùng
+            stats.put("totalUsers", userRepository.countByIsDeletedFalse());
+            
+            // Tổng số xe
+            stats.put("totalCars", carRepository.countByIsDeletedFalse());
+            
+            // Tổng số đơn thuê
+            stats.put("totalBookings", bookingService.count());
+            
+            // Tổng doanh thu
+            stats.put("totalRevenue", bookingService.calculateTotalRevenue());
+            
+            // Số xe chờ duyệt
+            stats.put("pendingApprovals", carRepository.countByStatus_StatusNameAndIsDeletedFalse("pending_approval"));
+            
+            return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            logger.error("Lỗi khi lấy thống kê dashboard: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(createErrorResponse("Lỗi khi lấy thống kê dashboard: " + e.getMessage()));
+        }
     }
 }

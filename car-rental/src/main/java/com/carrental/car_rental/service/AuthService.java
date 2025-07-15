@@ -21,8 +21,11 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.carrental.car_rental.service.UserSessionService;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Instant;
+import java.sql.Timestamp;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -45,7 +48,9 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserMapper userMapper;
     private final UserDetailMapper userDetailMapper;
+    private final UserSessionService userSessionService;
 
+    @Autowired
     public AuthService(@Lazy AuthenticationManager authenticationManager,
                        UserRepository userRepository,
                        UserDetailRepository userDetailRepository,
@@ -56,7 +61,8 @@ public class AuthService {
                        PasswordEncoder passwordEncoder,
                        JwtTokenProvider jwtTokenProvider,
                        UserMapper userMapper,
-                       UserDetailMapper userDetailMapper) {
+                       UserDetailMapper userDetailMapper,
+                       UserSessionService userSessionService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.userDetailRepository = userDetailRepository;
@@ -68,6 +74,7 @@ public class AuthService {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userMapper = userMapper;
         this.userDetailMapper = userDetailMapper;
+        this.userSessionService = userSessionService;
     }
 
     public AuthResponse login(AuthRequest authRequest) {
@@ -87,9 +94,18 @@ public class AuthService {
             String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().getRoleName());
             long expiresAt = jwtTokenProvider.getExpirationDateFromToken(token).getTime();
             logger.info("Đăng nhập thành công cho username: {}", authRequest.getUsername());
-            return new AuthResponse(token, expiresAt, user.getRole().getRoleName());
+
+            // Dọn dẹp session hết hạn trước khi kiểm tra đăng nhập đồng thời
+            userSessionService.deactivateExpiredSessions(user);
+            if (userSessionService.hasActiveSession(user)) {
+                logger.warn("[LOGIN BLOCKED] Đăng nhập đồng thời bị chặn cho user: {}", user.getUsername());
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tài khoản đã đăng nhập ở nơi khác. Vui lòng đăng xuất trước khi đăng nhập mới.");
+            }
+            userSessionService.createOrUpdateSession(user, token, new Timestamp(expiresAt));
+
+            return new AuthResponse(token, expiresAt, user.getRole().getRoleName(), user.getUsername(), user.getId());
         } catch (AuthenticationException e) {
-            logger.warn("Đăng nhập thất bại: {}", e.getMessage());
+            logger.warn("[LOGIN FAILED] Đăng nhập thất bại (sai mật khẩu?): {}", e.getMessage());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Tên người dùng hoặc mật khẩu không đúng");
         }
     }
@@ -124,8 +140,23 @@ public class AuthService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ngôn ngữ không hợp lệ"));
         user.setPreferredLanguage(language);
 
+        // Lưu user trước
         User savedUser = userRepository.save(user);
-        UserDetail userDetail = createUserDetail(savedUser, createUserDTO.getUserDetail() != null ? createUserDTO.getUserDetail().getFullName() : null);
+
+        // Tạo và lưu UserDetail sau khi user đã được lưu
+        UserDetail userDetail = new UserDetail();
+        userDetail.setUser(savedUser);
+        userDetail.setIsDeleted(false);
+        if (createUserDTO.getUserDetail() != null) {
+            userDetail.setName(createUserDTO.getUserDetail().getFullName() != null ? createUserDTO.getUserDetail().getFullName() : savedUser.getUsername());
+            userDetail.setAddress(createUserDTO.getUserDetail().getAddress() != null ? createUserDTO.getUserDetail().getAddress() : "Unknown");
+            userDetail.setTaxcode(createUserDTO.getUserDetail().getTaxcode());
+        } else {
+            userDetail.setName(savedUser.getUsername());
+            userDetail.setAddress("Unknown");
+            userDetail.setTaxcode(null);
+        }
+        userDetailRepository.save(userDetail);
 
         UserDTO result = userMapper.toDto(savedUser);
         result.setUserDetail(userDetailMapper.toDTO(userDetail));
@@ -216,7 +247,7 @@ public class AuthService {
             String token = jwtTokenProvider.generateToken(user.getUsername(), user.getRole().getRoleName());
             long expiresAt = jwtTokenProvider.getExpirationDateFromToken(token).getTime();
             logger.info("Đăng nhập Google thành công cho email: {}", email);
-            return new AuthResponse(token, expiresAt, user.getRole().getRoleName());
+            return new AuthResponse(token, expiresAt, user.getRole().getRoleName(), user.getUsername(), user.getId());
         } catch (ResponseStatusException e) {
             logger.error("Lỗi xử lý đăng nhập Google: {}", e.getMessage());
             throw e;
@@ -241,5 +272,10 @@ public class AuthService {
         userDetail.setName(name != null ? name : user.getUsername());
         logger.info("Creating new UserDetail for userId: {}", user.getId());
         return userDetailRepository.save(userDetail);
+    }
+
+    public void logout(User user) {
+        userSessionService.invalidateSessionByUser(user);
+        // ... các thao tác khác nếu cần ...
     }
 }

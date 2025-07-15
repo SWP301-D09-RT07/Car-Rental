@@ -38,5 +38,8 @@ public interface RatingRepository extends JpaRepository<Rating, Integer> {
     // Thêm method lấy danh sách bookingId đã được đánh giá (để optimize bulk check)
     @Query("SELECT r.booking.id FROM Rating r WHERE r.booking.id IN :bookingIds AND (r.isDeleted = false OR r.isDeleted IS NULL)")
     List<Integer> findRatedBookingIds(@Param("bookingIds") List<Integer> bookingIds);
+
+    @Query("SELECT r FROM Rating r LEFT JOIN FETCH r.customer LEFT JOIN FETCH r.car LEFT JOIN FETCH r.booking WHERE r.booking.id = :bookingId AND r.customer.id = :customerId AND (r.isDeleted = false OR r.isDeleted IS NULL)")
+    List<Rating> findByBookingIdAndCustomerIdAndIsDeletedFalse(@Param("bookingId") Integer bookingId, @Param("customerId") Integer customerId);
 }
 

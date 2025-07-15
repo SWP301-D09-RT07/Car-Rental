@@ -1,72 +1,30 @@
+// src/styles/_variables.scss
 $primary-blue: #4682B4;
-$primary-light-blue: #ADD8E6;
-$gray-light: #F5F5F5;
-$gray-medium: #D3D3D3;
-$gray-50: #F9FAFB;
-$gray-700: #4A5568;
+$primary-light-blue: #87CEEB;
+$white: #ffffff;
 $gray-dark: #4A4A4A;
+$gray-medium: #cccccc;
+$gray-light: #f0f0f0;
+$gray-50: #f9fafb;
+$gray-700: #4a5568;
+$green-500: #38a169;
+$red-500: #e53e3e;
+$red-700: #c53030;
+$red-100: #fee2e2;
+$blue-500: #4299e1;
+$blue-700: #2b6cb0;
 $accent-yellow: #FFD700;
-$yellow-500: #F59E0B;
-$yellow-700: #D97706;
-$green-500: #10B981;
-$green-700: #047857;
-$blue-500: #3B82F6;
-$blue-700: #1D4ED8;
-$red-500: #EF4444;
-$red-700: #DC2626;
-$white: #FFFFFF;
+$yellow-500: #ecc94b;
+$yellow-700: #d69e2e; // Thêm biến $yellow-700 cho hover
 $shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-$shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
-
-// Colors
-$primary-color: #1a73e8;
-$primary-blue: #1a73e8;
-$primary-green: #34a853;
-$primary-red: #ea4335;
-$primary-yellow: #fbbc05;
-$secondary-color: #34a853;
-$accent-color: #fbbc05;
-$error-color: #ea4335;
-$danger-color: #dc3545;
-$success-color: #28a745;
-$warning-color: #ffc107;
-$info-color: #17a2b8;
-$text-dark: #202124;
+$shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
 $text-light: #ffffff;
-$light-color: #f8f9fa;
-$dark-color: #343a40;
-$background-light: #f8f9fa;
-$background-dark: #202124;
-$border-color: #dee2e6;
-
-// Typography
-$font-family-base: 'Roboto', sans-serif;
-$font-size-base: 1rem;
-$font-size-sm: 0.875rem;
-$font-size-lg: 1.25rem;
-$font-size-xl: 1.5rem;
-$font-size-2xl: 2rem;
-
-// Font weights
-$font-weight-normal: 400;
-$font-weight-medium: 500;
-$font-weight-semibold: 600;
-$font-weight-bold: 700;
-
-// Spacing
-$spacing-xs: 0.25rem;
-$spacing-sm: 0.5rem;
-$spacing-md: 1rem;
-$spacing-lg: 1.5rem;
-$spacing-xl: 2rem;
-
-// Border radius
-$border-radius-sm: 4px;
-$border-radius-md: 8px;
-$border-radius-lg: 16px;
-
-// Transitions
-$transition-base: all 0.3s ease;
-$transition-fast: 0.2s ease;
-$transition-normal: 0.3s ease;
-$transition-slow: 0.5s ease;
+$spacing-sm: 8px;
+$spacing-md: 16px;
+$border-radius-md: 8px; // Thêm biến $border-radius-md
+$danger-color: #e3342f; // màu đỏ cảnh báo
+$light-color: #fff; // màu sáng cho text trên nền đỏ
+$border-radius-sm: 6px; // hoặc 8px, tuỳ bạn
+$transition-base: 0.2s all; // hoặc 0.3s all
+$font-size-base: 1rem; // hoặc 16px, tuỳ bạn muốn cỡ chữ cơ bản là bao nhiêu
+$spacing-xs: 4px; // hoặc 2px, tuỳ bạn muốn khoảng cách nhỏ nhất là bao nhiêu

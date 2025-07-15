@@ -1,26 +1,34 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '@/store/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import {
-    getProfile,
-    getUserBookingHistory,
-    updateProfile,
-    changePassword,
-    getFavoriteCars,
+import { useNavigate, useLocation } from 'react-router-dom';
+import { 
+    getProfile, 
+    getUserBookingHistory, 
+    updateProfile, 
+    changePassword, 
+    getFavoriteCars, 
     removeFavorite,
     sendEmailVerification,
     cancelBooking,
     getBookingDetails,
     post, confirmDelivery, confirmReturn,
-    createPaymentForPickup
+    createPaymentForPickup,
+    getPriceBreakdown,
+    getBookingById,
+    updateRating,
+    getRatingsByBookingId
 } from '@/services/api';
+import BookingModal from '@/components/features/cars/BookingModal';
 import {
     FaStar,
     FaStarHalf,
     FaRegStar, // Thêm imports này
 } from "react-icons/fa"
+
 import { toast } from 'react-toastify';
 import './ProfilePage.scss';
+import RetryPaymentHandler from '@/components/features/payments/RetryPaymentHandler';
+import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
 
 const StarRating = ({
     rating = 0,
@@ -97,6 +105,7 @@ const StarRating = ({
 const ProfilePage = () => {
     const { user: authUser, updateUser, logout } = useContext(AuthContext);
     const navigate = useNavigate();
+    const location = useLocation();
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
@@ -121,7 +130,7 @@ const ProfilePage = () => {
         }
     });
 
-
+    
     // Password change states
     // const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [passwordData, setPasswordData] = useState({
@@ -142,8 +151,13 @@ const ProfilePage = () => {
         comment: '',
         isAnonymous: false
     });
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [paymentModalData, setPaymentModalData] = useState(null);
+    // Thêm state cho modal đặt lại xe
+    const [showRebookModal, setShowRebookModal] = useState(false);
+    const [rebookCarData, setRebookCarData] = useState(null);
     console.log('🔍 ProfilePage render - authUser:', authUser, 'user:', user, 'loading:', loading);
-
+   
 
     const canCustomerConfirmReturn = (booking) => {
         return booking.statusName === 'in progress' &&
@@ -170,93 +184,66 @@ const ProfilePage = () => {
             booking.supplierDeliveryConfirm && // Supplier đã xác nhận giao xe
             !booking.customerReceiveConfirm; // Customer chưa nhận xe
     };
+    const COLLATERAL_AMOUNT = 5000000;
     // ✅ THÊM: Handle thanh toán tiền nhận xe
     const handlePickupPayment = async (booking) => {
         try {
-            console.log('🔄 Processing pickup payment for booking:', booking.bookingId);
+            // Lấy booking chi tiết từ API (lấy .data nếu có)
+            const bookingRes = await getBookingById(booking.bookingId);
+            const bookingDetail = bookingRes.data || bookingRes;
 
-            // Calculate remaining amount (total - deposit)
-            const remainingAmount = booking.totalAmount - booking.paymentAmount;
-
-            if (remainingAmount <= 0) {
-                toast.error('Không có số tiền cần thanh toán');
-                return;
+            // Lấy priceBreakdown từ API nếu chưa có
+            let priceBreakdown = bookingDetail.priceBreakdown;
+            if (!priceBreakdown) {
+                priceBreakdown = await getPriceBreakdown(booking.bookingId);
             }
 
-            console.log('💰 Payment calculation:', {
-                totalAmount: booking.totalAmount,
-                paidAmount: booking.paymentAmount,
-                remainingAmount: remainingAmount
-            });
-
-            // ✅ SỬA: Cấu trúc priceBreakdown đúng theo PaymentPage yêu cầu
-            const priceBreakdown = {
-                // ✅ Các field bắt buộc theo PaymentPage
-                total: booking.totalAmount || remainingAmount, // Tổng tiền gốc
-                deposit: remainingAmount, // Số tiền cần thanh toán ngay (thực chất là tiền còn lại)
-                serviceFee: Math.round(remainingAmount * 0.05), // 5% phí dịch vụ
-                tax: Math.round(remainingAmount * 0.1), // 10% thuế
-
-                // ✅ Các field bổ sung
-                basePrice: remainingAmount,
-                extraFee: 0,
-                discount: 0,
-                remainingAmount: 0, // Không còn số tiền nào sau khi thanh toán này
-
-                // ✅ Thông tin payment type
-                paymentType: 'full_payment',
-                isPickupPayment: true // Flag để PaymentPage biết đây là thanh toán nhận xe
+            const deposit = bookingDetail.depositAmount || 0;
+            const COLLATERAL_AMOUNT = 5000000;
+            const customerInfo = {
+                fullName: bookingDetail.customer?.userDetail?.fullName
+                    || bookingDetail.customer?.fullName
+                    || bookingDetail.customer?.username
+                    || '',
+                phone: bookingDetail.customer?.phone || '',
+                email: bookingDetail.customer?.email || '',
+                pickupAddress: bookingDetail.pickupLocation || '',
+                dropoffAddress: bookingDetail.dropoffLocation || '',
             };
-
-            console.log('📋 Price breakdown for pickup payment:', priceBreakdown);
-
-            // ✅ Bookingdata cho PaymentPage
-            const bookingData = {
-                carModel: booking.carModel,
-                carLicensePlate: booking.carLicensePlate,
-                pickupDateTime: booking.startDate,
-                dropoffDateTime: booking.endDate,
-                pickupLocation: booking.pickupLocation,
-                dropoffLocation: booking.dropoffLocation,
-
-                // ✅ Thêm thông tin cần thiết cho UI
-                car: {
-                    model: booking.carModel,
-                    licensePlate: booking.carLicensePlate,
-                    seatNumber: booking.seatNumber
-                }
+            const bookingInfo = {
+                carId: bookingDetail.carId,
+                pickupDateTime: bookingDetail.pickupDateTime,
+                dropoffDateTime: bookingDetail.dropoffDateTime,
+                pickupLocation: bookingDetail.pickupLocation,
+                dropoffLocation: bookingDetail.dropoffLocation,
+                seatNumber: bookingDetail.seatNumber,
+                withDriver: bookingDetail.withDriver,
+                deliveryRequested: bookingDetail.deliveryRequested,
+                totalAmount: bookingDetail.totalAmount,
+                priceBreakdown: priceBreakdown,
+                // ✅ THÊM: Payment-related fields
+                hasDeposit: bookingDetail.hasDeposit,
+                hasFullPayment: bookingDetail.hasFullPayment,
+                paymentStatus: bookingDetail.paymentStatus,
+                paymentType: bookingDetail.paymentType,
+                depositAmount: bookingDetail.depositAmount,
             };
-
-            // ✅ Navigate to payment page với đầy đủ thông tin
             navigate('/payment', {
                 state: {
                     bookingId: booking.bookingId,
-                    priceBreakdown: priceBreakdown,
-                    bookingData: bookingData,
-
-                    // ✅ Thông tin customer cho PaymentPage
-                    customerInfo: {
-                        fullName: user?.userDetail?.fullName || user?.username,
-                        email: user?.email,
-                        phone: user?.phone,
-                        pickupAddress: booking.pickupLocation,
-                        dropoffAddress: booking.dropoffLocation
-                    },
-
-                    // ✅ Flags
-                    withDriver: booking.driverName ? true : false,
-                    deliveryRequested: false, // Không giao xe tận nơi cho pickup payment
-
-                    // ✅ Payment metadata
+                    bookingInfo,
+                    depositAmount: deposit,
+                    collateralAmount: COLLATERAL_AMOUNT,
+                    priceBreakdown,
+                    customerInfo,
+                    withDriver: bookingDetail.withDriver,
+                    deliveryRequested: bookingDetail.deliveryRequested,
                     paymentType: 'full_payment',
-                    isPickupPayment: true,
-                    originalBooking: booking // Lưu thông tin booking gốc để tham khảo
+                    pickupPayment: true
                 }
             });
-
-        } catch (error) {
-            console.error('❌ Pickup payment error:', error);
-            toast.error(error.message || 'Không thể thực hiện thanh toán');
+        } catch (err) {
+            toast.error('Không lấy được thông tin giá hoặc booking.');
         }
     };
 
@@ -265,14 +252,14 @@ const ProfilePage = () => {
             console.log('🔄 Fetching profile...');
             const response = await getProfile();
             console.log('✅ Profile response:', response);
-
+            
             // Check cả 2 trường hợp response format
             const userData = response.success ? response.data : response;
-
+            
             if (userData && userData.userId) {
                 console.log('✅ Setting user state:', userData);
                 setUser(userData);
-
+                
                 // Set form data for editing
                 setFormData({
                     username: userData.username || '',
@@ -286,7 +273,7 @@ const ProfilePage = () => {
                         taxcode: userData.userDetail?.taxcode || ''
                     }
                 });
-
+                
                 return userData;
             } else {
                 console.error('❌ Profile response invalid:', response);
@@ -305,7 +292,7 @@ const ProfilePage = () => {
             setBookingLoading(true);
             const response = await getUserBookingHistory();
             console.log('✅ Booking response:', response);
-
+            
             if (response.success) {
                 // ✅ Debug payment info cho từng booking
                 response.data.forEach((booking, index) => {
@@ -371,7 +358,7 @@ const ProfilePage = () => {
         try {
             setUpdating(true);
             console.log('🔄 Updating profile with data:', formData);
-
+            
             const response = await updateProfile(formData);
             if (response.success) {
                 toast.success('Cập nhật thông tin thành công!');
@@ -460,40 +447,41 @@ const ProfilePage = () => {
     };
 
 
+
     // Handle cancel booking
-    const handleCancelBooking = async (bookingId) => {
-        if (!window.confirm('Bạn có chắc chắn muốn hủy đặt xe này?')) {
-            return;
+const handleCancelBooking = async (bookingId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy đặt xe này?')) {
+        return;
+    }
+
+    try {
+        console.log('🔄 Attempting to cancel booking:', bookingId);
+        const response = await cancelBooking(bookingId);
+        
+        if (response.success) {
+            toast.success('Hủy đặt xe thành công!');
+            // Refresh bookings to get updated status
+            await fetchBookings();
+        } else {
+            throw new Error(response.error || 'Không thể hủy đặt xe');
         }
-
-        try {
-            console.log('🔄 Attempting to cancel booking:', bookingId);
-            const response = await cancelBooking(bookingId);
-
-            if (response.success) {
-                toast.success('Hủy đặt xe thành công!');
-                // Refresh bookings to get updated status
-                await fetchBookings();
-            } else {
-                throw new Error(response.error || 'Không thể hủy đặt xe');
-            }
-        } catch (error) {
-            console.error('❌ Cancel booking error:', error);
-
-            // Handle specific error cases
-            if (error.message.includes('hết hạn') || error.message.includes('unauthorized')) {
-                toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-                logout();
-                navigate('/login');
-            } else if (error.message.includes('không có quyền')) {
-                toast.error('Bạn không có quyền hủy đặt xe này.');
-            } else if (error.message.includes('trạng thái')) {
-                toast.error('Không thể hủy đặt xe với trạng thái hiện tại.');
-            } else {
-                toast.error(error.message || 'Không thể hủy đặt xe');
-            }
+    } catch (error) {
+        console.error('❌ Cancel booking error:', error);
+        
+        // Handle specific error cases
+        if (error.message.includes('hết hạn') || error.message.includes('unauthorized')) {
+            toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+            logout();
+            navigate('/login');
+        } else if (error.message.includes('không có quyền')) {
+            toast.error('Bạn không có quyền hủy đặt xe này.');
+        } else if (error.message.includes('trạng thái')) {
+            toast.error('Không thể hủy đặt xe với trạng thái hiện tại.');
+        } else {
+            toast.error(error.message || 'Không thể hủy đặt xe');
         }
-    };
+    }
+};
 
     // Handle view booking details
     const handleViewBookingDetails = async (booking) => {
@@ -503,7 +491,7 @@ const ProfilePage = () => {
             setShowBookingModal(true);
 
             console.log('🔄 Viewing booking details for:', booking.bookingId);
-
+            
             const response = await getBookingDetails(booking.bookingId);
             if (response.success) {
                 console.log('📋 API booking details:', response.data);
@@ -530,8 +518,25 @@ const ProfilePage = () => {
             setShowBookingModal(false);
         }
     };
-    const handleShowReviewModal = (booking) => {
+    const handleShowReviewModal = async (booking) => {
+        let ratingData = null;
+        if (booking.ratings && booking.ratings.length > 0) {
+            ratingData = booking.ratings[0];
+        } else {
+            // Nếu không có, gọi API lấy rating theo bookingId
+            try {
+                const res = await getRatingsByBookingId(booking.bookingId);
+                if (res && res.length > 0) ratingData = res[0];
+            } catch (e) {
+                ratingData = null;
+            }
+        }
         setReviewBooking(booking);
+        setReviewData({
+            rating: ratingData?.ratingScore || ratingData?.star || 0,
+            comment: ratingData?.comment || ratingData?.content || "",
+            isAnonymous: ratingData?.isAnonymous || false
+        });
         setShowReviewModal(true);
     };
 
@@ -541,40 +546,34 @@ const ProfilePage = () => {
             toast.error("Vui lòng chọn số sao và nhập bình luận");
             return;
         }
-
         if (!user || !user.userId) {
             toast.error("Không thể xác định thông tin người dùng");
             return;
         }
-
         try {
             const reviewPayload = {
                 bookingId: reviewBooking.bookingId,
                 carId: reviewBooking.carId,
-                customerId: user.userId, // Sử dụng userId thay vì id
+                customerId: user.userId,
                 ratingScore: reviewData.rating,
                 comment: reviewData.comment.trim(),
                 isAnonymous: reviewData.isAnonymous,
                 ratingDate: new Date().toISOString()
             };
-
-            console.log('Submitting review:', reviewPayload); // Debug log
-
-            const response = await post('/api/ratings', reviewPayload);
-
-            if (response.success || response) {
-                toast.success("Đánh giá đã được gửi thành công!");
-
-                // Reset và đóng modal
-                setShowReviewModal(false);
-                setReviewData({ rating: 0, comment: '', isAnonymous: false });
-                setReviewBooking(null);
-
-                // Refresh booking list để cập nhật hasRated
-                await fetchBookings();
+            let response;
+            if (reviewBooking.ratings && reviewBooking.ratings.length > 0) {
+                // Đã có đánh giá, gọi update
+                const ratingId = reviewBooking.ratings[0].ratingId || reviewBooking.ratings[0].id;
+                response = await updateRating(ratingId, reviewPayload);
             } else {
-                throw new Error(response.error || "Không thể gửi đánh giá");
+                // Chưa có, tạo mới
+                response = await post('/api/ratings', reviewPayload);
             }
+            toast.success("Đánh giá đã được gửi thành công!");
+            setShowReviewModal(false);
+            setReviewData({ rating: 0, comment: '', isAnonymous: false });
+            setReviewBooking(null);
+            await fetchBookings();
         } catch (error) {
             console.error('Error submitting review:', error);
             toast.error(error.message || "Không thể gửi đánh giá");
@@ -621,15 +620,67 @@ const ProfilePage = () => {
         }
     };
 
+    // ✅ Handle rebook car - Đặt lại xe (SỬA: đảm bảo truyền đủ dữ liệu cho BookingModal)
+    const handleRebookCar = (booking) => {
+        // Ưu tiên lấy thông tin từ booking.car, nếu không có thì lấy từ booking
+        const car = booking.car || {};
+        const carData = {
+            id: car.carId || booking.carId,
+            carId: car.carId || booking.carId,
+            model: car.model || booking.carModel || 'Xe không xác định',
+            name: car.name || booking.carModel || 'Xe không xác định',
+            numOfSeats: car.numOfSeats || booking.seatNumber || 4,
+            averageRating: car.averageRating || null,
+            licensePlate: car.licensePlate || booking.carLicensePlate || '',
+            brand: car.brand || '',
+            color: car.color || '',
+            year: car.year || '',
+            fuelType: car.fuelType || '',
+            transmission: car.transmission || '',
+            pricePerDay: car.pricePerDay || '',
+            images: Array.isArray(car.images) ? car.images : [],
+        };
+        setRebookCarData(carData);
+        setShowRebookModal(true);
+    };
+
+    // ✅ Handle submit rebook
+    const handleSubmitRebook = async (bookingData) => {
+        try {
+            console.log('🔄 Submitting rebook:', bookingData);
+            
+            // Gọi API tạo booking mới
+            const response = await post('/api/bookings', bookingData);
+            
+            if (response.success || response.data) {
+                toast.success('Đặt xe thành công!');
+                setShowRebookModal(false);
+                setRebookCarData(null);
+                
+                // Refresh booking list
+                await fetchBookings();
+                
+                // Có thể navigate đến trang thanh toán nếu cần
+                // navigate('/bookings');
+            } else {
+                throw new Error(response.error || 'Không thể đặt xe');
+            }
+        } catch (error) {
+            console.error('❌ Submit rebook error:', error);
+            throw error; // Re-throw để BookingModal có thể handle
+        }
+    };
+
     // ✅ Get status badge class và text
     const getStatusInfo = (booking) => {
-        const status = booking.statusName?.toLowerCase();
-
+        let status = booking.statusName?.toLowerCase();
         switch (status) {
             case 'pending':
                 return { class: 'pending', text: 'Chờ duyệt', color: '#ffa500' };
             case 'confirmed':
                 return { class: 'confirmed', text: 'Đã duyệt', color: '#4caf50' };
+            case 'ready_for_pickup':
+                return { class: 'ready-for-pickup', text: 'Chờ nhận xe', color: '#ff9800' };
             case 'rejected':
                 return { class: 'rejected', text: 'Từ chối', color: '#f44336' };
             case 'in_progress':
@@ -638,6 +689,12 @@ const ProfilePage = () => {
                 return { class: 'completed', text: 'Hoàn thành', color: '#4caf50' };
             case 'cancelled':
                 return { class: 'cancelled', text: 'Đã hủy', color: '#9e9e9e' };
+            case 'failed':
+                return { class: 'failed', text: 'Thanh toán thất bại', color: '#f44336' };
+            case 'refunded':
+                return { class: 'refunded', text: 'Đã hoàn cọc', color: '#1976d2' };
+            case 'payout':
+                return { class: 'completed', text: 'Hoàn thành', color: '#4caf50' };
             default:
                 return { class: 'unknown', text: status || 'N/A', color: '#9e9e9e' };
         }
@@ -646,14 +703,14 @@ const ProfilePage = () => {
     // Load data on mount
     useEffect(() => {
         console.log('🔄 useEffect triggered - authUser:', authUser);
-
+        
         if (authUser && authUser.username) {
             const loadData = async () => {
                 setLoading(true);
-
+                
                 const profileData = await fetchProfile();
                 console.log('🔍 Profile fetch result:', profileData);
-
+                
                 if (profileData) {
                     fetchBookings();
                     fetchFavorites();
@@ -663,7 +720,7 @@ const ProfilePage = () => {
                     setLoading(false);
                 }
             };
-
+            
             loadData();
         } else {
             console.log('❌ No authUser, setting loading false');
@@ -671,15 +728,18 @@ const ProfilePage = () => {
         }
     }, [authUser?.username]);
 
+    // Set activeTab from navigation state if provided
+    useEffect(() => {
+        if (location && location.state && location.state.activeTab) {
+            setActiveTab(location.state.activeTab);
+        }
+    }, [location]);
+
     // Show loading state
     if (loading) {
         return (
-            <div className="profile-page">
-                <div className="loading-container">
-                    <div className="spinner"></div>
-                    <h2>Đang tải thông tin...</h2>
-                    <p>Vui lòng đợi trong giây lát</p>
-                </div>
+            <div className="flex items-center justify-center min-h-[60vh]">
+                <LoadingSpinner size="large" color="blue" />
             </div>
         );
     }
@@ -693,7 +753,7 @@ const ProfilePage = () => {
                     <h2>Không thể tải thông tin người dùng</h2>
                     <p>Có lỗi xảy ra khi tải thông tin tài khoản của bạn</p>
                     <div className="error-actions">
-                        <button
+                        <button 
                             onClick={() => {
                                 setLoading(true);
                                 fetchProfile().then(data => {
@@ -708,7 +768,7 @@ const ProfilePage = () => {
                             <i className="fas fa-redo"></i>
                             Thử lại
                         </button>
-                        <button
+                        <button 
                             onClick={() => window.location.href = '/'}
                             className="btn secondary"
                         >
@@ -725,27 +785,27 @@ const ProfilePage = () => {
     const calculateVerificationPercentage = () => {
         let completed = 0;
         const total = 5;
-
+        
         if (user.username) completed++;
         if (user.email) completed++;
         if (user.phone) completed++;
         if (user.userDetail?.fullName) completed++;
         if (user.userDetail?.address) completed++;
-
+        
         return Math.round((completed / total) * 100);
     };
 
     // Render verification status
     const renderVerificationStatus = () => {
         const percentage = calculateVerificationPercentage();
-
+        
         return (
             <div className="verification-status-card">
                 <div className="card-header">
                     <h3>Trạng thái xác thực</h3>
                     <div className="completion-rate">{percentage}% hoàn thành</div>
                 </div>
-
+                
                 <div className="verification-items">
                     <div className={`verification-item ${user.email ? 'verified' : 'unverified'}`}>
                         <div className="item-content">
@@ -756,7 +816,7 @@ const ProfilePage = () => {
                             </div>
                         </div>
                         {user.email && !user.emailVerified && (
-                            <button
+                            <button 
                                 className="verify-btn"
                                 onClick={handleSendEmailVerification}
                             >
@@ -770,7 +830,7 @@ const ProfilePage = () => {
                             </div>
                         )}
                     </div>
-
+                    
                     <div className={`verification-item ${user.phone ? 'verified' : 'unverified'}`}>
                         <div className="item-content">
                             <i className="fas fa-phone"></i>
@@ -789,7 +849,7 @@ const ProfilePage = () => {
                             </div>
                         )}
                     </div>
-
+                    
                     <div className={`verification-item ${user.userDetail?.fullName ? 'verified' : 'unverified'}`}>
                         <div className="item-content">
                             <i className="fas fa-user"></i>
@@ -799,7 +859,7 @@ const ProfilePage = () => {
                             </div>
                         </div>
                         {!user.userDetail?.fullName && (
-                            <button
+                            <button 
                                 className="verify-btn"
                                 onClick={() => setEditMode(true)}
                             >
@@ -813,262 +873,593 @@ const ProfilePage = () => {
     };
 
 
-    // ✅ SỬA: Render booking history với logic mới
+    // ✅ SỬA: Render booking history với Tailwind CSS - giao diện khung ngang
     const renderBookingHistory = () => {
         if (bookingLoading) {
             return (
-                <div className="loading-container">
-                    <div className="spinner"></div>
-                    <p>Đang tải lịch sử đặt xe...</p>
+                <div className="flex items-center justify-center min-h-[400px]">
+                    <LoadingSpinner size="large" color="blue" />
                 </div>
             );
         }
 
         if (!bookings || bookings.length === 0) {
             return (
-                <div className="empty-state">
-                    <i className="fas fa-car"></i>
-                    <h3>Chưa có lịch sử đặt xe</h3>
-                    <p>Bạn chưa có bất kỳ chuyến đi nào. Hãy đặt xe ngay để bắt đầu hành trình!</p>
-                    <button className="btn primary" onClick={handleNavigateToCars}>
-                        <i className="fas fa-plus"></i>
-                        Đặt xe ngay
-                    </button>
+                <div className="flex flex-col items-center justify-center min-h-[400px] text-center py-16 px-6 bg-gradient-to-br from-gray-50 to-blue-50 rounded-3xl mx-4 my-6">
+                    <div className="mb-8">
+                        <div className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl">
+                            <i className="fas fa-car-side text-3xl text-white"></i>
+                        </div>
+                    </div>
+                    <div className="max-w-md">
+                        <h3 className="text-2xl font-bold text-gray-800 mb-4">Chưa có lịch sử đặt xe</h3>
+                        <p className="text-gray-600 mb-8 leading-relaxed">Bạn chưa có bất kỳ chuyến đi nào. Hãy khám phá và đặt xe ngay để bắt đầu hành trình tuyệt vời!</p>
+                        <button 
+                            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 rounded-full font-semibold flex items-center gap-3 mx-auto transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+                            onClick={handleNavigateToCars}
+                        >
+                            <i className="fas fa-plus-circle"></i>
+                            <span>Khám phá xe ngay</span>
+                        </button>
+                    </div>
                 </div>
             );
         }
 
-        return (
-            <div className="bookings-list compact">
-                {bookings.map((booking, index) => {
-                    const statusInfo = getStatusInfo(booking);
+        // Định nghĩa màu sắc cho status badge
+        const getStatusBadgeColor = (status) => {
+            switch (status?.toLowerCase()) {
+                case 'confirmed': return 'bg-blue-100 text-blue-800 border border-blue-200';
+                case 'in_progress': case 'in progress': return 'bg-green-100 text-green-800 border border-green-200';
+                case 'completed': return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+                case 'cancelled': case 'canceled': return 'bg-red-100 text-red-800 border border-red-200';
+                case 'pending': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+                case 'failed': return 'bg-red-100 text-red-800 border border-red-200';
+                case 'delivered': return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
+                case 'refunded': return 'bg-teal-100 text-teal-800 border border-teal-200';
+                default: return 'bg-gray-100 text-gray-800 border border-gray-200';
+            }
+        };
 
-                    return (
-                        <div key={booking.bookingId || index} className="booking-card-compact">
-                            {/* Header */}
-                            <div className="booking-compact-header">
-                                <div className="booking-main-info">
-                                    <div className="booking-id-status">
-                                        <h4>#{booking.bookingId}</h4>
-                                        <div
-                                            className={`status-badge ${statusInfo.class}`}
-                                            style={{ backgroundColor: statusInfo.color }}
-                                        >
+        return (
+            <div className="space-y-6 px-4 py-6">
+                {/* Stats Header */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                    <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100 text-center hover:shadow-lg transition-shadow">
+                        <div className="text-3xl font-bold text-blue-600 mb-2">{bookings.length}</div>
+                        <div className="text-gray-600 font-medium">Tổng chuyến đi</div>
+                    </div>
+                    <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100 text-center hover:shadow-lg transition-shadow">
+                        <div className="text-3xl font-bold text-green-600 mb-2">
+                            {bookings.filter(b => ['completed', 'refunded', 'payout'].includes(b.statusName)).length}
+                        </div>
+                        <div className="text-gray-600 font-medium">Đã hoàn thành</div>
+                    </div>
+                    <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100 text-center hover:shadow-lg transition-shadow">
+                        <div className="text-3xl font-bold text-orange-600 mb-2">
+                            {bookings.filter(b => ['confirmed', 'in_progress', 'delivered'].includes(b.statusName)).length}
+                        </div>
+                        <div className="text-gray-600 font-medium">Đang thực hiện</div>
+                    </div>
+                </div>
+
+                {/* Booking List */}
+                <div className="space-y-4">
+                    {bookings.map((booking, index) => {
+                        const statusInfo = getStatusInfo(booking);
+
+                        return (
+                            <div 
+                                key={booking.bookingId || index} 
+                                className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                                onClick={() => handleViewBookingDetails(booking)}
+                            >
+                                {/* Header đơn giản không có gradient */}
+                                <div className="bg-gray-50 p-4 border-b border-gray-200">
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                <i className="fas fa-car text-blue-600 text-lg"></i>
+                                            </div>
+                                            <div>
+                                                <h3 className="text-lg font-bold text-gray-800">#{booking.bookingId}</h3>
+                                                <p className="text-gray-600 text-sm">{booking.car?.model || 'Xe không xác định'}</p>
+                                            </div>
+                                        </div>
+                                        <div className={`px-4 py-2 rounded-full text-sm font-semibold ${getStatusBadgeColor(booking.statusName)}`}>
                                             {statusInfo.text}
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div className="booking-summary">
-                                        <div className="car-summary">
-                                            <i className="fas fa-car"></i>
-                                            <span>{booking.carModel || 'N/A'} - {booking.carLicensePlate || 'N/A'}</span>
+                                {/* Content */}
+                                <div className="p-6">
+                                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                                        {/* Thông tin xe */}
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                                                <i className="fas fa-id-card text-gray-600"></i>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Biển số</p>
+                                                <p className="font-semibold text-gray-800">{booking.carLicensePlate || 'N/A'}</p>
+                                            </div>
                                         </div>
-                                        <div className="date-summary">
-                                            <i className="fas fa-calendar"></i>
-                                            <span>
-                                                {booking.startDate && booking.endDate
-                                                    ? `${new Date(booking.startDate).toLocaleDateString('vi-VN')} - ${new Date(booking.endDate).toLocaleDateString('vi-VN')}`
-                                                    : 'N/A'
-                                                }
-                                            </span>
+
+                                        {/* Thời gian */}
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                                                <i className="fas fa-calendar-alt text-blue-600"></i>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Thời gian</p>
+                                                <p className="font-semibold text-gray-800 text-sm">
+                                                    {booking.startDate && booking.endDate 
+                                                        ? `${new Date(booking.startDate).toLocaleDateString('vi-VN')} - ${new Date(booking.endDate).toLocaleDateString('vi-VN')}`
+                                                        : 'N/A'
+                                                    }
+                                                </p>
+                                            </div>
                                         </div>
-                                        {/* ✅ Hiển thị payment info với logic mới */}
-                                        <div className="payment-summary">
-                                            <i className="fas fa-money-bill-wave"></i>
-                                            <div className="payment-info">
-                                                <span className={`payment-status ${booking.paymentStatus}`}>
+
+                                        {/* Thanh toán */}
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                                                booking.paymentStatus === 'paid' ? 'bg-green-50' :
+                                                booking.paymentStatus === 'pending' ? 'bg-yellow-50' : 'bg-red-50'
+                                            }`}>
+                                                <i className={`fas fa-credit-card ${
+                                                    booking.paymentStatus === 'paid' ? 'text-green-600' :
+                                                    booking.paymentStatus === 'pending' ? 'text-yellow-600' : 'text-red-600'
+                                                }`}></i>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Thanh toán</p>
+                                                <p className={`font-semibold text-sm ${
+                                                    booking.paymentStatus === 'paid' ? 'text-green-600' :
+                                                    booking.paymentStatus === 'pending' ? 'text-yellow-600' : 'text-red-600'
+                                                }`}>
                                                     {booking.paymentStatus === 'paid' ? 'Đã thanh toán' :
-                                                        booking.paymentStatus === 'pending' ? 'Chờ thanh toán' : 'Thất bại'}
-                                                </span>
-
-                                                {/* ✅ Hiển thị thông tin thanh toán chi tiết */}
+                                                     booking.paymentStatus === 'pending' ? 'Chờ thanh toán' :
+                                                     booking.paymentStatus === 'failed' ? 'Thất bại' : 'Không xác định'}
+                                                </p>
                                                 {booking.paymentAmount && (
-                                                    <div className="payment-breakdown">
-                                                        <span className="payment-amount">
-                                                            {new Intl.NumberFormat('vi-VN', {
-                                                                style: 'currency',
-                                                                currency: 'VND'
-                                                            }).format(booking.paymentAmount)}
-                                                        </span>
-
-                                                        {booking.paymentType && (
-                                                            <span className="payment-type-badge">
-                                                                {booking.paymentType === 'deposit' ? 'Cọc' :
-                                                                    booking.paymentType === 'full_payment' ? 'Toàn bộ' : 'Hoàn tiền'}
-                                                            </span>
-                                                        )}
-
-                                                        {/* ✅ Hiển thị số tiền còn lại nếu chỉ có deposit */}
-                                                        {booking.paymentType === 'deposit' && booking.totalAmount && (
-                                                            <span className="remaining-amount">
-                                                                Còn lại: {new Intl.NumberFormat('vi-VN', {
-                                                                    style: 'currency',
-                                                                    currency: 'VND'
-                                                                }).format(booking.totalAmount - booking.paymentAmount)}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                    <p className="text-xs text-gray-600">
+                                                        {new Intl.NumberFormat('vi-VN', {
+                                                            style: 'currency',
+                                                            currency: 'VND'
+                                                        }).format(booking.paymentAmount)}
+                                                    </p>
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* Actions */}
+                                        <div className="flex flex-wrap gap-2">
+                                            {booking.statusName === 'in progress' && !booking.customerReturnConfirm && (
+                                                <button
+                                                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleConfirmReturn(booking.bookingId);
+                                                    }}
+                                                >
+                                                    <i className="fas fa-car-side"></i>
+                                                    Trả xe
+                                                </button>
+                                            )}
+                                            
+                                            {(booking.statusName === 'confirmed' || booking.statusName === 'pending') && (
+                                                <button 
+                                                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCancelBooking(booking.bookingId);
+                                                    }}
+                                                >
+                                                    <i className="fas fa-times"></i>
+                                                    Hủy
+                                                </button>
+                                            )}
+                                            
+                                            {['pending', 'failed'].includes(booking.statusName) && booking.paymentStatus === 'failed' && (
+                                                <div onClick={(e) => e.stopPropagation()}>
+                                                    <RetryPaymentHandler
+                                                        booking={booking}
+                                                        user={user}
+                                                        onSuccess={() => {
+                                                            toast.success('Thanh toán thành công!');
+                                                            fetchBookings();
+                                                        }}
+                                                        onError={err => {
+                                                            toast.error(`Lỗi thanh toán: ${err.message}`);
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                            
+                                            {['completed', 'refunded', 'payout'].includes(booking.statusName) && (
+                                                <>
+                                                    <button
+                                                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleShowReviewModal(booking);
+                                                        }}
+                                                    >
+                                                        <i className="fas fa-star"></i>
+                                                        {booking.hasRated ? "Sửa đánh giá" : "Đánh giá"}
+                                                    </button>
+                                                    
+                                                    <button
+                                                        className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleRebookCar(booking);
+                                                        }}
+                                                    >
+                                                        <i className="fas fa-redo"></i>
+                                                        Đặt lại xe
+                                                    </button>
+                                                </>
+                                            )}
+                                            
+                                            {booking.statusName === 'failed' && (
+                                                <button
+                                                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    onClick={async (e) => {
+                                                        e.stopPropagation();
+                                                        if (window.confirm('Bạn có chắc chắn muốn xóa đặt xe này khỏi lịch sử?')) {
+                                                            try {
+                                                                await post(`/api/bookings/${booking.bookingId}/delete`);
+                                                                setBookings(prev => prev.filter(b => b.bookingId !== booking.bookingId));
+                                                                toast.success('Đã xóa đơn đặt xe khỏi lịch sử!');
+                                                            } catch (err) {
+                                                                toast.error('Không thể xóa đơn đặt xe. Vui lòng thử lại.');
+                                                            }
+                                                        }
+                                                    }}
+                                                >
+                                                    <i className="fas fa-trash"></i>
+                                                    Xóa
+                                                </button>
+                                            )}
+                                            
+                                            {booking.statusName === 'delivered' && booking.hasDeposit && !booking.hasFullPayment && !booking.customerReceiveConfirm && (
+                                                <button
+                                                    className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePickupPayment(booking);
+                                                    }}
+                                                >
+                                                    <i className="fas fa-credit-card"></i>
+                                                    Thanh toán nhận xe
+                                                </button>
+                                            )}
+                                            
+                                            {booking.statusName === 'delivered' && booking.hasFullPayment && !booking.customerReceiveConfirm && (
+                                                <button
+                                                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleConfirmDelivery(booking.bookingId);
+                                                    }}
+                                                >
+                                                    <i className="fas fa-check-circle"></i>
+                                                    Đã nhận xe
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Tiến trình booking theo luồng thực tế */}
+                                    {(booking.statusName === 'pending' || booking.statusName === 'confirmed' || booking.statusName === 'delivered') && (
+                                        <div className="mt-6 pt-6 border-t border-gray-100">
+                                            <h5 className="text-sm font-semibold text-gray-700 mb-4">Tiến trình đặt xe</h5>
+                                            <div className="flex items-center gap-4 overflow-x-auto">
+                                                {/* Bước 1: Đặt xe */}
+                                                <div className="flex items-center gap-2 text-green-600 min-w-fit">
+                                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                                        <i className="fas fa-check text-xs"></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">Đã đặt xe</span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-gray-400"></i>
+                                                
+                                                {/* Bước 2: Xác nhận */}
+                                                <div className={`flex items-center gap-2 min-w-fit ${
+                                                    ['confirmed', 'delivered', 'in_progress'].includes(booking.statusName) ? 'text-green-600' : 
+                                                    booking.statusName === 'pending' ? 'text-yellow-600' : 'text-gray-400'
+                                                }`}>
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                                        ['confirmed', 'delivered', 'in_progress'].includes(booking.statusName) ? 'bg-green-100' :
+                                                        booking.statusName === 'pending' ? 'bg-yellow-100' : 'bg-gray-100'
+                                                    }`}>
+                                                        <i className={`fas ${
+                                                            ['confirmed', 'delivered', 'in_progress'].includes(booking.statusName) ? 'fa-check' :
+                                                            booking.statusName === 'pending' ? 'fa-clock' : 'fa-times'
+                                                        } text-xs`}></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">
+                                                        {['confirmed', 'delivered', 'in_progress'].includes(booking.statusName) ? 'Đã xác nhận' :
+                                                         booking.statusName === 'pending' ? 'Chờ xác nhận' : 'Chưa xác nhận'}
+                                                    </span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-gray-400"></i>
+                                                
+                                                {/* Bước 3: Chuẩn bị xe & giao xe */}
+                                                <div className={`flex items-center gap-2 min-w-fit ${
+                                                    ['delivered', 'in_progress'].includes(booking.statusName) ? 'text-green-600' :
+                                                    booking.statusName === 'confirmed' ? 'text-blue-600' : 'text-gray-400'
+                                                }`}>
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                                        ['delivered', 'in_progress'].includes(booking.statusName) ? 'bg-green-100' :
+                                                        booking.statusName === 'confirmed' ? 'bg-blue-100' : 'bg-gray-100'
+                                                    }`}>
+                                                        <i className={`fas ${
+                                                            ['delivered', 'in_progress'].includes(booking.statusName) ? 'fa-check' :
+                                                            booking.statusName === 'confirmed' ? 'fa-shipping-fast' : 'fa-clock'
+                                                        } text-xs`}></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">
+                                                        {['delivered', 'in_progress'].includes(booking.statusName) ? 'Đã giao xe' :
+                                                         booking.statusName === 'confirmed' ? 'Đang chuẩn bị' : 'Chưa chuẩn bị'}
+                                                    </span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-gray-400"></i>
+                                                
+                                                {/* Bước 4: Nhận xe & thanh toán */}
+                                                <div className={`flex items-center gap-2 min-w-fit ${
+                                                    booking.customerReceiveConfirm && booking.hasFullPayment ? 'text-green-600' :
+                                                    booking.statusName === 'delivered' ? 'text-orange-600' : 'text-gray-400'
+                                                }`}>
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                                        booking.customerReceiveConfirm && booking.hasFullPayment ? 'bg-green-100' :
+                                                        booking.statusName === 'delivered' ? 'bg-orange-100' : 'bg-gray-100'
+                                                    }`}>
+                                                        <i className={`fas ${
+                                                            booking.customerReceiveConfirm && booking.hasFullPayment ? 'fa-check' :
+                                                            booking.statusName === 'delivered' ? 'fa-handshake' : 'fa-clock'
+                                                        } text-xs`}></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">
+                                                        {booking.customerReceiveConfirm && booking.hasFullPayment ? 'Đã nhận xe' :
+                                                         booking.statusName === 'delivered' ? 'Chờ nhận xe' : 'Chưa nhận xe'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Thông tin chi tiết cho trạng thái delivered */}
+                                            {booking.statusName === 'delivered' && (
+                                                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                    <div className="text-sm text-blue-800">
+                                                        <i className="fas fa-info-circle mr-2"></i>
+                                                        {!booking.hasFullPayment ? 
+                                                            "Vui lòng thanh toán phần còn lại để nhận xe" :
+                                                            "Xe đã sẵn sàng, vui lòng xác nhận đã nhận xe"
+                                                        }
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Tiến trình sử dụng xe cho in_progress */}
+                                    {booking.statusName === 'in_progress' && (
+                                        <div className="mt-6 pt-6 border-t border-gray-100">
+                                            <h5 className="text-sm font-semibold text-gray-700 mb-4">Tiến trình sử dụng xe</h5>
+                                            <div className="flex items-center gap-4 overflow-x-auto">
+                                                {/* Đang sử dụng */}
+                                                <div className="flex items-center gap-2 text-green-600 min-w-fit">
+                                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                                        <i className="fas fa-key text-xs"></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">Đang sử dụng</span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-gray-400"></i>
+                                                
+                                                {/* Trả xe */}
+                                                <div className={`flex items-center gap-2 min-w-fit ${
+                                                    booking.customerReturnConfirm ? 'text-green-600' : 'text-blue-600'
+                                                }`}>
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                                        booking.customerReturnConfirm ? 'bg-green-100' : 'bg-blue-100'
+                                                    }`}>
+                                                        <i className={`fas ${
+                                                            booking.customerReturnConfirm ? 'fa-check' : 'fa-car-side'
+                                                        } text-xs`}></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">
+                                                        {booking.customerReturnConfirm ? 'Đã trả xe' : 'Chờ trả xe'}
+                                                    </span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-gray-400"></i>
+                                                
+                                                {/* Supplier xác nhận */}
+                                                <div className={`flex items-center gap-2 min-w-fit ${
+                                                    booking.supplierReturnConfirm ? 'text-green-600' : 'text-gray-400'
+                                                }`}>
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                                        booking.supplierReturnConfirm ? 'bg-green-100' : 'bg-gray-100'
+                                                    }`}>
+                                                        <i className={`fas ${
+                                                            booking.supplierReturnConfirm ? 'fa-check-double' : 'fa-clock'
+                                                        } text-xs`}></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">
+                                                        {booking.supplierReturnConfirm ? 'Supplier đã xác nhận' : 'Chờ supplier xác nhận'}
+                                                    </span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-gray-400"></i>
+                                                
+                                                {/* Hoàn thành */}
+                                                <div className={`flex items-center gap-2 min-w-fit ${
+                                                    booking.customerReturnConfirm && booking.supplierReturnConfirm ? 'text-green-600' : 'text-gray-400'
+                                                }`}>
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                                        booking.customerReturnConfirm && booking.supplierReturnConfirm ? 'bg-green-100' : 'bg-gray-100'
+                                                    }`}>
+                                                        <i className={`fas ${
+                                                            booking.customerReturnConfirm && booking.supplierReturnConfirm ? 'fa-trophy' : 'fa-clock'
+                                                        } text-xs`}></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">
+                                                        {booking.customerReturnConfirm && booking.supplierReturnConfirm ? 'Hoàn thành' : 'Chờ hoàn thành'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            
+                                            {/* Thông tin hướng dẫn */}
+                                            {!booking.customerReturnConfirm && (
+                                                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                    <div className="text-sm text-blue-800">
+                                                        <i className="fas fa-info-circle mr-2"></i>
+                                                        Khi kết thúc chuyến đi, vui lòng bấm "Trả xe" để xác nhận đã trả xe cho supplier
+                                                    </div>
+                                                </div>
+                                            )}
+                                            
+                                            {booking.customerReturnConfirm && !booking.supplierReturnConfirm && (
+                                                <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                                                    <div className="text-sm text-yellow-800">
+                                                        <i className="fas fa-clock mr-2"></i>
+                                                        Bạn đã xác nhận trả xe, đang chờ supplier kiểm tra và xác nhận
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Tiến trình cho booking đã hoàn thành */}
+                                    {['completed', 'refunded', 'payout'].includes(booking.statusName) && (
+                                        <div className="mt-6 pt-6 border-t border-gray-100">
+                                            <h5 className="text-sm font-semibold text-gray-700 mb-4">Chuyến đi đã hoàn thành</h5>
+                                            <div className="flex items-center gap-4 overflow-x-auto">
+                                                {/* Tất cả các bước đều hoàn thành */}
+                                                <div className="flex items-center gap-2 text-green-600 min-w-fit">
+                                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                                        <i className="fas fa-check text-xs"></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">Đã đặt xe</span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-green-400"></i>
+                                                
+                                                <div className="flex items-center gap-2 text-green-600 min-w-fit">
+                                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                                        <i className="fas fa-check text-xs"></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">Đã xác nhận</span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-green-400"></i>
+                                                
+                                                <div className="flex items-center gap-2 text-green-600 min-w-fit">
+                                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                                        <i className="fas fa-check text-xs"></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">Đã sử dụng</span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-green-400"></i>
+                                                
+                                                <div className="flex items-center gap-2 text-green-600 min-w-fit">
+                                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                                        <i className="fas fa-check text-xs"></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">Đã trả xe</span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-green-400"></i>
+                                                
+                                                <div className="flex items-center gap-2 text-green-600 min-w-fit">
+                                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                                        <i className="fas fa-trophy text-xs"></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">Hoàn thành</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                                                <div className="text-sm text-green-800">
+                                                    <i className="fas fa-check-circle mr-2"></i>
+                                                    Chuyến đi đã hoàn thành thành công! 
+                                                    {booking.statusName === 'refunded' && " Tiền cọc đã được hoàn trả."}
+                                                    {booking.statusName === 'payout' && " Thanh toán đã được xử lý."}
+                                                    {!booking.hasRated && " Bạn có thể đánh giá chuyến đi này."}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Tiến trình cho booking bị hủy hoặc thất bại */}
+                                    {['cancelled', 'canceled', 'failed'].includes(booking.statusName) && (
+                                        <div className="mt-6 pt-6 border-t border-gray-100">
+                                            <h5 className="text-sm font-semibold text-gray-700 mb-4">
+                                                {booking.statusName === 'failed' ? 'Đặt xe thất bại' : 'Đặt xe đã bị hủy'}
+                                            </h5>
+                                            <div className="flex items-center gap-4 overflow-x-auto">
+                                                {/* Đặt xe */}
+                                                <div className="flex items-center gap-2 text-green-600 min-w-fit">
+                                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                                        <i className="fas fa-check text-xs"></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">Đã đặt xe</span>
+                                                </div>
+                                                
+                                                <i className="fas fa-arrow-right text-gray-400"></i>
+                                                
+                                                {/* Kết thúc ở đây */}
+                                                <div className="flex items-center gap-2 text-red-600 min-w-fit">
+                                                    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                                                        <i className="fas fa-times text-xs"></i>
+                                                    </div>
+                                                    <span className="text-sm font-medium">
+                                                        {booking.statusName === 'failed' ? 'Thất bại' : 'Đã hủy'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                                                <div className="text-sm text-red-800">
+                                                    <i className="fas fa-exclamation-triangle mr-2"></i>
+                                                    {booking.statusName === 'failed' ? 
+                                                        "Đặt xe không thành công. Vui lòng thử lại hoặc liên hệ hỗ trợ." :
+                                                        "Đặt xe đã bị hủy. Nếu có thanh toán, tiền sẽ được hoàn trả theo quy định."
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Additional badges */}
+                                    <div className="flex gap-2 mt-4">
+                                        {isBookingFullyCompleted(booking) && (
+                                            <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-xs font-semibold">
+                                                <i className="fas fa-check-circle mr-1"></i>
+                                                Hoàn thành
+                                            </span>
+                                        )}
+                                        
+                                        {hasRefund(booking) && (
+                                            <span className="bg-teal-100 text-teal-800 border border-teal-200 px-3 py-1 rounded-full text-xs font-semibold">
+                                                <i className="fas fa-money-bill-wave mr-1"></i>
+                                                Đã hoàn cọc
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
-
-                            {/* ✅ Status Flow Display */}
-                            {booking.statusName === 'confirmed' && (
-                                <div className="booking-flow-status">
-                                    <div className="flow-step">
-                                        <div className={`step-indicator ${booking.hasFullPayment ? 'completed' : 'current'}`}>
-                                            <i className="fas fa-credit-card"></i>
-                                        </div>
-                                        <span className="step-label">
-                                            {booking.hasFullPayment ? 'Đã thanh toán đầy đủ' : 'Cần thanh toán tiền nhận xe'}
-                                        </span>
-                                    </div>
-
-                                    {booking.hasFullPayment && (
-                                        <div className="flow-step">
-                                            <div className={`step-indicator ${booking.supplierDeliveryConfirm ? 'completed' : 'current'}`}>
-                                                <i className="fas fa-truck"></i>
-                                            </div>
-                                            <span className="step-label">
-                                                {booking.supplierDeliveryConfirm ? 'Supplier đã giao xe' : 'Chờ supplier giao xe'}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {booking.hasFullPayment && booking.supplierDeliveryConfirm && (
-                                        <div className="flow-step">
-                                            <div className={`step-indicator ${booking.customerReceiveConfirm ? 'completed' : 'current'}`}>
-                                                <i className="fas fa-handshake"></i>
-                                            </div>
-                                            <span className="step-label">
-                                                {booking.customerReceiveConfirm ? 'Đã nhận xe' : 'Chờ xác nhận nhận xe'}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* ✅ In Progress Flow */}
-                            {booking.statusName === 'in_progress' && (
-                                <div className="booking-flow-status">
-                                    <div className="flow-step">
-                                        <div className="step-indicator completed">
-                                            <i className="fas fa-car"></i>
-                                        </div>
-                                        <span className="step-label">Đang sử dụng xe</span>
-                                    </div>
-
-                                    <div className="flow-step">
-                                        <div className={`step-indicator ${booking.customerReturnConfirm ? 'completed' : 'current'}`}>
-                                            <i className="fas fa-car-side"></i>
-                                        </div>
-                                        <span className="step-label">
-                                            {booking.customerReturnConfirm ? 'Đã trả xe' : 'Chờ trả xe'}
-                                        </span>
-                                    </div>
-
-                                    {booking.customerReturnConfirm && (
-                                        <div className="flow-step">
-                                            <div className={`step-indicator ${booking.supplierReturnConfirm ? 'completed' : 'current'}`}>
-                                                <i className="fas fa-check-circle"></i>
-                                            </div>
-                                            <span className="step-label">
-                                                {booking.supplierReturnConfirm ? 'Supplier đã xác nhận' : 'Chờ supplier xác nhận'}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* ✅ Action Buttons với logic mới */}
-                            <div className="booking-actions-row">
-                                <button
-                                    className="btn-action details"
-                                    onClick={() => handleViewBookingDetails(booking)}
-                                    title="Xem chi tiết"
-                                >
-                                    <i className="fas fa-eye"></i>
-                                    <span>Chi tiết</span>
-                                </button>
-
-                                {/* ✅ NÚT THANH TOÁN TIỀN NHẬN XE */}
-                                {needsPickupPayment(booking) && (
-                                    <button
-                                        className="btn-action pickup-payment"
-                                        onClick={() => handlePickupPayment(booking)}
-                                        title="Thanh toán tiền nhận xe"
-                                    >
-                                        <i className="fas fa-credit-card"></i>
-                                        <span>Thanh toán nhận xe</span>
-                                    </button>
-                                )}
-
-                                {/* ✅ NÚT CHỜ NHẬN XE */}
-                                {waitingForPickup(booking) && (
-                                    <button
-                                        className="btn-action waiting-pickup"
-                                        disabled
-                                        title="Đang chờ supplier giao xe"
-                                    >
-                                        <i className="fas fa-clock"></i>
-                                        <span>Chờ giao xe</span>
-                                    </button>
-                                )}
-
-                                {/* ✅ NÚT XÁC NHẬN NHẬN XE */}
-                                {canCustomerConfirmDelivery(booking) && (
-                                    <button
-                                        className="btn-action confirm-delivery"
-                                        onClick={() => handleConfirmDelivery(booking.bookingId)}
-                                        title="Xác nhận đã nhận xe"
-                                    >
-                                        <i className="fas fa-handshake"></i>
-                                        <span>Đã nhận xe</span>
-                                    </button>
-                                )}
-
-                                {/* ✅ NÚT XÁC NHẬN TRẢ XE */}
-                                {canCustomerConfirmReturn(booking) && (
-                                    <button
-                                        className="btn-action confirm-return"
-                                        onClick={() => handleConfirmReturn(booking.bookingId)}
-                                        title="Xác nhận đã trả xe"
-                                    >
-                                        <i className="fas fa-car-side"></i>
-                                        <span>Đã trả xe</span>
-                                    </button>
-                                )}
-
-                                {/* ✅ NÚT HỦY ĐẶT XE */}
-                                {(booking.statusName === 'confirmed' || booking.statusName === 'pending') && (
-                                    <button
-                                        className="btn-action cancel"
-                                        onClick={() => handleCancelBooking(booking.bookingId)}
-                                        title="Hủy đặt xe"
-                                    >
-                                        <i className="fas fa-ban"></i>
-                                        <span>Hủy</span>
-                                    </button>
-                                )}
-
-                                {/* ✅ NÚT ĐÁNH GIÁ */}
-                                {booking.statusName === 'completed' && !booking.hasRated && (
-                                    <button
-                                        className="btn-action review"
-                                        onClick={() => handleShowReviewModal(booking)}
-                                        title="Đánh giá xe"
-                                    >
-                                        <i className="fas fa-star"></i>
-                                        <span>Đánh giá</span>
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
         );
     };
@@ -1077,9 +1468,8 @@ const ProfilePage = () => {
     const renderFavorites = () => {
         if (favoritesLoading) {
             return (
-                <div className="loading-container">
-                    <div className="spinner"></div>
-                    <p>Đang tải xe yêu thích...</p>
+                <div className="flex items-center justify-center min-h-[300px]">
+                    <LoadingSpinner size="large" color="blue" />
                 </div>
             );
         }
@@ -1106,14 +1496,14 @@ const ProfilePage = () => {
                             <h4>{car.model}</h4>
                             <p>{car.licensePlate}</p>
                             <p>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(car.dailyRate)}/ngày</p>
-                            <button
+                            <button 
                                 className="btn primary small"
                                 onClick={() => navigate(`/cars/${car.carId}`)}
                             >
                                 Xem chi tiết
                             </button>
                         </div>
-                        <button
+                        <button 
                             className="remove-favorite"
                             onClick={() => handleRemoveFavorite(car.carId)}
                         >
@@ -1135,6 +1525,24 @@ const ProfilePage = () => {
         navigate('/booking');
     };
 
+    // Helper kiểm tra hoàn tất booking và hoàn cọc
+    const isBookingFullyCompleted = (booking) =>
+      Boolean(booking.supplierDeliveryConfirm) &&
+      Boolean(booking.customerReceiveConfirm) &&
+      Boolean(booking.customerReturnConfirm) &&
+      Boolean(booking.supplierReturnConfirm) &&
+      booking.paymentDetails?.some(p => p.paymentType === 'full_payment' && p.paymentStatus === 'paid');
+
+    const hasRefund = (booking) =>
+      booking.paymentDetails?.some(p => p.paymentType === 'refund' && p.paymentStatus === 'paid');
+
+    // Helper format date
+    const formatDateTime = (dateStr) => {
+      if (!dateStr) return 'N/A';
+      const d = new Date(dateStr);
+      return d.toLocaleString('vi-VN', { hour12: false });
+    };
+
     return (
         <div className="profile-page">
             {/* Header Section */}
@@ -1144,7 +1552,7 @@ const ProfilePage = () => {
                     <div className="header-content">
                         <div className="user-avatar-section">
                             <div className="user-avatar">
-                                <img
+                                <img 
                                     src={user.userDetail?.avatar || `data:image/svg+xml,${encodeURIComponent(`
         <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
             <rect width="120" height="120" fill="#667eea"/>
@@ -1152,12 +1560,12 @@ const ProfilePage = () => {
                 ${user.username?.charAt(0).toUpperCase() || 'U'}
             </text>
         </svg>
-    `)}`}
-                                    alt="Avatar"
-                                    onError={(e) => {
-                                        // Fallback to a simple colored div with initial
-                                        e.target.style.display = 'none';
-                                        e.target.parentElement.innerHTML = `
+    `)}`} 
+    alt="Avatar"
+    onError={(e) => {
+        // Fallback to a simple colored div with initial
+        e.target.style.display = 'none';
+        e.target.parentElement.innerHTML = `
             <div style="
                 width: 120px; 
                 height: 120px; 
@@ -1173,13 +1581,13 @@ const ProfilePage = () => {
                 ${user.username?.charAt(0).toUpperCase() || 'U'}
             </div>
         `;
-                                    }}
+    }}
                                 />
                                 <div className="avatar-upload" title="Đổi ảnh đại diện">
                                     <i className="fas fa-camera"></i>
                                 </div>
                             </div>
-
+                            
                             <div className="verification-badge">
                                 <div className="verification-circle">
                                     <svg className="progress-ring" width="60" height="60">
@@ -1207,11 +1615,11 @@ const ProfilePage = () => {
                                 <div className="verification-text">Đã xác thực</div>
                             </div>
                         </div>
-
+                        
                         <div className="user-info">
                             <h1 className="user-name">{user.userDetail?.fullName || user.username}</h1>
                             <p className="user-email">{user.email}</p>
-
+                            
                             <div className="user-badges">
                                 <div className="badge trusted">
                                     <i className="fas fa-shield-alt"></i>
@@ -1224,7 +1632,7 @@ const ProfilePage = () => {
                                     </div>
                                 )}
                             </div>
-
+                            
                             <div className="user-stats">
                                 <div className="stat-item">
                                     <span className="stat-number">{bookings.length}</span>
@@ -1249,7 +1657,7 @@ const ProfilePage = () => {
                                 </div>
                             </div>
                         </div>
-
+                        
                         <div className="header-actions">
                             <button className="book-car-btn" onClick={handleNavigateToCars}>
                                 <div className="btn-glow"></div>
@@ -1271,14 +1679,14 @@ const ProfilePage = () => {
             <div className="profile-nav">
                 <div className="container">
                     <div className="nav-tabs">
-                        <button
+                        <button 
                             className={`nav-tab ${activeTab === 'account' ? 'active' : ''}`}
                             onClick={() => setActiveTab('account')}
                         >
                             <i className="fas fa-user"></i>
                             <span>Thông tin tài khoản</span>
                         </button>
-                        <button
+                        <button 
                             className={`nav-tab ${activeTab === 'bookings' ? 'active' : ''}`}
                             onClick={() => setActiveTab('bookings')}
                         >
@@ -1288,7 +1696,7 @@ const ProfilePage = () => {
                                 <div className="notification-dot">{bookings.length}</div>
                             )}
                         </button>
-                        <button
+                        <button 
                             className={`nav-tab ${activeTab === 'favorites' ? 'active' : ''}`}
                             onClick={() => setActiveTab('favorites')}
                         >
@@ -1298,7 +1706,7 @@ const ProfilePage = () => {
                                 <div className="notification-dot">{favorites.length}</div>
                             )}
                         </button>
-                        <button
+                        <button 
                             className={`nav-tab ${activeTab === 'security' ? 'active' : ''}`}
                             onClick={() => setActiveTab('security')}
                         >
@@ -1319,7 +1727,7 @@ const ProfilePage = () => {
                                     <div>
                                         <p className="subtitle">Quản lý thông tin cá nhân và cài đặt tài khoản</p>
                                     </div>
-                                    <button
+                                    <button 
                                         className="btn edit-btn"
                                         onClick={() => setEditMode(!editMode)}
                                     >
@@ -1346,7 +1754,7 @@ const ProfilePage = () => {
                                                     />
                                                     <div className="input-hint">Tên đăng nhập không thể thay đổi</div>
                                                 </div>
-
+                                                
                                                 <div className="form-group">
                                                     <label data-required="true">Email</label>
                                                     <input
@@ -1357,11 +1765,11 @@ const ProfilePage = () => {
                                                         required
                                                     />
                                                 </div>
-
+                                                
                                                 <div className="form-group">
                                                     <label data-required="true">Số điện thoại</label>
                                                     <div className="phone-input-group">
-                                                        <select
+                                                        <select 
                                                             className="country-select"
                                                             name="countryCode"
                                                             value={formData.countryCode}
@@ -1381,7 +1789,7 @@ const ProfilePage = () => {
                                                         />
                                                     </div>
                                                 </div>
-
+                                                
                                                 <div className="form-group">
                                                     <label>Ngôn ngữ ưa thích</label>
                                                     <select
@@ -1395,7 +1803,7 @@ const ProfilePage = () => {
                                                 </div>
                                             </div>
                                         </div>
-
+                                        
                                         <div className="form-card">
                                             <h3>Thông tin chi tiết</h3>
                                             <div className="form-rows">
@@ -1410,7 +1818,7 @@ const ProfilePage = () => {
                                                         required
                                                     />
                                                 </div>
-
+                                                
                                                 <div className="form-group">
                                                     <label data-required="true">Địa chỉ</label>
                                                     <textarea
@@ -1422,7 +1830,7 @@ const ProfilePage = () => {
                                                         required
                                                     />
                                                 </div>
-
+                                                
                                                 <div className="form-group">
                                                     <label>Mã số thuế (nếu có)</label>
                                                     <input
@@ -1435,7 +1843,7 @@ const ProfilePage = () => {
                                                 </div>
                                             </div>
                                         </div>
-
+                                        
                                         <div className="form-actions">
                                             <button type="button" className="btn secondary" onClick={() => setEditMode(false)}>
                                                 <i className="fas fa-times"></i>
@@ -1470,7 +1878,7 @@ const ProfilePage = () => {
                                                 </div>
                                             </div>
                                         </div>
-
+                                        
                                         <div className="info-card">
                                             <h3>Thông tin chi tiết</h3>
                                             <div className="info-rows">
@@ -1532,7 +1940,7 @@ const ProfilePage = () => {
                                         <p className="subtitle">Quản lý mật khẩu và cài đặt bảo mật</p>
                                     </div>
                                 </div>
-
+                                
                                 <div className="security-grid">
                                     <div className="security-card">
                                         <div className="security-header">
@@ -1540,7 +1948,7 @@ const ProfilePage = () => {
                                             <div className="status active">Đã thiết lập</div>
                                         </div>
                                         <p>Thay đổi mật khẩu thường xuyên để bảo vệ tài khoản</p>
-                                        <button
+                                        <button 
                                             className="btn primary"
                                             // onClick={() => setShowPasswordModal(true)}
                                             onClick={() => setIsChangingPassword(true)}
@@ -1549,7 +1957,7 @@ const ProfilePage = () => {
                                             Đổi mật khẩu
                                         </button>
                                     </div>
-
+                                    
                                     <div className="security-card">
                                         <div className="security-header">
                                             <h3>Xác thực 2 lớp</h3>
@@ -1658,7 +2066,7 @@ const ProfilePage = () => {
                                     #{selectedBooking.bookingId}
                                 </div>
                             </div>
-                            <button
+                            <button 
                                 className="close-btn"
                                 onClick={() => {
                                     setShowBookingModal(false);
@@ -1668,132 +2076,126 @@ const ProfilePage = () => {
                                 ×
                             </button>
                         </div>
-
+                        
                         <div className="modal-content">
                             <div className="booking-detail-grid">
                                 {/* ✅ Kiểm tra xem có đang load details không */}
                                 {!selectedBooking.paymentDetails ? (
-                                    <div className="loading-details">
-                                        <div className="spinner"></div>
-                                        <p>Đang tải chi tiết...</p>
+                                    <div className="flex items-center justify-center min-h-[200px]">
+                                        <LoadingSpinner size="large" color="blue" />
                                     </div>
                                 ) : (
                                     <>
-                                        {/* Thông tin xe */}
-                                        <div className="detail-section">
-                                            <div className="section-header">
-                                                <i className="fas fa-car"></i>
-                                                <h4>Thông tin xe</h4>
-                                            </div>
-                                            <div className="detail-items">
-                                                <div className="detail-item">
-                                                    <label>Mẫu xe:</label>
+                                {/* Thông tin xe */}
+                                <div className="detail-section">
+                                    <div className="section-header">
+                                        <i className="fas fa-car"></i>
+                                        <h4>Thông tin xe</h4>
+                                    </div>
+                                    <div className="detail-items">
+                                        <div className="detail-item">
+                                            <label>Mẫu xe:</label>
                                                     <span>{selectedBooking.carModel || 'N/A'}</span>
-                                                </div>
-                                                <div className="detail-item">
-                                                    <label>Biển số:</label>
-                                                    <span className="highlight">{selectedBooking.carLicensePlate || 'N/A'}</span>
-                                                </div>
-                                                <div className="detail-item">
-                                                    <label>Tài xế:</label>
-                                                    <span>{selectedBooking.driverName || 'Tự lái'}</span>
-                                                </div>
-                                                <div className="detail-item">
-                                                    <label>Số ghế:</label>
-                                                    <span>{selectedBooking.seatNumber || 'N/A'} chỗ</span>
-                                                </div>
-                                            </div>
                                         </div>
-
-                                        {/* Thông tin chuyến đi */}
-                                        <div className="detail-section">
-                                            <div className="section-header">
-                                                <i className="fas fa-route"></i>
-                                                <h4>Thông tin chuyến đi</h4>
-                                            </div>
-                                            <div className="detail-items">
-                                                <div className="detail-item">
-                                                    <label>Thời gian:</label>
-                                                    <span className="date-range">
-                                                        {selectedBooking.startDate && selectedBooking.endDate
-                                                            ? `${new Date(selectedBooking.startDate).toLocaleDateString('vi-VN')} - ${new Date(selectedBooking.endDate).toLocaleDateString('vi-VN')}`
-                                                            : 'N/A'
-                                                        }
-                                                    </span>
-                                                </div>
-                                                <div className="detail-item">
-                                                    <label>Điểm đón:</label>
-                                                    <span>{selectedBooking.pickupLocation}</span>
-                                                </div>
-                                                <div className="detail-item">
-                                                    <label>Điểm trả:</label>
-                                                    <span>{selectedBooking.dropoffLocation}</span>
-                                                </div>
-                                                <div className="detail-item">
-                                                    <label>Khu vực:</label>
-                                                    <span>{selectedBooking.regionName}</span>
-                                                </div>
+                                        <div className="detail-item">
+                                            <label>Biển số:</label>
+                                                    <span className="highlight">{selectedBooking.carLicensePlate || 'N/A'}</span>
+                                        </div>
+                                        <div className="detail-item">
+                                            <label>Tài xế:</label>
+                                            <span>{selectedBooking.driverName || 'Tự lái'}</span>
+                                        </div>
+                                        <div className="detail-item">
+                                            <label>Số ghế:</label>
+                                            <span>{selectedBooking.seatNumber || 'N/A'} chỗ</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Thông tin chuyến đi */}
+                                <div className="detail-section">
+                                    <div className="section-header">
+                                        <i className="fas fa-route"></i>
+                                        <h4>Thông tin chuyến đi</h4>
+                                    </div>
+                                    <div className="detail-items">
+                                        <div className="detail-item">
+                                            <label>Thời gian:</label>
+                                            <span>
+                                                {formatDateTime(selectedBooking.startDate || selectedBooking.pickupDateTime)}
+                                                {" - "}
+                                                {formatDateTime(selectedBooking.endDate || selectedBooking.dropoffDateTime)}
+                                            </span>
+                                        </div>
+                                        <div className="detail-item">
+                                            <label>Điểm đón:</label>
+                                            <span>{selectedBooking.pickupLocation}</span>
+                                        </div>
+                                        <div className="detail-item">
+                                            <label>Điểm trả:</label>
+                                            <span>{selectedBooking.dropoffLocation}</span>
+                                        </div>
 
                                                 {/* ✅ SỬA: Thời gian confirm - Sử dụng selectedBooking */}
                                                 {selectedBooking.deliveryConfirmTime && (
-                                                    <div className="detail-item">
+                                            <div className="detail-item">
                                                         <label>Thời gian giao xe:</label>
                                                         <span>{new Date(selectedBooking.deliveryConfirmTime).toLocaleString('vi-VN')}</span>
-                                                    </div>
-                                                )}
+                                            </div>
+                                        )}
 
                                                 {selectedBooking.returnConfirmTime && (
-                                                    <div className="detail-item">
+                                        <div className="detail-item">
                                                         <label>Thời gian trả xe:</label>
                                                         <span>{new Date(selectedBooking.returnConfirmTime).toLocaleString('vi-VN')}</span>
-                                                    </div>
+                                        </div>
                                                 )}
 
                                                 {/* ✅ SỬA: Khuyến mãi - Sử dụng selectedBooking */}
-                                                <div className="detail-item">
-                                                    <label>Khuyến mãi:</label>
-                                                    {selectedBooking.promoCode ? (
-                                                        <span className="promo-info">
-                                                            <span className="promo-code">{selectedBooking.promoCode}</span>
-                                                            {selectedBooking.discountPercentage && (
-                                                                <span className="discount">
-                                                                    (-{selectedBooking.discountPercentage}%)
-                                                                </span>
-                                                            )}
+                                        <div className="detail-item">
+                                            <label>Khuyến mãi:</label>
+                                            {selectedBooking.promoCode ? (
+                                                <span className="promo-info">
+                                                    <span className="promo-code">{selectedBooking.promoCode}</span>
+                                                    {selectedBooking.discountPercentage && (
+                                                        <span className="discount">
+                                                            (-{selectedBooking.discountPercentage}%)
                                                         </span>
-                                                    ) : (
-                                                        <span className="no-data">Không sử dụng</span>
                                                     )}
-                                                </div>
+                                                </span>
+                                            ) : (
+                                                <span className="no-data">Không sử dụng</span>
+                                            )}
+                                        </div>
 
                                                 {/* ✅ SỬA: Mô tả khuyến mãi - Sử dụng selectedBooking */}
-                                                {selectedBooking.promoCode && (
-                                                    <div className="detail-item">
-                                                        <label>Mô tả khuyến mãi:</label>
-                                                        <span className="promo-desc">
-                                                            {selectedBooking.promoDescription || 'Không có mô tả chi tiết'}
-                                                        </span>
-                                                    </div>
-                                                )}
+                                        {selectedBooking.promoCode && (
+                                            <div className="detail-item">
+                                                <label>Mô tả khuyến mãi:</label>
+                                                <span className="promo-desc">
+                                                    {selectedBooking.promoDescription || 'Không có mô tả chi tiết'}
+                                                </span>
+                                            </div>
+                                        )}
 
                                                 {/* ✅ SỬA: Gia hạn - Sử dụng selectedBooking */}
-                                                <div className="detail-item">
-                                                    <label>Gia hạn:</label>
-                                                    {selectedBooking.extensionDays > 0 ? (
-                                                        <span className="extension-info">
-                                                            {selectedBooking.extensionDays} ngày
-                                                            {selectedBooking.extensionStatusName && (
-                                                                <span className={`extension-status ${selectedBooking.extensionStatusName.toLowerCase()}`}>
-                                                                    ({selectedBooking.extensionStatusName})
-                                                                </span>
-                                                            )}
+                                        <div className="detail-item">
+                                            <label>Gia hạn:</label>
+                                            {selectedBooking.extensionDays > 0 ? (
+                                                <span className="extension-info">
+                                                    {selectedBooking.extensionDays} ngày
+                                                    {selectedBooking.extensionStatusName && (
+                                                        <span className={`extension-status ${selectedBooking.extensionStatusName.toLowerCase()}`}>
+                                                            ({selectedBooking.extensionStatusName})
                                                         </span>
-                                                    ) : (
-                                                        <span className="no-data">Không có gia hạn</span>
                                                     )}
-                                                </div>
-                                            </div>
+                                                </span>
+                                            ) : (
+                                                <span className="no-data">Không có gia hạn</span>
+                                            )}
                                         </div>
+                                    </div>
+                                </div>
 
                                         {/* Thông tin thanh toán */}
                                         <div className="detail-section">
@@ -1813,53 +2215,55 @@ const ProfilePage = () => {
                                                     <>
                                                         <div className="payment-records">
                                                             <h5>Lịch sử thanh toán:</h5>
-                                                            {selectedBooking.paymentDetails.map((payment, index) => (
-                                                                <div key={payment.paymentId || index} className="payment-record">
-                                                                    <div className="payment-record-header">
-                                                                        <span className="payment-type-label">
-                                                                            {payment.paymentType === 'deposit' ? '💰 Tiền cọc' :
-                                                                                payment.paymentType === 'full_payment' ? '💳 Thanh toán đầy đủ' :
-                                                                                    '🔄 Hoàn tiền'}
-                                                                        </span>
-                                                                        <span className={`payment-status-badge ${payment.statusName?.toLowerCase()}`}>
-                                                                            {payment.statusName === 'paid' ? 'Đã thanh toán' :
-                                                                                payment.statusName === 'pending' ? 'Chờ xử lý' : 'Thất bại'}
-                                                                        </span>
-                                                                    </div>
-
-                                                                    <div className="payment-record-details">
-                                                                        <div className="payment-amount-display">
-                                                                            {new Intl.NumberFormat('vi-VN', {
-                                                                                style: 'currency',
-                                                                                currency: 'VND'
-                                                                            }).format(payment.amount)}
+                                                            {selectedBooking.paymentDetails
+                                                                .filter(payment => payment.paymentType !== 'payout')
+                                                                .map((payment, index) => (
+                                                                    <div key={payment.paymentId || index} className="payment-record">
+                                                                        <div className="payment-record-header">
+                                                                            <span className="payment-type-label">
+                                                                                {payment.paymentType === 'deposit' ? '💰 Tiền cọc' :
+                                                                                    payment.paymentType === 'full_payment' ? '💳 Thanh toán đầy đủ' :
+                                                                                        '🔄 Hoàn tiền'}
+                                                                            </span>
+                                                                            <span className={`payment-status-badge ${payment.statusName?.toLowerCase()}`}>
+                                                                                {payment.statusName === 'paid' ? 'Đã thanh toán' :
+                                                                                    payment.statusName === 'pending' ? 'Chờ xử lý' : 'Thất bại'}
+                                                                            </span>
                                                                         </div>
 
-                                                                        <div className="payment-meta">
-                                                                            <div className="payment-method">
-                                                                                <i className="fas fa-credit-card"></i>
-                                                                                {payment.paymentMethod?.toUpperCase() || 'N/A'}
+                                                                        <div className="payment-record-details">
+                                                                            <div className="payment-amount-display">
+                                                                                {new Intl.NumberFormat('vi-VN', {
+                                                                                    style: 'currency',
+                                                                                    currency: 'VND'
+                                                                                }).format(payment.amount)}
                                                                             </div>
-                                                                            <div className="payment-date">
-                                                                                <i className="fas fa-calendar"></i>
-                                                                                {payment.paymentDate ?
-                                                                                    new Date(payment.paymentDate).toLocaleString('vi-VN') : 'N/A'}
-                                                                            </div>
-                                                                        </div>
 
-                                                                        {payment.transactionId && (
-                                                                            <div className="transaction-id">
-                                                                                <span>Mã GD:</span>
-                                                                                <code>{payment.transactionId}</code>
+                                                                            <div className="payment-meta">
+                                                                                <div className="payment-method">
+                                                                                    <i className="fas fa-credit-card"></i>
+                                                                                    {payment.paymentMethod?.toUpperCase() || 'N/A'}
+                                                                                </div>
+                                                                                <div className="payment-date">
+                                                                                    <i className="fas fa-calendar"></i>
+                                                                                    {payment.paymentDate ?
+                                                                                        new Date(payment.paymentDate).toLocaleString('vi-VN') : 'N/A'}
+                                                                                </div>
                                                                             </div>
-                                                                        )}
+
+                                                                            {payment.transactionId && (
+                                                                                <div className="transaction-id">
+                                                                                    <span>Mã GD:</span>
+                                                                                    <code>{payment.transactionId}</code>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            ))}
+                                                                ))}
                                                         </div>
 
                                                         {/* Tổng kết thanh toán */}
-                                                        {selectedBooking.paymentDetails.length > 1 && (
+                                                        {selectedBooking.paymentDetails.filter(payment => payment.paymentType !== 'payout').length > 1 && (
                                                             <div className="payment-summary-section">
                                                                 <div className="summary-item total-paid">
                                                                     <div className="summary-label">
@@ -1873,7 +2277,7 @@ const ProfilePage = () => {
                                                                                 currency: 'VND'
                                                                             }).format(
                                                                                 selectedBooking.paymentDetails
-                                                                                    .filter(p => p.paymentType === 'deposit' || p.paymentType === 'full_payment')
+                                                                                    .filter(p => (p.paymentType === 'deposit' || p.paymentType === 'full_payment') && p.paymentType !== 'payout')
                                                                                     .reduce((sum, payment) => sum + payment.amount, 0)
                                                                             )}
                                                                         </strong>
@@ -1895,10 +2299,10 @@ const ProfilePage = () => {
                                 )}
                             </div>
                         </div>
-
+                        
                         <div className="modal-actions">
-                            <button
-                                className="btn secondary"
+                            <button 
+                                className="btn secondary" 
                                 onClick={() => {
                                     setShowBookingModal(false);
                                     setSelectedBooking(null);
@@ -1908,7 +2312,7 @@ const ProfilePage = () => {
                                 Đóng
                             </button>
                             {(selectedBooking?.statusName === 'confirmed' || selectedBooking?.statusName === 'pending') && (
-                                <button
+                                <button 
                                     className="btn danger"
                                     onClick={() => {
                                         setShowBookingModal(false);
@@ -1923,8 +2327,171 @@ const ProfilePage = () => {
                     </div>
                 </div>
             )}
+
+            {showPaymentModal && paymentModalData && (
+                <PaymentModal
+                    data={paymentModalData}
+                    onClose={() => setShowPaymentModal(false)}
+                    onPayment={() => {
+                        setShowPaymentModal(false);
+                        fetchBookings();
+                    }}
+                />
+            )}
+
+            {showReviewModal && reviewBooking && (
+              <div className="modal-overlay">
+                <div className="modal review-modal">
+                  <div className="modal-header">
+                    <h3>
+                      {(reviewBooking.hasRated || reviewBooking.rating || (reviewBooking.ratings && reviewBooking.ratings.length > 0))
+                        ? "Đánh giá lại"
+                        : "Đánh giá xe"}
+                    </h3>
+                    <button className="close-btn" onClick={() => setShowReviewModal(false)}>×</button>
+                  </div>
+                  <div className="modal-content">
+                    <div>
+                      <b>Xe:</b> {reviewBooking.car?.model} - {reviewBooking.carLicensePlate}
+                    </div>
+                    <div>
+                      <b>Chuyến đi:</b> #{reviewBooking.bookingId}
+                    </div>
+                    <div style={{margin: "16px 0"}}>
+                      <label>Số sao:</label>
+                      <StarRating
+                        rating={reviewData.rating}
+                        size="large"
+                        interactive={true}
+                        onRatingChange={r => setReviewData(prev => ({...prev, rating: r}))}
+                      />
+                    </div>
+                    <div>
+                      <label>Bình luận:</label>
+                      <textarea
+                        value={reviewData.comment}
+                        onChange={e => setReviewData(prev => ({...prev, comment: e.target.value}))}
+                        rows={4}
+                        style={{width: "100%"}}
+                        placeholder="Nhập nhận xét của bạn"
+                      />
+                    </div>
+                    <div>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={reviewData.isAnonymous}
+                          onChange={e => setReviewData(prev => ({...prev, isAnonymous: e.target.checked}))}
+                        />
+                        Ẩn danh
+                      </label>
+                    </div>
+                  </div>
+                  <div className="modal-actions">
+                    <button className="btn primary" onClick={handleSubmitReview}>Gửi đánh giá</button>
+                    <button className="btn secondary" onClick={() => setShowReviewModal(false)}>Hủy</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ✅ BookingModal cho đặt lại xe */}
+            {showRebookModal && rebookCarData && (
+              <>
+                {console.log('[ProfilePage] Render BookingModal - showRebookModal:', showRebookModal, '| rebookCarData:', rebookCarData)}
+                <BookingModal
+                  isOpen={showRebookModal}
+                  onClose={() => setShowRebookModal(false)}
+                  car={rebookCarData}
+                  onSubmitBooking={handleSubmitRebook}
+                />
+              </>
+            )}
         </div>
     );
 };
 
+// PaymentModal component
+const PaymentModal = ({ data, onClose, onPayment }) => {
+    const [paymentMethod, setPaymentMethod] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
+    const handleConfirm = async () => {
+        setIsProcessing(true);
+        try {
+            const paymentData = {
+                bookingId: data.bookingId,
+                amount: data.amountToPay,
+                currency: 'VND',
+                paymentMethod,
+                withDriver: data.withDriver,
+                deliveryRequested: data.deliveryRequested,
+                paymentType: 'full_payment', // BẮT BUỘC
+            };
+            const endpoint = '/api/payments';
+            const response = await post(endpoint, paymentData);
+            if (response.redirectUrl) {
+                window.location.href = response.redirectUrl;
+            } else if (response.success) {
+                onPayment();
+            } else {
+                alert(response.error || 'Thanh toán thất bại!');
+            }
+        } catch (err) {
+            alert('Có lỗi khi thanh toán: ' + (err.message || err));
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+    return (
+        <div className="modal-overlay">
+            <div className="modal payment-modal">
+                <div className="modal-header">
+                    <h3>Thanh toán khi nhận xe</h3>
+                    <button className="close-btn" onClick={onClose}>×</button>
+                </div>
+                <div className="modal-content">
+                    <div className="summary">
+                        <div><b>Xe:</b> {data.carModel} - {data.carLicensePlate}</div>
+                        <div><b>Điểm đón:</b> {data.pickupLocation}</div>
+                        <div><b>Điểm trả:</b> {data.dropoffLocation}</div>
+                        <div><b>Tổng tiền thuê:</b> {data.total.toLocaleString()} VND</div>
+                        <div><b>Đã đặt cọc:</b> {data.deposit.toLocaleString()} VND</div>
+                        <div><b>Thế chấp:</b> 5.000.000 VND</div>
+                        <div className="amount-to-pay">
+                            <b>Cần thanh toán:</b> <span style={{color: '#1976d2', fontSize: 22}}>{data.amountToPay.toLocaleString()} VND</span>
+                        </div>
+                    </div>
+                    <div className="payment-methods">
+                        <label><input type="radio" value="vnpay" checked={paymentMethod === 'vnpay'} onChange={() => setPaymentMethod('vnpay')} /> VNPay</label>
+                        <label><input type="radio" value="momo" checked={paymentMethod === 'momo'} onChange={() => setPaymentMethod('momo')} /> MoMo</label>
+                        <label><input type="radio" value="cash" checked={paymentMethod === 'cash'} onChange={() => setPaymentMethod('cash')} /> Tiền mặt</label>
+                    </div>
+                </div>
+                <div className="modal-actions">
+                    <button className="btn primary" onClick={handleConfirm} disabled={!paymentMethod || isProcessing}>
+                        {isProcessing ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
+                    </button>
+                    <button className="btn secondary" onClick={onClose}>Hủy</button>
+                </div>
+            </div>
+            <style>{`
+                .modal-overlay {
+                  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                  background: rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; justify-content: center;
+                }
+                .modal.payment-modal {
+                  background: #fff; border-radius: 16px; max-width: 400px; width: 100%; padding: 24px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+                }
+                .modal-header { display: flex; justify-content: space-between; align-items: center; }
+                .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; }
+                .summary { margin-bottom: 16px; }
+                .amount-to-pay { margin-top: 12px; }
+                .payment-methods label { display: block; margin: 8px 0; }
+                .modal-actions { display: flex; gap: 12px; margin-top: 16px; }
+                .btn.primary { background: #1976d2; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+                .btn.secondary { background: #eee; color: #333; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+            `}</style>
+        </div>
+    );
+};
 export default ProfilePage;

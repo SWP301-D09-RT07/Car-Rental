@@ -1,19 +1,123 @@
-import React from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FaCarSide, FaHome, FaCar, FaStore, FaSearch, FaHeart, FaChevronDown, FaSignOutAlt, FaSignInAlt, FaUserPlus, FaTimes, FaBars, FaPhone, FaUser, FaCalendarAlt } from "react-icons/fa";
 import { useAuth } from "@/hooks/useAuth";
+import AutocompleteSearch from '@/components/Common/AutocompleteSearch';
+import api from "@/services/api";
 
 const Header = ({
-    isAuthenticated,
-    userEmail,
     isUserDropdownOpen,
     setIsUserDropdownOpen,
-    handleLogout,
     isMobileMenuOpen,
     setIsMobileMenuOpen
 }) => {
+    const { isAuthenticated, user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const [headerSearch, setHeaderSearch] = useState("");
+    const [cars, setCars] = useState({ content: [] });
+    const [brands, setBrands] = useState([]);
+    const [regions, setRegions] = useState([]);
+    const [fuelTypes, setFuelTypes] = useState([]);
+    const [years, setYears] = useState([]);
+    const userDropdownRef = useRef(null);
+
+    useEffect(() => {
+        // Fetch từng filter riêng biệt, region dùng countryCode mặc định '+84'
+        api.get("/api/cars/car-brands")
+            .then(res => setBrands(Array.isArray(res.data) ? res.data : []))
+            .catch(err => {
+                setBrands([]);
+                console.error("Error fetching brands:", err);
+            });
+
+        api.get("/api/cars/regions/country/+84")
+            .then(res => setRegions(Array.isArray(res.data) ? res.data : []))
+            .catch(err => {
+                setRegions([]);
+                console.error("Error fetching regions:", err);
+            });
+
+        api.get("/api/cars/fuel-types")
+            .then(res => setFuelTypes(Array.isArray(res.data) ? res.data : []))
+            .catch(err => {
+                setFuelTypes([]);
+                console.error("Error fetching fuelTypes:", err);
+            });
+
+        api.get("/api/cars/years")
+            .then(res => setYears(Array.isArray(res.data) ? res.data : []))
+            .catch(err => {
+                setYears([]);
+                console.error("Error fetching years:", err);
+            });
+
+        api.get("/api/cars", { params: { page: 0, size: 1000 } })
+            .then(res => {
+                let carList = [];
+                if (Array.isArray(res.data)) carList = res.data;
+                else if (res.data && Array.isArray(res.data.content)) carList = res.data.content;
+                setCars({ content: carList });
+                console.log('Header cars:', carList);
+            })
+            .catch(err => {
+                setCars({ content: [] });
+                console.error("Error fetching cars:", err);
+            });
+    }, []);
+
+    // Click outside handler for user dropdown
+    useEffect(() => {
+        if (!isUserDropdownOpen) return;
+        function handleClickOutside(event) {
+            if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
+                setIsUserDropdownOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isUserDropdownOpen, setIsUserDropdownOpen]);
+
+    // fetchSuggestions đa loại
+    const fetchSuggestions = async (query) => {
+        try {
+            const carNames = (cars.content || []).flatMap(car => [
+                car.brandName,
+                car.model,
+                car.regionName,
+                car.fuelTypeName,
+                car.year && car.year.toString()
+            ]).filter(Boolean);
+            const brandNames = Array.isArray(brands) ? brands.map(b => b.brandName) : [];
+            const regionNames = Array.isArray(regions) ? regions.map(r => r.regionName) : [];
+            const fuelTypesList = Array.isArray(fuelTypes) ? fuelTypes.map(f => f.fuelTypeName) : [];
+            const yearsList = Array.isArray(years) ? years.map(y => y.toString()) : [];
+            const allSuggestions = [
+                ...carNames,
+                ...brandNames,
+                ...regionNames,
+                ...fuelTypesList,
+                ...yearsList
+            ];
+            const uniqueSuggestions = [...new Set(allSuggestions)];
+            return uniqueSuggestions.filter(name =>
+                name && name.toLowerCase().includes(query.toLowerCase())
+            );
+        } catch (err) {
+            console.error("Error in fetchSuggestions (Header):", err);
+            return [];
+        }
+    };
+
+    const handleHeaderSearch = (value) => {
+        setHeaderSearch(value);
+        if (value && value.trim()) {
+            navigate("/search", { state: { searchQuery: value } });
+        }
+    };
+
     return (
         <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-xl shadow-lg z-50 border-b border-blue-100">
             <div className="container mx-auto px-4 py-4">
@@ -44,7 +148,7 @@ const Header = ({
                                 <span>Xe</span>
                                 {location.pathname.startsWith('/search') && <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>}
                             </Link>
-                            <Link to="/provider-register" className="flex items-center text-indigo-600 hover:text-indigo-700 transition-all duration-300 px-4 py-2 rounded-xl hover:bg-indigo-50 group text-sm font-semibold border border-indigo-200 hover:border-indigo-300">
+                            <Link to="/owner-registration" className="flex items-center text-indigo-600 hover:text-indigo-700 transition-all duration-300 px-4 py-2 rounded-xl hover:bg-indigo-50 group text-sm font-semibold border border-indigo-200 hover:border-indigo-300">
                                 <FaStore className="text-sm mr-2 group-hover:scale-110 transition-transform" />
                                 <span>Đối tác</span>
                             </Link>
@@ -54,13 +158,15 @@ const Header = ({
                     <div className="flex items-center space-x-4">
                         {/* Enhanced Search Bar */}
                         <div className="relative group">
-                            <input
-                                type="text"
+                            <AutocompleteSearch
+                                fetchSuggestions={fetchSuggestions}
+                                value={headerSearch}
+                                onChange={setHeaderSearch}
+                                onSelect={handleHeaderSearch}
+                                inputClassName="py-3 px-4 pr-12 rounded-2xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-blue-50/50 hover:bg-white transition-all duration-300 w-64 focus:w-72 group-hover:shadow-lg"
                                 placeholder="Tìm xe mơ ước..."
-                                className="py-3 px-4 pr-12 rounded-2xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-blue-50/50 hover:bg-white transition-all duration-300 w-64 focus:w-72 group-hover:shadow-lg"
-                                aria-label="Tìm kiếm xe"
                             />
-                            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-blue-500 to-indigo-500 p-2 rounded-lg cursor-pointer hover:scale-110 transition-transform">
+                            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-blue-500 to-indigo-500 p-2 rounded-lg cursor-pointer hover:scale-110 transition-transform pointer-events-none">
                                 <FaSearch className="text-white text-xs" />
                             </div>
                         </div>
@@ -72,14 +178,14 @@ const Header = ({
                             <FaHeart className="text-lg" />
                         </Link>
                         {/* Enhanced User Account */}
-                        <div className="relative">
-                            {localStorage.getItem("token") ? (
+                        <div className="relative" ref={userDropdownRef}>
+                            {isAuthenticated ? (
                                 <button
                                     onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
                                     className="flex items-center text-gray-700 hover:text-blue-600 transition-all duration-300 p-2 rounded-xl hover:bg-blue-50 group"
                                 >
                                     <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center mr-3 shadow-lg group-hover:shadow-xl transition-all">
-                                        <span className="text-white text-sm font-bold">U</span>
+                                        <span className="text-white text-sm font-bold">{user?.username ? user.username[0].toUpperCase() : 'U'}</span>
                                     </div>
                                     <FaChevronDown
                                         className={`text-xs transition-all duration-300 ${isUserDropdownOpen ? "rotate-180" : ""}`}
@@ -94,7 +200,8 @@ const Header = ({
                                         Đăng nhập
                                     </Link>
                                     <Link
-                                        to="/register"
+                                        to="/login"
+                                        state={{ showRegister: true }}
                                         className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white py-2 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-sm"
                                     >
                                         Đăng ký
@@ -106,27 +213,42 @@ const Header = ({
                                 <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl py-3 border border-blue-100 animate-in slide-in-from-top-5 duration-200">
                                     <div className="px-6 py-4 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl">
                                         <p className="text-sm font-semibold text-gray-900">Xin chào!</p>
-                                        <p className="text-xs text-gray-500">{userEmail || "user@example.com"}</p>
+                                        <p className="text-xs text-gray-500">{user?.username || "user@example.com"}</p>
                                     </div>
-                                    {[
-                                        { icon: FaUser, text: "Hồ sơ của tôi", path: "/profile" },
-                                        { icon: FaCalendarAlt, text: "Lịch sử thuê xe", path: "/my-bookings" },
-                                        { icon: FaStore, text: "Quản lý xe", path: "/provider-dashboard", color: "text-blue-600" },
-                                    ].map((item, index) => (
+                                    {user?.role === 'supplier' && (
                                         <Link
-                                            key={index}
-                                            to={item.path}
-                                            className={`flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 ${item.color || "text-gray-700 hover:text-blue-600"}`}
+                                            to="/supplier/dashboard"
+                                            className="flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 text-blue-600"
                                             onClick={() => setIsUserDropdownOpen(false)}
                                         >
-                                            <item.icon className="mr-3 text-gray-400" />
-                                            {item.text}
+                                            <FaCar className="mr-3 text-blue-400" />
+                                            Quản lý xe
                                         </Link>
-                                    ))}
+                                    )}
+                                    <Link
+                                        to={user?.role === 'supplier' ? "/supplier/profile" : "/profile"}
+                                        className="flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 text-gray-700 hover:text-blue-600"
+                                        onClick={() => setIsUserDropdownOpen(false)}
+                                    >
+                                        <FaUser className="mr-3 text-gray-400" />
+                                        Hồ sơ của tôi
+                                    </Link>
+                                    {user?.role === 'customer' && (
+                                        <button
+                                            className="flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 text-gray-700 hover:text-blue-600 w-full text-left"
+                                            onClick={() => {
+                                                setIsUserDropdownOpen(false);
+                                                navigate('/profile', { state: { activeTab: 'bookings' } });
+                                            }}
+                                        >
+                                            <FaCalendarAlt className="mr-3 text-gray-400" />
+                                            Lịch sử thuê xe
+                                        </button>
+                                    )}
                                     <div className="border-t border-blue-100 mt-2 pt-2">
                                         <button
                                             onClick={() => {
-                                                handleLogout();
+                                                logout();
                                                 setIsUserDropdownOpen(false);
                                             }}
                                             className="flex items-center w-full text-left px-6 py-3 text-sm text-red-600 hover:bg-red-50 transition-all duration-200 rounded-xl mx-2"
@@ -193,18 +315,38 @@ const Header = ({
                         <div className="pt-4 border-t border-blue-100 space-y-2">
                             {isAuthenticated ? (
                                 <>
+                                    {user?.role === 'supplier' && (
+                                        <Link
+                                            to="/supplier/dashboard"
+                                            className="flex items-center text-gray-700 p-4 hover:bg-blue-50 hover:text-blue-600 rounded-xl space-x-3 transition-all"
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                        >
+                                            <FaCar className="text-lg" />
+                                            <span>Quản lý xe</span>
+                                        </Link>
+                                    )}
                                     <Link
-                                        to="/profile"
+                                        to={user?.role === 'supplier' ? "/supplier/profile" : "/profile"}
                                         className="flex items-center text-gray-700 p-4 hover:bg-blue-50 hover:text-blue-600 rounded-xl space-x-3 transition-all"
                                         onClick={() => setIsMobileMenuOpen(false)}
                                     >
                                         <FaUser className="text-lg" />
                                         <span>Hồ sơ của tôi</span>
                                     </Link>
+                                    {user?.role === 'customer' && (
+                                        <Link
+                                            to="/my-bookings"
+                                            className="flex items-center text-gray-700 p-4 hover:bg-blue-50 hover:text-blue-600 rounded-xl space-x-3 transition-all"
+                                            onClick={() => setIsMobileMenuOpen(false)}
+                                        >
+                                            <FaCalendarAlt className="text-lg" />
+                                            <span>Lịch sử thuê xe</span>
+                                        </Link>
+                                    )}
                                     <button
                                         onClick={() => {
-                                            handleLogout();
                                             setIsMobileMenuOpen(false);
+                                            logout();
                                         }}
                                         className="flex items-center w-full text-left text-red-600 p-4 hover:bg-red-50 rounded-xl space-x-3 transition-all"
                                     >
@@ -223,9 +365,9 @@ const Header = ({
                                         <span>Đăng nhập</span>
                                     </Link>
                                     <Link
-                                        to="/register"
-                                        className="flex items-center text-white bg-gradient-to-r from-blue-600 to-indigo-600 p-4 rounded-xl space-x-3 font-semibold shadow-lg"
-                                        onClick={() => setIsMobileMenuOpen(false)}
+                                        to="/login"
+                                        state={{ showRegister: true }}
+                                        className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white py-2 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-sm"
                                     >
                                         <FaUserPlus className="text-lg" />
                                         <span>Đăng ký</span>

@@ -40,3 +40,27 @@
 .read-the-docs {
   color: #888;
 }
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar-wrapper {
+  flex: 0 0 auto; /* Không co giãn, giữ cố định */
+}
+
+.main-content {
+  flex: 1; /* Chiếm phần còn lại */
+  padding: 20px;
+  transition: margin-left 0.3s ease;
+}
+
+.main-content.with-sidebar {
+  margin-left: 200px; /* Độ rộng của sidebar */
+}
+
+@media (max-width: 768px) {
+  .main-content.with-sidebar {
+    margin-left: 0; /* Không margin trên mobile khi sidebar ẩn */
+  }
+}

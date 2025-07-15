@@ -59,13 +59,16 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         .requestMatchers("/login/oauth2/code/**", "/oauth2/authorization/**").permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-email", "/oauth2/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/api/cars/**", "/api/languages/**", "/api/country-codes/**",
+                        .requestMatchers("/api/registration-requests", "/api/registration-requests/**", "/uploads/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/cars/**").permitAll()
+                        .requestMatchers("/api/cars/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/auth/**", "/api/languages/**", "/api/country-codes/**",
                                 "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**",
                                 "/api/cars/*/features", "/api/service-types/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/ratings", "/api/ratings/summary", "/api/ratings/**").permitAll()
-                        .requestMatchers("/api/payments/callback", "/api/payments/test", "/api/payments/test-cash").permitAll()
-                        .requestMatchers(HttpMethod.GET,"/api/bookings/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("admin")
+                        .requestMatchers("/api/payments/callback", "/api/payments/test", "/api/payments/test-cash", "/api/payments/momo-callback").permitAll()
+                        .requestMatchers(HttpMethod.GET,"/api/bookings/**").authenticated()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/customer/**").hasRole("customer")
                         .requestMatchers("/api/users/**").authenticated()
                         .anyRequest().authenticated()
@@ -76,12 +79,15 @@ public class SecurityConfig {
                 )
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
+                            logger.error("Authentication failed for path: {}, error: {}", request.getRequestURI(), authException.getMessage());
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
                             response.setContentType("application/json");
                             response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\"}");
                         })
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        
+        logger.info("SecurityFilterChain configured successfully");
         return http.build();
     }
 

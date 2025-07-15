@@ -24,6 +24,7 @@ public class CarBrandController {
         return ResponseEntity.ok(service.findById(id));
     }
 
+    // Lấy tất cả thương hiệu xe (của hoàng)
     @GetMapping
     public ResponseEntity<List<CarBrandDTO>> getAllCarBrands() {
         logger.info("Gọi API /api/car-brands để lấy danh sách thương hiệu");
@@ -36,16 +37,20 @@ public class CarBrandController {
             return ResponseEntity.status(500).body(null);
         }
     }
+
+    // Tạo thương hiệu xe mới (của hoàng)
     @PostMapping
     public ResponseEntity<CarBrandDTO> createCarBrand(@RequestBody CarBrandDTO dto) {
         return ResponseEntity.status(201).body(service.save(dto));
     }
 
+    // Cập nhật thương hiệu xe (của hoàng)
     @PutMapping("/{id}")
     public ResponseEntity<CarBrandDTO> updateCarBrand(@PathVariable Integer id, @RequestBody CarBrandDTO dto) {
         return ResponseEntity.ok(service.update(id, dto));
     }
 
+    // Xóa thương hiệu xe (của hoàng)
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCarBrand(@PathVariable Integer id) {
         service.delete(id);

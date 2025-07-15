@@ -7,11 +7,13 @@ import com.carrental.car_rental.entity.BookingFinancial;
 import com.carrental.car_rental.entity.Booking;
 import com.carrental.car_rental.entity.Car;
 import com.carrental.car_rental.entity.Promotion;
+import com.carrental.car_rental.entity.Region;
 import com.carrental.car_rental.mapper.BookingFinancialsMapper;
 import com.carrental.car_rental.repository.BookingFinancialsRepository;
 import com.carrental.car_rental.repository.BookingRepository;
 import com.carrental.car_rental.repository.CarRepository;
 import com.carrental.car_rental.repository.PromotionRepository;
+import com.carrental.car_rental.repository.RegionRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,6 +40,7 @@ public class BookingFinancialsService {
     private final CarRepository carRepository;
     private final PromotionRepository promotionRepository;
     private final BookingRepository bookingRepository;
+    private final RegionRepository regionRepository;
 
     // Constants for fees
     private static final BigDecimal DRIVER_FEE_PER_DAY = new BigDecimal("300000.00"); // VND
@@ -132,18 +135,27 @@ public class BookingFinancialsService {
         long days = ChronoUnit.DAYS.between(booking.getPickupDateTime(), booking.getDropoffDateTime());
         if (days < 1) days = 1;
 
-        // Validate daily rate
+        // Khai báo các biến cần thiết
         BigDecimal dailyRate = car.getDailyRate();
+        BigDecimal basePrice;
+        BigDecimal extraFees;
+        BigDecimal totalFare;
+        BigDecimal tax;
+        BigDecimal discount;
+        BigDecimal total;
+
+        // Validate daily rate
         if (dailyRate.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
                 "Invalid daily rate for car ID: " + booking.getCarId());
         }
 
-        // Tính giá cơ bản
-        BigDecimal basePrice = dailyRate.multiply(BigDecimal.valueOf(days));
-        BigDecimal extraFees = calculateExtraFees(booking, days);
-        BigDecimal totalFare = basePrice.add(extraFees);
-        BigDecimal discount = BigDecimal.ZERO;
+        // Tính các khoản phí
+        basePrice = dailyRate.multiply(BigDecimal.valueOf(days));
+        extraFees = calculateExtraFees(booking, days);
+        BigDecimal serviceFee = basePrice.multiply(new BigDecimal("0.1")).setScale(2, RoundingMode.HALF_UP); // 10% phí dịch vụ
+        tax = basePrice.multiply(new BigDecimal("0.1")).setScale(2, RoundingMode.HALF_UP); // 10% VAT chỉ trên basePrice
+        discount = BigDecimal.ZERO;
 
         // Tính discount nếu có promotion
         if (booking.getPromoId() != null) {
@@ -158,7 +170,24 @@ public class BookingFinancialsService {
             }
         }
 
-        // Tạo DTO và lưu
+        // Tính tổng cuối cùng (totalFare) = basePrice + extraFees + serviceFee + tax - discount
+        totalFare = basePrice.add(extraFees).add(serviceFee).add(tax).subtract(discount);
+        if (totalFare.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Total price cannot be negative");
+        }
+        BigDecimal deposit = totalFare.multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP);
+
+        // Tạo PriceBreakdownDTO
+        PriceBreakdownDTO breakdown = new PriceBreakdownDTO();
+        breakdown.setBasePrice(basePrice.setScale(2, RoundingMode.HALF_UP));
+        breakdown.setExtraFee(extraFees.setScale(2, RoundingMode.HALF_UP));
+        breakdown.setServiceFee(serviceFee);
+        breakdown.setTax(tax);
+        breakdown.setDiscount(discount.setScale(2, RoundingMode.HALF_UP));
+        breakdown.setTotal(totalFare.setScale(2, RoundingMode.HALF_UP));
+        breakdown.setDeposit(deposit);
+        
+        // Tạo DTO và lưu (chỉ các trường có trong entity)
         BookingFinancialsDTO financials = new BookingFinancialsDTO();
         financials.setBookingId(booking.getBookingId());
         financials.setTotalFare(totalFare.setScale(2, RoundingMode.HALF_UP));
@@ -166,10 +195,12 @@ public class BookingFinancialsService {
         financials.setLateFeeAmount(BigDecimal.ZERO);
         financials.setLateDays(0);
         financials.setIsDeleted(false);
-        
+
         logger.info("Trước khi save BookingFinancials vào DB");
         try {
             BookingFinancialsDTO savedFinancials = save(financials);
+            // Set deposit vào DTO trả về (KHÔNG lưu vào entity/DB)
+            savedFinancials.setDeposit(deposit);
             logger.info("Đã save BookingFinancials vào DB, id={}", savedFinancials.getBookingId());
             return savedFinancials;
         } catch (Exception e) {
@@ -181,69 +212,105 @@ public class BookingFinancialsService {
 
     @Transactional(readOnly = true)
     public PriceBreakdownDTO calculatePriceBreakdown(BookingDTO booking) {
-        logger.info("Calculating price breakdown for booking ID: {}", booking.getBookingId());
-        
-        // Lấy thông tin xe
         Car car = carRepository.findById(booking.getCarId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Car not found"));
 
-        // Validate dates
-        if (booking.getPickupDateTime() == null || booking.getDropoffDateTime() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pickup or dropoff date is missing");
-        }
-        if (booking.getPickupDateTime().isAfter(booking.getDropoffDateTime())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Pickup date cannot be after dropoff date");
-        }
-
-        // Tính số ngày thuê
-        long days = ChronoUnit.DAYS.between(booking.getPickupDateTime(), booking.getDropoffDateTime());
-        if (days < 1) days = 1;
-
-        // Validate daily rate
         BigDecimal dailyRate = car.getDailyRate();
-        if (dailyRate.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
-                "Invalid daily rate for car ID: " + booking.getCarId());
-        }
-
-        // Tính các khoản phí
-        BigDecimal basePrice = dailyRate.multiply(BigDecimal.valueOf(days));
-        BigDecimal extraFees = calculateExtraFees(booking, days);
-        BigDecimal totalFare = basePrice.add(extraFees);
-        BigDecimal tax = basePrice.multiply(new BigDecimal("0.10")); // 10% VAT
-        BigDecimal discount = BigDecimal.ZERO;
-
-        // Tính discount nếu có promotion
-        if (booking.getPromoId() != null) {
-            Promotion promo = promotionRepository.findById(booking.getPromoId())
-                    .filter(p -> !p.getIsDeleted() && p.getEndDate().isAfter(LocalDate.now()))
-                    .orElse(null);
-            if (promo != null) {
-                BigDecimal discountRate = promo.getDiscountPercentage()
-                    .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
-                discount = basePrice.multiply(discountRate);
-                discount = discount.min(basePrice); // Ensure discount doesn't exceed base price
+        BigDecimal basePrice;
+        BigDecimal extraFees;
+        BigDecimal totalFare;
+        BigDecimal tax;
+        BigDecimal discount;
+        BigDecimal total;
+        BigDecimal deposit;
+        try {
+            logger.info("[DEBUG] Calculating price breakdown for booking: {}", booking);
+            if (booking == null) {
+                logger.error("[DEBUG] BookingDTO is null");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Booking không hợp lệ");
             }
+            if (booking.getCarId() == null) {
+                logger.error("[DEBUG] Booking missing carId: {}", booking.getBookingId());
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Booking thiếu carId");
+            }
+            if (booking.getRegionId() == null) {
+                logger.error("[DEBUG] Booking missing regionId: {}", booking.getBookingId());
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Booking thiếu regionId");
+            }
+            if (booking.getPickupDateTime() == null || booking.getDropoffDateTime() == null) {
+                logger.error("[DEBUG] Booking missing pickup/dropoff date: {} | pickup: {} | dropoff: {}", booking.getBookingId(), booking.getPickupDateTime(), booking.getDropoffDateTime());
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Booking thiếu ngày nhận/trả xe");
+            }
+            car = carRepository.findById(booking.getCarId()).orElse(null);
+            if (car == null) {
+                logger.error("[DEBUG] Car not found for carId {} (bookingId {})", booking.getCarId(), booking.getBookingId());
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy xe cho booking");
+            }
+            if (car.getDailyRate() == null) {
+                logger.error("[DEBUG] Car missing dailyRate for carId {}", car.getId());
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Xe không có giá thuê/ngày");
+            }
+            Region region = regionRepository.findById(booking.getRegionId()).orElse(null);
+            if (region == null) {
+                logger.error("[DEBUG] Region not found for regionId {} (bookingId {})", booking.getRegionId(), booking.getBookingId());
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy khu vực cho booking");
+            }
+            // Tính số ngày thuê
+            long days = ChronoUnit.DAYS.between(booking.getPickupDateTime(), booking.getDropoffDateTime());
+            if (days < 1) days = 1;
+
+            // Validate daily rate
+            dailyRate = car.getDailyRate();
+            if (dailyRate.compareTo(BigDecimal.ZERO) <= 0) {
+                logger.error("[DEBUG] Invalid daily rate for carId {}: {}", booking.getCarId(), dailyRate);
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
+                    "Invalid daily rate for car ID: " + booking.getCarId());
+            }
+
+            // Tính các khoản phí
+            basePrice = dailyRate.multiply(BigDecimal.valueOf(days));
+            extraFees = calculateExtraFees(booking, days);
+            BigDecimal serviceFee = basePrice.multiply(new BigDecimal("0.1")).setScale(2, RoundingMode.HALF_UP); // 10% phí dịch vụ
+            tax = basePrice.multiply(new BigDecimal("0.1")).setScale(2, RoundingMode.HALF_UP); // 10% VAT chỉ trên basePrice
+            discount = BigDecimal.ZERO;
+
+            // Tính discount nếu có promotion
+            if (booking.getPromoId() != null) {
+                Promotion promo = promotionRepository.findById(booking.getPromoId())
+                        .filter(p -> !p.getIsDeleted() && p.getEndDate().isAfter(LocalDate.now()))
+                        .orElse(null);
+                if (promo != null) {
+                    BigDecimal discountRate = promo.getDiscountPercentage()
+                        .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+                    discount = basePrice.multiply(discountRate);
+                    discount = discount.min(basePrice); // Ensure discount doesn't exceed base price
+                }
+            }
+
+            // Tính tổng và tiền cọc
+            total = basePrice.add(extraFees).add(serviceFee).add(tax).subtract(discount);
+            if (total.compareTo(BigDecimal.ZERO) < 0) {
+                logger.error("[DEBUG] Total price negative for bookingId {}: total={}", booking.getBookingId(), total);
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Total price cannot be negative");
+            }
+
+            deposit = total.multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP);
+
+            // Tạo PriceBreakdownDTO
+            PriceBreakdownDTO breakdown = new PriceBreakdownDTO();
+            breakdown.setBasePrice(basePrice.setScale(2, RoundingMode.HALF_UP));
+            breakdown.setExtraFee(extraFees.setScale(2, RoundingMode.HALF_UP));
+            breakdown.setServiceFee(serviceFee);
+            breakdown.setTax(tax);
+            breakdown.setDiscount(discount.setScale(2, RoundingMode.HALF_UP));
+            breakdown.setTotal(total.setScale(2, RoundingMode.HALF_UP));
+            breakdown.setDeposit(deposit);
+            
+            return breakdown;
+        } catch (Exception e) {
+            logger.error("[DEBUG] Error calculating price breakdown for bookingId {}: {}", booking != null ? booking.getBookingId() : null, e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi tính giá: " + e.getMessage());
         }
-
-        // Tính tổng và tiền cọc
-        BigDecimal total = totalFare.add(tax).subtract(discount);
-        if (total.compareTo(BigDecimal.ZERO) < 0) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Total price cannot be negative");
-        }
-
-        BigDecimal deposit = total.multiply(new BigDecimal("0.30")).setScale(2, RoundingMode.HALF_UP);
-
-        // Tạo PriceBreakdownDTO
-        PriceBreakdownDTO breakdown = new PriceBreakdownDTO();
-        breakdown.setBasePrice(basePrice.setScale(2, RoundingMode.HALF_UP));
-        breakdown.setExtraFee(extraFees.setScale(2, RoundingMode.HALF_UP));
-        breakdown.setTax(tax.setScale(2, RoundingMode.HALF_UP));
-        breakdown.setDiscount(discount.setScale(2, RoundingMode.HALF_UP));
-        breakdown.setTotal(total.setScale(2, RoundingMode.HALF_UP));
-        breakdown.setDeposit(deposit);
-        
-        return breakdown;
     }
 
     private BigDecimal calculateExtraFees(BookingDTO booking, long days) {

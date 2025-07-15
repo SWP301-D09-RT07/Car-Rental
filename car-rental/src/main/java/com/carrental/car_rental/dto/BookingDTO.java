@@ -52,8 +52,6 @@ public class BookingDTO {
     private String carModel;
     private String driverName;
     private String regionName;
-    private LocalDate startDate;
-    private LocalDate endDate;
 
     private Boolean supplierDeliveryConfirm;
     private Boolean customerReceiveConfirm;
@@ -174,5 +172,48 @@ public class BookingDTO {
         BigDecimal deposit = getDepositPayment() != null ? getDepositPayment().getAmount() : BigDecimal.ZERO;
         BigDecimal fullPayment = getFullPayment() != null ? getFullPayment().getAmount() : BigDecimal.ZERO;
         return deposit.add(fullPayment);
+    }
+
+    // ✅ THÊM: Trường tổng tiền và breakdown cho API by-payment
+    private BigDecimal totalAmount;
+    private PriceBreakdownDTO priceBreakdown;
+
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+    public PriceBreakdownDTO getPriceBreakdown() {
+        return priceBreakdown;
+    }
+    public void setPriceBreakdown(PriceBreakdownDTO priceBreakdown) {
+        this.priceBreakdown = priceBreakdown;
+    }
+
+    // --- Thêm các trường trạng thái cho supplier ---
+    private Boolean supplierConfirmedFullPayment;
+    private Boolean depositRefunded;
+    private String refundStatus; // "pending", "completed", null
+    private String payoutStatus; // "pending", "completed", null
+
+    public Boolean getSupplierConfirmedFullPayment() { return supplierConfirmedFullPayment; }
+    public void setSupplierConfirmedFullPayment(Boolean supplierConfirmedFullPayment) { this.supplierConfirmedFullPayment = supplierConfirmedFullPayment; }
+    public Boolean getDepositRefunded() { return depositRefunded; }
+    public void setDepositRefunded(Boolean depositRefunded) { this.depositRefunded = depositRefunded; }
+    public String getRefundStatus() { return refundStatus; }
+    public void setRefundStatus(String refundStatus) { this.refundStatus = refundStatus; }
+    public String getPayoutStatus() { return payoutStatus; }
+    public void setPayoutStatus(String payoutStatus) { this.payoutStatus = payoutStatus; }
+
+    // Thêm trường này vào DTO
+    private List<RatingDTO> ratings = new ArrayList<>();
+
+    // Thêm getter/setter cho ratings
+    public List<RatingDTO> getRatings() {
+        return ratings != null ? ratings : new ArrayList<>();
+    }
+    public void setRatings(List<RatingDTO> ratings) {
+        this.ratings = ratings != null ? ratings : new ArrayList<>();
     }
 }

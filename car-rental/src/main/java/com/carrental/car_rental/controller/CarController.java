@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/cars")
@@ -124,6 +125,7 @@ public class CarController {
                 .build();
     }
 
+    // Lấy tất cả xe có phân trang (của hoàng)
     @GetMapping("")
     public ResponseEntity<Page<CarDTO>> getAllCars(
             @RequestParam(defaultValue = "0") int page,
@@ -166,6 +168,7 @@ public class CarController {
         }
     }
 
+    // Tạo xe mới (của hoàng)
     @PostMapping("")
     public ResponseEntity<CarDTO> createCar(@RequestBody CarDTO dto) {
         logger.info("Yêu cầu tạo xe mới: {}", dto);
@@ -177,6 +180,7 @@ public class CarController {
         }
     }
 
+    // Cập nhật xe (của hoàng)
     @PutMapping("/{id}")
     public ResponseEntity<CarDTO> updateCar(@PathVariable Integer id, @RequestBody CarDTO dto) {
         logger.info("Yêu cầu cập nhật xe với ID: {}", id);
@@ -188,6 +192,7 @@ public class CarController {
         }
     }
 
+    // Xóa xe (của hoàng)
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCar(@PathVariable Integer id) {
         logger.warn("Yêu cầu xóa xe với ID: {}", id);
@@ -394,6 +399,36 @@ public class CarController {
         } catch (Exception e) {
             logger.error("Lỗi khi lấy ngày đã đặt cho xe {}: {}", carId, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
+    // --- ADMIN ENDPOINTS ---
+    @GetMapping("/admin/pending-cars")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<CarDTO>> getPendingCars() {
+        List<CarDTO> pendingCars = service.findByStatusName("pending");
+        return ResponseEntity.ok(pendingCars);
+    }
+
+    @PostMapping("/admin/approve-car/{carId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> approveCar(@PathVariable Integer carId) {
+        try {
+            service.approveCar(carId);
+            return ResponseEntity.ok("Car approved");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/admin/reject-car/{carId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> rejectCar(@PathVariable Integer carId) {
+        try {
+            service.rejectCar(carId);
+            return ResponseEntity.ok("Car rejected");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
 }

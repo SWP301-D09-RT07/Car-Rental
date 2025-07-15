@@ -4,10 +4,13 @@ import com.carrental.car_rental.dto.*;
 import com.carrental.car_rental.entity.*;
 import com.carrental.car_rental.mapper.CarMapper;
 import com.carrental.car_rental.mapper.ImageMapper;
+import com.carrental.car_rental.mapper.UserDetailMapper;
+import com.carrental.car_rental.mapper.UserMapper;
 import com.carrental.car_rental.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,16 +21,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import java.util.HashMap;
-import java.math.BigDecimal;
-import java.util.ArrayList;
+import com.carrental.car_rental.repository.StatusRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +48,14 @@ public class CarService {
     private final RegionRepository regionRepository;
     private final CountryCodeRepository countryCodeRepository;
     private final RatingRepository ratingRepository; // Thêm dependency này
+    private final StatusRepository statusRepository;
+
+    @Autowired
+    private UserDetailRepository userDetailRepository;
+    @Autowired
+    private UserDetailMapper userDetailMapper;
+    @Autowired
+    private UserMapper userMapper;
 
     @Transactional(readOnly = true)
     public List<CarDTO> getFeaturedCars(int page, int size) {
@@ -155,6 +167,17 @@ public class CarService {
 
         CarDetailsResponseDTO dto = new CarDetailsResponseDTO();
         CarDTO carDTO = mapper.toDTO(car);
+        // LOG: Kiểm tra supplier và userDetail mapping
+        if (carDTO.getSupplier() != null) {
+            logger.info("[LOG] carDTO.supplier: {}", carDTO.getSupplier());
+            if (carDTO.getSupplier().getUserDetail() != null) {
+                logger.info("[LOG] carDTO.supplier.userDetail: {}", carDTO.getSupplier().getUserDetail());
+            } else {
+                logger.warn("[LOG] carDTO.supplier.userDetail is NULL!");
+            }
+        } else {
+            logger.warn("[LOG] carDTO.supplier is NULL!");
+        }
         dto.setCarId(carDTO.getCarId());
         dto.setSupplierId(carDTO.getSupplierId());
         dto.setSupplierEmail(car.getSupplier().getEmail());
@@ -197,14 +220,23 @@ public class CarService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Xe không tồn tại với id: " + id));
         CarDTO dto = mapper.toDTO(car);
         dto.setImages(getImagesForCar(id));
+
+        // Lấy supplier và userDetail
+        if (car.getSupplier() != null) {
+            UserDTO supplierDTO = userMapper.toDto(car.getSupplier());
+            userDetailRepository.findById(car.getSupplier().getId()).ifPresent(userDetail -> {
+                supplierDTO.setUserDetail(userDetailMapper.toDTO(userDetail));
+            });
+            dto.setSupplier(supplierDTO);
+        }
         
         // Tính và set averageRating thực tế
         Double avgRating = calculateAverageRating(id);
         dto.setAverageRating(avgRating);
-        
         return dto;
     }
 
+    // Lấy tất cả xe có phân trang (của hoàng)
     @Transactional(readOnly = true)
     public Page<CarDTO> findAll(int page, int size) {
         logger.info("Lấy tất cả xe, trang {}, kích thước {}", page, size);
@@ -386,6 +418,7 @@ public class CarService {
         }
     }
 
+    // Lưu xe mới (của hoàng)
     @Transactional
     public CarDTO save(CarDTO dto) {
         logger.info("Lưu xe mới: {}", dto);
@@ -396,6 +429,7 @@ public class CarService {
         return mapper.toDTO(repository.save(entity));
     }
 
+    // Cập nhật xe (của hoàng)
     @Transactional
     public CarDTO update(Integer id, CarDTO dto) {
         logger.info("Cập nhật xe với id: {}", id);
@@ -409,6 +443,7 @@ public class CarService {
         return mapper.toDTO(repository.save(updatedEntity));
     }
 
+    // Xóa xe (của hoàng)
     @Transactional
     public void delete(Integer id) {
         logger.info("Xóa xe với id: {}", id);
@@ -454,9 +489,7 @@ public class CarService {
     }
 
     private boolean isCarAvailable(Integer carId, Instant startDate, Instant endDate) {
-        LocalDate startLocalDate = startDate.atZone(ZoneId.of("UTC")).toLocalDate();
-        LocalDate endLocalDate = endDate.atZone(ZoneId.of("UTC")).toLocalDate();
-        List<Booking> bookings = bookingRepository.findByCarIdAndOverlappingDates(carId, startLocalDate, endLocalDate);
+        List<Booking> bookings = bookingRepository.findByCarIdAndOverlappingDates(carId, startDate, endDate);
         return bookings.isEmpty();
     }
 
@@ -679,9 +712,10 @@ public class CarService {
             List<String> bookedDates = new ArrayList<>();
 
             for (Booking booking : bookings) {
-                LocalDate startDate = booking.getStartDate();
-                LocalDate endDate = booking.getEndDate();
-
+                // SỬA: Chuyển Instant -> LocalDate
+                LocalDate startDate = booking.getStartDate() != null ? booking.getStartDate().atZone(ZoneId.systemDefault()).toLocalDate() : null;
+                LocalDate endDate = booking.getEndDate() != null ? booking.getEndDate().atZone(ZoneId.systemDefault()).toLocalDate() : null;
+                if (startDate == null || endDate == null) continue;
                 // Thêm tất cả ngày từ startDate đến endDate
                 LocalDate currentDate = startDate;
                 while (!currentDate.isAfter(endDate)) {
@@ -722,5 +756,30 @@ private Integer getRentalCountForCar(Integer carId) {
         logger.error("Lỗi khi lấy rental count cho carId {}: {}", carId, e.getMessage());
         return 0;
     }
+}
+
+    // --- ADMIN METHODS ---
+    public List<CarDTO> findByStatusName(String statusName) {
+        // Sử dụng custom query join fetch để tránh LazyInitializationException
+        return repository.findByStatusNameWithSupplierAndRelations(statusName)
+                .stream().map(mapper::toDTO).toList();
+    }
+
+    public void approveCar(Integer carId) {
+        Car car = repository.findById(carId)
+                .orElseThrow(() -> new RuntimeException("Car not found"));
+        Status availableStatus = statusRepository.findByStatusNameIgnoreCase("available");
+        if (availableStatus == null) throw new RuntimeException("Status 'available' not found");
+        car.setStatus(availableStatus);
+        repository.save(car);
+    }
+
+    public void rejectCar(Integer carId) {
+        Car car = repository.findById(carId)
+                .orElseThrow(() -> new RuntimeException("Car not found"));
+        Status rejectedStatus = statusRepository.findByStatusNameIgnoreCase("rejected");
+        if (rejectedStatus == null) throw new RuntimeException("Status 'rejected' not found");
+        car.setStatus(rejectedStatus);
+        repository.save(car);
 }
 }

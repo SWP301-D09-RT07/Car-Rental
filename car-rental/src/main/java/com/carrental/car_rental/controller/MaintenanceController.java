@@ -21,6 +21,7 @@ public class MaintenanceController {
         return ResponseEntity.ok(service.findById(id));
     }
 
+    // Lấy tất cả bảo trì (của hoàng)
     @GetMapping
     public ResponseEntity<List<MaintenanceDTO>> getAllMaintenances() {
         return ResponseEntity.ok(service.findAll());

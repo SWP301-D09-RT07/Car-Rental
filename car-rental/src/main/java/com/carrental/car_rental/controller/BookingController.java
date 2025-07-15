@@ -26,6 +26,9 @@ import com.carrental.car_rental.entity.Booking;
 import com.carrental.car_rental.entity.User;
 import com.carrental.car_rental.repository.BookingRepository;
 import com.carrental.car_rental.repository.UserRepository;
+import org.springframework.web.server.ResponseStatusException;
+import java.math.BigDecimal;
+import com.carrental.car_rental.repository.RegionRepository;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -42,6 +45,9 @@ public class BookingController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private RegionRepository regionRepository;
 
     public BookingController(BookingService bookingService, BookingFinancialsService financialsService) {
         this.bookingService = bookingService;
@@ -74,10 +80,38 @@ public class BookingController {
     }
 
     @GetMapping("/{id}/price-breakdown")
-    public ResponseEntity<PriceBreakdownDTO> getPriceBreakdown(@PathVariable Integer id) {
-        logger.info("Request to get price breakdown for booking ID: {}", id);
-        BookingDTO booking = bookingService.findById(id);
-        return ResponseEntity.ok(financialsService.calculatePriceBreakdown(booking));
+    public ResponseEntity<?> getPriceBreakdown(@PathVariable Integer id) {
+        try {
+            BookingFinancialsDTO financials = financialsService.findById(id);
+            if (financials == null) {
+                logger.error("[DEBUG] No BookingFinancials found for bookingId {}", id);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy thông tin tài chính cho booking này");
+            }
+            // Lấy booking để lấy các thông tin cần thiết
+            Booking booking = bookingRepository.findById(id).orElse(null);
+            if (booking == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy booking");
+            }
+            // Tính toán breakdown
+            BigDecimal basePrice = financials.getTotalFare() != null ? financials.getTotalFare() : BigDecimal.ZERO;
+            BigDecimal extraFee = financials.getLateFeeAmount() != null ? financials.getLateFeeAmount() : BigDecimal.ZERO;
+            BigDecimal tax = basePrice.multiply(new BigDecimal("0.10")).setScale(2, BigDecimal.ROUND_HALF_UP); // 10% VAT
+            BigDecimal discount = financials.getAppliedDiscount() != null ? financials.getAppliedDiscount() : BigDecimal.ZERO;
+            BigDecimal total = basePrice.add(extraFee).add(tax).subtract(discount);
+            if (total.compareTo(BigDecimal.ZERO) < 0) total = BigDecimal.ZERO;
+        
+
+            PriceBreakdownDTO breakdown = new PriceBreakdownDTO();
+            breakdown.setBasePrice(basePrice);
+            breakdown.setExtraFee(extraFee);
+            breakdown.setTax(tax);
+            breakdown.setDiscount(discount);
+            breakdown.setTotal(total);
+            return ResponseEntity.ok(breakdown);
+        } catch (Exception e) {
+            logger.error("[DEBUG] Breakdown error for bookingId {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Lỗi không xác định khi lấy thông tin tài chính: " + e.getMessage());
+        }
     }
 
     @PostMapping
@@ -161,9 +195,36 @@ public class BookingController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBooking(@PathVariable Integer id) {
-        logger.warn("Request to delete booking with ID: {}", id);
-        bookingService.delete(id);
+    public ResponseEntity<Void> deleteBooking(@PathVariable Integer id, Authentication authentication) {
+        logger.warn("Request to hard delete booking with ID: {}", id);
+        Booking booking = bookingRepository.findById(id).orElse(null);
+        if (booking == null) {
+            return ResponseEntity.notFound().build();
+        }
+        // Chỉ cho phép chủ booking hoặc admin xóa
+        String username = authentication != null ? authentication.getName() : null;
+        boolean isAdmin = authentication != null && authentication.getAuthorities().stream().anyMatch(a -> a.getAuthority().contains("admin"));
+        if (!isAdmin && (username == null || !username.equals(booking.getCustomer().getUsername()))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        // Xóa payment liên quan
+        bookingService.deleteAllPaymentsForBooking(booking.getId());
+        // Gửi email xác nhận
+        try {
+            String email = booking.getCustomer().getEmail();
+            String subject = "Đơn đặt xe đã bị xóa theo yêu cầu";
+            String content = "Chào " + booking.getCustomer().getUsername() + ",\n\n" +
+                    "Đơn đặt xe #" + booking.getId() + " đã bị xóa khỏi hệ thống theo yêu cầu của bạn.\n" +
+                    "Nếu bạn cần hỗ trợ, vui lòng liên hệ RentCar.";
+            // Gửi email (giả lập, bạn có thể dùng service thực tế)
+            logger.info("[API] Sending email to {}: {}", email, subject);
+        } catch (Exception e) {
+            logger.warn("[API] Không gửi được email thông báo xóa booking: {}", booking.getId());
+        }
+        // Log audit
+        logger.info("[API] [AUDIT] Booking {} deleted by {} at {} (user request)", booking.getId(), username, java.time.LocalDateTime.now());
+        bookingRepository.delete(booking);
+        logger.info("Booking {} deleted from database.", id);
         return ResponseEntity.noContent().build();
     }
     
@@ -199,7 +260,7 @@ public class BookingController {
             if (authentication != null) {
                 String username = authentication.getName();
                 Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
-
+                
                 if (userOpt.isPresent() && !booking.getUserId().equals(userOpt.get().getId())) {
                     logger.warn("Access denied - Booking userId: {}, Current userId: {}", booking.getUserId(), userOpt.get().getId());
                     return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -328,107 +389,180 @@ public class BookingController {
         return ResponseEntity.ok("Authenticated as: " + username);
     }
 
-    // ✅ THÊM: Customer confirm delivery endpoint
-@PutMapping("/{bookingId}/confirm-delivery")
-@PreAuthorize("hasRole('CUSTOMER')")
-public ResponseEntity<?> customerConfirmDelivery(@PathVariable Integer bookingId, Authentication authentication) {
-    try {
-        logger.info("🔄 Customer confirming delivery for booking: {}", bookingId);
-        
-        String username = authentication.getName();
-        Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
-        
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                "success", false,
-                "error", "Không tìm thấy thông tin người dùng"
-            ));
+    @GetMapping("/next-id")
+    public ResponseEntity<Map<String, Integer>> getNextBookingId() {
+        logger.info("Request to get next booking ID");
+        try {
+            Integer nextId = bookingService.getNextBookingId();
+            return ResponseEntity.ok(Map.of("nextBookingId", nextId));
+        } catch (Exception e) {
+            logger.error("Error getting next booking ID: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-        
-        User currentUser = userOpt.get();
-        BookingDTO result = bookingService.customerConfirmDelivery(bookingId, currentUser.getId());
-        
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "data", result,
-            "message", "Xác nhận nhận xe thành công"
-        ));
-        
-    } catch (Exception e) {
-        logger.error("❌ Customer confirm delivery error: {}", e.getMessage(), e);
-        return ResponseEntity.badRequest().body(Map.of(
-            "success", false,
-            "error", e.getMessage()
-        ));
     }
-}
 
-// ✅ THÊM: Customer confirm return endpoint
-@PutMapping("/{bookingId}/confirm-return")
-@PreAuthorize("hasRole('CUSTOMER')")
-public ResponseEntity<?> customerConfirmReturn(@PathVariable Integer bookingId, Authentication authentication) {
-    try {
-        logger.info("🔄 Customer confirming return for booking: {}", bookingId);
-        
-        String username = authentication.getName();
-        Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
-        
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                "success", false,
-                "error", "Không tìm thấy thông tin người dùng"
+    @GetMapping("/recent")
+    public ResponseEntity<List<BookingDTO>> getRecentBookings(@RequestParam(defaultValue = "5") int size) {
+        List<BookingDTO> bookings = bookingService.findRecentBookings(size);
+        return ResponseEntity.ok(bookings);
+    }
+
+    // ✅ THÊM: Customer confirm delivery endpoint
+    @PutMapping("/{bookingId}/confirm-delivery")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<?> customerConfirmDelivery(@PathVariable Integer bookingId, Authentication authentication) {
+        try {
+            logger.info("🔄 Customer confirming delivery for booking: {}", bookingId);
+
+            String username = authentication.getName();
+            Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
+
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                        "success", false,
+                        "error", "Không tìm thấy thông tin người dùng"
+                ));
+            }
+
+            User currentUser = userOpt.get();
+            BookingDTO result = bookingService.customerConfirmDelivery(bookingId, currentUser.getId());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", result,
+                    "message", "Xác nhận nhận xe thành công"
+            ));
+
+        } catch (Exception e) {
+            logger.error("❌ Customer confirm delivery error: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
             ));
         }
-        
-        User currentUser = userOpt.get();
-        BookingDTO result = bookingService.customerConfirmReturn(bookingId, currentUser.getId());
-        
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "data", result,
-            "message", "Xác nhận trả xe thành công"
-        ));
-        
-    } catch (Exception e) {
-        logger.error("❌ Customer confirm return error: {}", e.getMessage(), e);
-        return ResponseEntity.badRequest().body(Map.of(
-            "success", false,
-            "error", e.getMessage()
-        ));
     }
-}
-// ✅ THÊM: Supplier confirm return endpoint
-@PutMapping("/{bookingId}/supplier-confirm-return")
-@PreAuthorize("hasRole('SUPPLIER')")
-public ResponseEntity<?> supplierConfirmReturn(@PathVariable Integer bookingId, Authentication authentication) {
-    try {
-        logger.info("🔄 Supplier confirming return for booking: {}", bookingId);
-        
-        String username = authentication.getName();
-        Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
-        
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                "success", false,
-                "error", "Không tìm thấy thông tin người dùng"
+
+    // ✅ THÊM: Customer confirm return endpoint
+    @PutMapping("/{bookingId}/confirm-return")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<?> customerConfirmReturn(@PathVariable Integer bookingId, Authentication authentication) {
+        try {
+            logger.info("🔄 Customer confirming return for booking: {}", bookingId);
+
+            String username = authentication.getName();
+            Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
+
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                        "success", false,
+                        "error", "Không tìm thấy thông tin người dùng"
+                ));
+            }
+
+            User currentUser = userOpt.get();
+            BookingDTO result = bookingService.customerConfirmReturn(bookingId, currentUser.getId());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", result,
+                    "message", "Xác nhận trả xe thành công"
+            ));
+
+        } catch (Exception e) {
+            logger.error("❌ Customer confirm return error: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
             ));
         }
-        
-        User currentUser = userOpt.get();
-        BookingDTO result = bookingService.supplierConfirmReturn(bookingId, currentUser.getId());
-        
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "data", result,
-            "message", "Xác nhận trả xe thành công - Booking đã hoàn thành"
-        ));
-        
-    } catch (Exception e) {
-        logger.error("❌ Supplier confirm return error: {}", e.getMessage(), e);
-        return ResponseEntity.badRequest().body(Map.of(
-            "success", false,
-            "error", e.getMessage()
-        ));
     }
-}
+    // ✅ THÊM: Supplier confirm return endpoint
+    @PutMapping("/{bookingId}/supplier-confirm-return")
+    @PreAuthorize("hasRole('SUPPLIER')")
+    public ResponseEntity<?> supplierConfirmReturn(@PathVariable Integer bookingId, Authentication authentication) {
+        try {
+            logger.info("🔄 Supplier confirming return for booking: {}", bookingId);
+
+            String username = authentication.getName();
+            Optional<User> userOpt = userRepository.findByUsernameOrEmail(username, username);
+
+            if (userOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                        "success", false,
+                        "error", "Không tìm thấy thông tin người dùng"
+                ));
+            }
+
+            User currentUser = userOpt.get();
+            BookingDTO result = bookingService.supplierConfirmReturn(bookingId, currentUser.getId());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "data", result,
+                    "message", "Xác nhận trả xe thành công - Booking đã hoàn thành"
+            ));
+
+        } catch (Exception e) {
+            logger.error("❌ Supplier confirm return error: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * API: Lấy số tiền payout cho supplier sau khi booking hoàn thành
+     * Chỉ cho ADMIN gọi
+     */
+    @GetMapping("/{id}/payout-amount")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getPayoutAmount(@PathVariable Integer id) {
+        try {
+            BookingDTO booking = bookingService.findByIdWithDetails(id);
+            if (booking == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy booking");
+            }
+            // Chỉ cho phép lấy payout nếu booking đã hoàn thành
+            if (!Boolean.TRUE.equals(booking.getSupplierDeliveryConfirm()) ||
+                !Boolean.TRUE.equals(booking.getCustomerReceiveConfirm()) ||
+                !Boolean.TRUE.equals(booking.getCustomerReturnConfirm()) ||
+                !Boolean.TRUE.equals(booking.getSupplierReturnConfirm())) {
+                return ResponseEntity.badRequest().body("Booking chưa hoàn thành đủ 4 xác nhận, không thể payout");
+            }
+            // Lấy financials
+            BookingFinancialsDTO financials = financialsService.getOrCreateFinancials(booking);
+            if (financials == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Không tìm thấy thông tin tài chính cho booking này");
+            }
+            // Tính payout: totalFare + lateFeeAmount (extraFee)
+            java.math.BigDecimal payoutAmount = financials.getTotalFare();
+            if (financials.getLateFeeAmount() != null) {
+                payoutAmount = payoutAmount.add(financials.getLateFeeAmount());
+            }
+            // Lấy breakdown
+            PriceBreakdownDTO breakdown = financialsService.calculatePriceBreakdown(booking);
+            // Lấy currency từ region
+            String currency = "VND";
+            Integer regionId = null;
+            if (booking.getCar() != null) {
+                regionId = booking.getCar().getRegionId();
+            }
+            if (regionId != null) {
+                var regionOpt = regionRepository.findById(regionId);
+                if (regionOpt.isPresent() && regionOpt.get().getCurrency() != null) {
+                    currency = regionOpt.get().getCurrency();
+                }
+            }
+            java.util.Map<String, Object> result = new java.util.HashMap<>();
+            result.put("bookingId", id);
+            result.put("payoutAmount", payoutAmount);
+            result.put("currency", currency);
+            result.put("priceBreakdown", breakdown);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("[API] Lỗi khi lấy payout amount cho booking {}: {}", id, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Lỗi khi lấy payout amount: " + e.getMessage());
+        }
+    }
 }

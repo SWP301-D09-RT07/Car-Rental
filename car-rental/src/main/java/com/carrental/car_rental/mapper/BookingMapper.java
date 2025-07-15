@@ -109,7 +109,7 @@ import java.time.ZoneId;
 //
 //        return dto;
 //=======
-@Mapper(componentModel = "spring", uses = {CommonMapper.class, UserMapper.class, CarMapper.class})
+@Mapper(componentModel = "spring", uses = {UserMapper.class, CarMapper.class})
 public interface BookingMapper {
     @Mapping(source = "id", target = "bookingId")
     @Mapping(source = "customer.id", target = "userId")
@@ -129,8 +129,8 @@ public interface BookingMapper {
     @Mapping(source = "extensionStatus.id", target = "extensionStatusId")
     @Mapping(source = "status.id", target = "statusId")
     @Mapping(source = "status.statusName", target = "statusName")
-    @Mapping(source = "startDate", target = "pickupDateTime", qualifiedByName = "localDateToLocalDateTime")
-    @Mapping(source = "endDate", target = "dropoffDateTime", qualifiedByName = "localDateToLocalDateTime")
+    @Mapping(source = "startDate", target = "pickupDateTime", qualifiedByName = "instantToLocalDateTime")
+    @Mapping(source = "endDate", target = "dropoffDateTime", qualifiedByName = "instantToLocalDateTime")
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "instantToLocalDateTime")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "instantToLocalDateTime")
     @Mapping(target = "withDriver", source = "withDriver")
@@ -139,6 +139,27 @@ public interface BookingMapper {
 
     @Mapping(source = "deliveryConfirmTime", target = "deliveryConfirmTime", qualifiedByName = "instantToLocalDateTime")
     @Mapping(source = "returnConfirmTime", target = "returnConfirmTime", qualifiedByName = "instantToLocalDateTime")
+    @Mapping(target = "carModel", ignore = true)
+    @Mapping(target = "depositRefunded", ignore = true)
+    @Mapping(target = "discountPercentage", ignore = true)
+    @Mapping(target = "driverName", ignore = true)
+    @Mapping(target = "hasDeposit", ignore = true)
+    @Mapping(target = "hasFullPayment", ignore = true)
+    @Mapping(target = "hasRated", ignore = true)
+    @Mapping(target = "isSelfDrive", ignore = true)
+    @Mapping(target = "paymentAmount", ignore = true)
+    @Mapping(target = "paymentDate", ignore = true)
+    @Mapping(target = "paymentDetails", ignore = true)
+    @Mapping(target = "paymentStatus", ignore = true)
+    @Mapping(target = "paymentType", ignore = true)
+    @Mapping(target = "payoutStatus", ignore = true)
+    @Mapping(target = "priceBreakdown", ignore = true)
+    @Mapping(target = "promoCode", ignore = true)
+    @Mapping(target = "promoDescription", ignore = true)
+    @Mapping(target = "refundStatus", ignore = true)
+    @Mapping(target = "regionName", ignore = true)
+    @Mapping(target = "supplierConfirmedFullPayment", ignore = true)
+    @Mapping(target = "totalAmount", ignore = true)
     BookingDTO toDTO(Booking entity);
 
     @Mapping(source = "bookingId", target = "id")
@@ -155,8 +176,8 @@ public interface BookingMapper {
     @Mapping(source = "extensionDays", target = "extensionDays")
     @Mapping(source = "extensionStatusId", target = "extensionStatus.id")
     @Mapping(source = "statusId", target = "status.id")
-    @Mapping(source = "pickupDateTime", target = "startDate", qualifiedByName = "localDateTimeToLocalDate")
-    @Mapping(source = "dropoffDateTime", target = "endDate", qualifiedByName = "localDateTimeToLocalDate")
+    @Mapping(source = "pickupDateTime", target = "startDate", qualifiedByName = "localDateTimeToInstant")
+    @Mapping(source = "dropoffDateTime", target = "endDate", qualifiedByName = "localDateTimeToInstant")
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "localDateTimeToInstant")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "localDateTimeToInstant")
 
@@ -164,17 +185,13 @@ public interface BookingMapper {
     @Mapping(source = "returnConfirmTime", target = "returnConfirmTime", qualifiedByName = "localDateTimeToInstant")
     Booking toEntity(BookingDTO dto);
 
-    @Named("localDateToLocalDateTime")
-    default LocalDateTime localDateToLocalDateTime(LocalDate localDate) {
-        return localDate != null ? localDate.atStartOfDay() : null;
+    @Named("instantToLocalDateTime")
+    default LocalDateTime instantToLocalDateTime(Instant instant) {
+        return instant != null ? LocalDateTime.ofInstant(instant, ZoneId.systemDefault()) : null;
     }
-    
-     @Named("localDateTimeToLocalDate")
-    default LocalDate localDateTimeToLocalDate(LocalDateTime localDateTime) {
-        return localDateTime != null ? localDateTime.toLocalDate() : null;
+
+    @Named("localDateTimeToInstant")
+    default Instant localDateTimeToInstant(LocalDateTime localDateTime) {
+        return localDateTime != null ? localDateTime.atZone(ZoneId.systemDefault()).toInstant() : null;
     }
-    
-//    public BookingDTO toDto(Booking booking) {
-//        return toDTO(booking);
-//    }
 }

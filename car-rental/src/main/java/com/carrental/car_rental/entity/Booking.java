@@ -50,11 +50,11 @@ public class Booking {
 
     @NotNull
     @Column(name = "start_date", nullable = false)
-    private LocalDate startDate;
+    private Instant startDate;
 
     @NotNull
     @Column(name = "end_date", nullable = false)
-    private LocalDate endDate;
+    private Instant endDate;
 
     @Size(max = 200)
     @NotNull
