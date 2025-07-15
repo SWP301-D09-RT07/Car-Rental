@@ -26,8 +26,6 @@ public interface CarMapper {
     @Mapping(source = "status.id", target = "statusId")
     @Mapping(source = "status.statusName", target = "statusName")
     @Mapping(source = "features", target = "features")
-    @Mapping(source = "transmission", target = "transmission")
-    @Mapping(source = "describe", target = "describe")
     @Mapping(source = "image", target = "image") // Ánh xạ từ getter image
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "instantToLocalDateTime")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "instantToLocalDateTime")
@@ -49,8 +47,6 @@ public interface CarMapper {
     @Mapping(source = "fuelTypeId", target = "fuelType.id")
     @Mapping(source = "statusId", target = "status.id")
     @Mapping(source = "features", target = "features")
-    @Mapping(source = "transmission", target = "transmission")
-    @Mapping(source = "describe", target = "describe")
     @Mapping(source = "images", target = "images")
     @Mapping(source = "createdAt", target = "createdAt", qualifiedByName = "localDateTimeToInstant")
     @Mapping(source = "updatedAt", target = "updatedAt", qualifiedByName = "localDateTimeToInstant")
