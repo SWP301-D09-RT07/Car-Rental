@@ -405,7 +405,52 @@ CREATE TABLE Payment (
     CONSTRAINT UQ_Booking_Payment_Type UNIQUE (booking_id, payment_type)
 );
 GO
+-- Thêm các fields cho cash payment confirmation vào bảng Payment
+ALTER TABLE Payment 
+ADD customer_cash_confirmed BIT DEFAULT 0,
+    customer_cash_confirmed_at DATETIME NULL,
+    supplier_cash_confirmed BIT DEFAULT 0,
+    supplier_cash_confirmed_at DATETIME NULL;
 
+-- Tạo index để tối ưu performance
+CREATE INDEX idx_payments_cash_confirmation ON Payment(customer_cash_confirmed, supplier_cash_confirmed);
+CREATE INDEX idx_payments_booking_method_type ON Payment(booking_id, payment_method, payment_type);
+
+-- Update existing records với giá trị mặc định
+UPDATE Payment 
+SET customer_cash_confirmed = 0, 
+    supplier_cash_confirmed = 0 
+WHERE customer_cash_confirmed IS NULL 
+   OR supplier_cash_confirmed IS NULL;
+
+-- Thêm comment mô tả cho các fields mới (tùy chọn)
+EXEC sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Customer đã xác nhận thanh toán tiền mặt',
+    @level0type = N'SCHEMA', @level0name = N'dbo',
+    @level1type = N'TABLE', @level1name = N'Payment',
+    @level2type = N'COLUMN', @level2name = N'customer_cash_confirmed';
+
+EXEC sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Thời gian customer xác nhận thanh toán tiền mặt',
+    @level0type = N'SCHEMA', @level0name = N'dbo',
+    @level1type = N'TABLE', @level1name = N'Payment',
+    @level2type = N'COLUMN', @level2name = N'customer_cash_confirmed_at';
+
+EXEC sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Supplier đã xác nhận nhận tiền mặt',
+    @level0type = N'SCHEMA', @level0name = N'dbo',
+    @level1type = N'TABLE', @level1name = N'Payment',
+    @level2type = N'COLUMN', @level2name = N'supplier_cash_confirmed';
+
+EXEC sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Thời gian supplier xác nhận nhận tiền mặt',
+    @level0type = N'SCHEMA', @level0name = N'dbo',
+    @level1type = N'TABLE', @level1name = N'Payment',
+    @level2type = N'COLUMN', @level2name = N'supplier_cash_confirmed_at';
 
 -- 25. Tạo bảng Maintenance
 CREATE TABLE Maintenance (
@@ -658,6 +703,163 @@ EXEC sp_addextendedproperty
     @level0type = N'SCHEMA', @level0name = N'dbo',
     @level1type = N'TABLE', @level1name = N'cash_payment_confirmations';
 
+-- Tạo bảng BankAccount để lưu thông tin tài khoản ngân hàng của user
+CREATE TABLE BankAccount (
+    bank_account_id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL,
+    account_number VARCHAR(50) NOT NULL,
+    account_holder_name NVARCHAR(100) NOT NULL,
+    bank_name NVARCHAR(100) NOT NULL,
+    bank_branch NVARCHAR(100),
+    swift_code VARCHAR(20),
+    routing_number VARCHAR(20),
+    account_type VARCHAR(20) DEFAULT 'checking' CHECK (account_type IN ('checking', 'savings', 'business')),
+    is_primary BIT DEFAULT 0,
+    is_verified BIT DEFAULT 0,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    is_deleted BIT DEFAULT 0,
+    
+    FOREIGN KEY (user_id) REFERENCES [User](user_id) ON DELETE CASCADE,
+    CONSTRAINT UQ_User_Primary_Bank_Account UNIQUE (user_id, is_primary),
+    CONSTRAINT UQ_Bank_Account_Number UNIQUE (account_number, bank_name)
+);
+GO
+
+-- Tạo index để tối ưu truy vấn
+CREATE INDEX idx_bank_account_user_id ON BankAccount(user_id);
+CREATE INDEX idx_bank_account_is_primary ON BankAccount(is_primary);
+CREATE INDEX idx_bank_account_is_verified ON BankAccount(is_verified);
+CREATE INDEX idx_bank_account_is_deleted ON BankAccount(is_deleted);
+GO
+
+-- Tạo trigger để tự động cập nhật updated_at
+CREATE TRIGGER UpdateBankAccountTimestamp
+ON BankAccount
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE BankAccount
+    SET updated_at = GETDATE()
+    FROM BankAccount ba
+    INNER JOIN inserted i ON ba.bank_account_id = i.bank_account_id;
+END;
+GO
+
+-- Thêm mô tả cho bảng
+EXEC sys.sp_addextendedproperty 
+    @name=N'MS_Description', 
+    @value=N'Lưu trữ thông tin tài khoản ngân hàng của người dùng cho việc thanh toán và nhận tiền', 
+    @level0type=N'SCHEMA', @level0name=N'dbo', 
+    @level1type=N'TABLE', @level1name=N'BankAccount';
+GO
+
+ALTER TABLE BankAccount DROP CONSTRAINT UQ_User_Primary_Bank_Account;
+GO
+-- Tạo constraint mới chỉ áp dụng khi is_primary = 1
+CREATE UNIQUE INDEX UQ_User_Primary_Bank_Account 
+ON BankAccount(user_id) 
+WHERE is_primary = 1;
+GO
+
+-- Tạo bảng CarConditionReport để lưu báo cáo tình trạng xe
+CREATE TABLE CarConditionReport (
+    report_id INT IDENTITY(1,1) PRIMARY KEY,
+    booking_id INT NOT NULL,
+    car_id INT NOT NULL,
+    reporter_id INT NOT NULL, -- ID của người báo cáo (customer hoặc supplier)
+    report_type VARCHAR(20) NOT NULL CHECK (report_type IN ('pickup', 'return')), -- pickup: nhận xe, return: trả xe
+    report_date DATETIME NOT NULL DEFAULT GETDATE(),
+    status_id INT NOT NULL DEFAULT 1, -- 1 là id của 'pending'
+    -- Thông tin tình trạng xe
+    fuel_level DECIMAL(5,2) CHECK (fuel_level BETWEEN 0 AND 100), -- Mức nhiên liệu (%)
+    mileage INT, -- Số km đã đi
+    exterior_condition NVARCHAR(20) DEFAULT N'good' CHECK (exterior_condition IN (N'excellent', N'good', N'fair', N'poor')),
+    interior_condition NVARCHAR(20) DEFAULT N'good' CHECK (interior_condition IN (N'excellent', N'good', N'fair', N'poor')),
+    engine_condition NVARCHAR(20) DEFAULT N'good' CHECK (engine_condition IN (N'excellent', N'good', N'fair', N'poor')),
+    tire_condition NVARCHAR(20) DEFAULT N'good' CHECK (tire_condition IN (N'excellent', N'good', N'fair', N'poor')),
+    
+    -- Ghi chú chi tiết
+    damage_notes NVARCHAR(1000), -- Ghi chú về hư hỏng
+    additional_notes NVARCHAR(500), -- Ghi chú bổ sung
+    
+    -- Xác nhận
+    is_confirmed BIT DEFAULT 0, -- Đã xác nhận bởi đối phương chưa
+    confirmed_by INT, -- ID người xác nhận
+    confirmed_at DATETIME, -- Thời gian xác nhận
+    
+    -- Metadata
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE(),
+    is_deleted BIT DEFAULT 0,
+    
+    FOREIGN KEY (booking_id) REFERENCES Booking(booking_id) ON DELETE CASCADE,
+    FOREIGN KEY (car_id) REFERENCES Car(car_id) ON DELETE NO ACTION,
+    FOREIGN KEY (reporter_id) REFERENCES [User](user_id) ON DELETE NO ACTION,
+    FOREIGN KEY (confirmed_by) REFERENCES [User](user_id) ON DELETE SET NULL
+);
+GO
+
+-- Tạo bảng CarConditionImage để lưu ảnh báo cáo tình trạng xe
+CREATE TABLE CarConditionImage (
+    image_id INT IDENTITY(1,1) PRIMARY KEY,
+    report_id INT NOT NULL,
+    image_url NVARCHAR(500) NOT NULL,
+    image_type VARCHAR(50), -- 'exterior_front', 'exterior_back', 'interior_dashboard', 'damage_detail', etc.
+    description NVARCHAR(255),
+    upload_date DATETIME NOT NULL DEFAULT GETDATE(),
+    is_deleted BIT DEFAULT 0,
+    
+    FOREIGN KEY (report_id) REFERENCES CarConditionReport(report_id) ON DELETE CASCADE
+);
+GO
+
+-- Tạo index để tối ưu truy vấn
+CREATE INDEX idx_car_condition_report_booking_id ON CarConditionReport(booking_id);
+CREATE INDEX idx_car_condition_report_car_id ON CarConditionReport(car_id);
+CREATE INDEX idx_car_condition_report_type ON CarConditionReport(report_type);
+CREATE INDEX idx_car_condition_report_reporter_id ON CarConditionReport(reporter_id);
+CREATE INDEX idx_car_condition_report_date ON CarConditionReport(report_date);
+CREATE INDEX idx_car_condition_image_report_id ON CarConditionImage(report_id);
+GO
+
+-- Tạo trigger để tự động cập nhật updated_at
+CREATE TRIGGER UpdateCarConditionReportTimestamp
+ON CarConditionReport
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE CarConditionReport
+    SET updated_at = GETDATE()
+    FROM CarConditionReport ccr
+    INNER JOIN inserted i ON ccr.report_id = i.report_id;
+END;
+GO
+
+-- Thêm mô tả cho bảng
+EXEC sys.sp_addextendedproperty 
+    @name=N'MS_Description', 
+    @value=N'Lưu trữ báo cáo tình trạng xe khi customer nhận và trả xe', 
+    @level0type=N'SCHEMA', @level0name=N'dbo', 
+    @level1type=N'TABLE', @level1name=N'CarConditionReport';
+GO
+
+EXEC sys.sp_addextendedproperty 
+    @name=N'MS_Description', 
+    @value=N'Lưu trữ ảnh báo cáo tình trạng xe', 
+    @level0type=N'SCHEMA', @level0name=N'dbo', 
+    @level1type=N'TABLE', @level1name=N'CarConditionImage';
+GO
+
+-- Tạo constraint để đảm bảo mỗi booking chỉ có 1 báo cáo pickup và 1 báo cáo return
+CREATE UNIQUE INDEX UQ_CarConditionReport_Booking_Type 
+ON CarConditionReport(booking_id, report_type) 
+WHERE is_deleted = 0;
+GO
+
+
 -- INSERT dữ liệu
 -- 1. Bảng Role
 INSERT INTO Role (role_name, description)
@@ -813,7 +1015,9 @@ VALUES
 	(N'rejected', N'bị từ chối'),
 	(N'payout', N'Đã chuyển tiền'),
 	(N'ready_for_pickup', N'chờ nhận xe'),
-	(N'delivered', N'đã giao xe');
+	(N'delivered', N'đã giao xe'),
+    (N'disputed', N'Đang tranh chấp'),
+    (N'resolved', N'Đã xử lý tranh chấp');
 GO
 
 -- 4. Bảng Language (SỬA: Thêm ngôn ngữ mới)

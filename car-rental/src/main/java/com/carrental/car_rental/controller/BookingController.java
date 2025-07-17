@@ -565,4 +565,26 @@ public class BookingController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Lỗi khi lấy payout amount: " + e.getMessage());
         }
     }
+
+    @GetMapping("/api/bookings/{id}")
+    public ResponseEntity<BookingDTO> getBooking(@PathVariable Integer id) {
+        Booking booking = bookingRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+            
+        // Sử dụng service để get DTO với payment info
+        BookingDTO dto = bookingService.getBookingDTOWithPaymentInfo(booking);
+        
+        return ResponseEntity.ok(dto);
+    }
+    
+    @GetMapping("/api/bookings/user/{userId}")
+    public ResponseEntity<List<BookingDTO>> getUserBookings(@PathVariable Integer userId) {
+        List<Booking> bookings = bookingRepository.findByCustomerIdAndIsDeleted(userId, false);
+        
+        List<BookingDTO> dtos = bookings.stream()
+            .map(booking -> bookingService.getBookingDTOWithPaymentInfo(booking))
+            .collect(Collectors.toList());
+            
+        return ResponseEntity.ok(dtos);
+    }
 }

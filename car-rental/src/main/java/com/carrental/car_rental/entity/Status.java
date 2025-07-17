@@ -11,7 +11,7 @@ import org.hibernate.annotations.Nationalized;
 @Getter
 @Setter
 @Entity
-@Table(name = "status")
+@Table(name = "Status")
 public class Status {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

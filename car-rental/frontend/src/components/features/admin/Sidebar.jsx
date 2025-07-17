@@ -22,6 +22,7 @@ const menuItems = [
     { path: "/admin/owner-requests", icon: <FaClipboardList />, label: "Đơn đăng ký chủ xe" },
     { path: "/admin/car-approval", icon: <FaCar />, label: "Duyệt xe" },
     { path: "/admin/payments", icon: <FaMoneyCheckAlt />, label: "Thanh toán" },
+    { path: "/admin/car-condition-reports", icon: <FaClipboardList />, label: "Báo cáo tình trạng xe" },
 ];
 
 export const Sidebar = () => {

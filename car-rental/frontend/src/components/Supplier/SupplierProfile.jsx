@@ -1,8 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { getProfile, updateProfile } from "@/services/api";
 import { toast } from "react-toastify";
-import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaEdit, FaSave, FaTimes } from "react-icons/fa";
+import { 
+  FaUser, 
+  FaEnvelope, 
+  FaPhone, 
+  FaMapMarkerAlt, 
+  FaEdit, 
+  FaSave, 
+  FaTimes,
+  FaUniversity, // ✅ THÊM ICON CHO BANKING
+  FaCog
+} from "react-icons/fa";
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
+import BankAccountManager from '@/components/BankAccount/BankAccountManager'; // ✅ THÊM IMPORT
 
 const SupplierProfile = () => {
   const [profile, setProfile] = useState(null);
@@ -11,6 +22,9 @@ const SupplierProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [saving, setSaving] = useState(false);
+  
+  // ✅ THÊM STATE CHO TAB NAVIGATION
+  const [activeTab, setActiveTab] = useState('profile');
 
   useEffect(() => {
     fetchProfile();
@@ -50,7 +64,6 @@ const SupplierProfile = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      // Đảm bảo countryCode và username luôn có trong dữ liệu gửi đi
       const dataToSend = {
         ...formData,
         countryCode: formData.countryCode || profile.countryCode || '',
@@ -76,7 +89,7 @@ const SupplierProfile = () => {
       }
       console.log('DATA SENT TO API:', cleanedData);
       await updateProfile(cleanedData);
-      await fetchProfile(); // Refresh data
+      await fetchProfile();
       setIsEditing(false);
       toast.success('Cập nhật hồ sơ thành công!');
     } catch (err) {
@@ -99,12 +112,8 @@ const SupplierProfile = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="text-center">
-          <LoadingSpinner size="large" color="blue" />
-          <p className="text-gray-600 text-xl font-medium">Đang tải thông tin hồ sơ...</p>
-          <p className="text-gray-500 text-sm mt-2">Vui lòng đợi trong giây lát</p>
-        </div>
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+        <LoadingSpinner size="large" color="blue" />
       </div>
     );
   }
@@ -140,7 +149,7 @@ const SupplierProfile = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-7xl mx-auto"> {/* ✅ TĂNG MAX-WIDTH */}
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
         {/* Header with gradient */}
         <div className="bg-gradient-to-r from-blue-600 via-indigo-700 to-purple-800 p-8 text-white relative overflow-hidden">
@@ -154,11 +163,12 @@ const SupplierProfile = () => {
                 </div>
                 <div>
                   <h2 className="text-4xl font-heading font-bold mb-2">Hồ sơ chủ xe</h2>
-                  <p className="text-blue-100 text-lg">Quản lý thông tin cá nhân của bạn</p>
+                  <p className="text-blue-100 text-lg">Quản lý thông tin cá nhân và tài khoản thanh toán</p> {/* ✅ CẬP NHẬT MÔ TẢ */}
                 </div>
               </div>
               
-              {!isEditing ? (
+              {/* ✅ CHỈ HIỂN THỊ NÚT EDIT CHO TAB PROFILE */}
+              {activeTab === 'profile' && !isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
                   className="bg-white/20 backdrop-blur-sm text-white px-6 py-3 rounded-xl hover:bg-white/30 flex items-center transition-all border border-white/20"
@@ -166,7 +176,7 @@ const SupplierProfile = () => {
                   <FaEdit className="mr-2" />
                   Chỉnh sửa
                 </button>
-              ) : (
+              ) : activeTab === 'profile' && isEditing ? (
                 <div className="flex space-x-2">
                   <button
                     onClick={handleSave}
@@ -184,145 +194,199 @@ const SupplierProfile = () => {
                     Hủy
                   </button>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
 
-        {/* Content */}
+        {/* ✅ THÊM TAB NAVIGATION */}
+        <div className="bg-gray-50 border-b border-gray-200">
+          <div className="flex space-x-8 px-8">
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'profile'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <FaUser className="mr-2" />
+              Thông tin cá nhân
+            </button>
+            <button
+              onClick={() => setActiveTab('banking')}
+              className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'banking'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <FaUniversity className="mr-2" />
+              Tài khoản ngân hàng
+            </button>
+          </div>
+        </div>
+
+        {/* ✅ TAB CONTENT */}
         <div className="p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column */}
-            <div className="space-y-6">
-              {/* Họ tên */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
-                <div className="flex items-center mb-4">
-                  <div className="bg-blue-100 p-2 rounded-lg mr-3">
-                    <FaUser className="text-blue-600" />
+          {/* PROFILE TAB */}
+          {activeTab === 'profile' && (
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column */}
+                <div className="space-y-6">
+                  {/* Họ tên */}
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
+                    <div className="flex items-center mb-4">
+                      <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                        <FaUser className="text-blue-600" />
+                      </div>
+                      <label className="text-sm font-semibold text-gray-700">Họ tên</label>
+                    </div>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        placeholder="Nhập họ tên"
+                      />
+                    ) : (
+                      <p className="text-lg font-medium text-gray-800 ml-9">
+                        {profile.userDetail?.fullName || profile.userDetail?.name || "Chưa cập nhật"}
+                      </p>
+                    )}
                   </div>
-                  <label className="text-sm font-semibold text-gray-700">Họ tên</label>
+
+                  {/* Email */}
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100">
+                    <div className="flex items-center mb-4">
+                      <div className="bg-green-100 p-2 rounded-lg mr-3">
+                        <FaEnvelope className="text-green-600" />
+                      </div>
+                      <label className="text-sm font-semibold text-gray-700">Email</label>
+                    </div>
+                    {isEditing ? (
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                        placeholder="Nhập email"
+                      />
+                    ) : (
+                      <p className="text-lg font-medium text-gray-800 ml-9">
+                        {profile.email || "Chưa cập nhật"}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="Nhập họ tên"
-                  />
-                ) : (
-                  <p className="text-lg font-medium text-gray-800 ml-9">
-                    {profile.userDetail?.fullName || profile.userDetail?.name || "Chưa cập nhật"}
-                  </p>
-                )}
+
+                {/* Right Column */}
+                <div className="space-y-6">
+                  {/* Số điện thoại */}
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100">
+                    <div className="flex items-center mb-4">
+                      <div className="bg-purple-100 p-2 rounded-lg mr-3">
+                        <FaPhone className="text-purple-600" />
+                      </div>
+                      <label className="text-sm font-semibold text-gray-700">Số điện thoại</label>
+                    </div>
+                    {isEditing ? (
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        placeholder="Nhập số điện thoại"
+                      />
+                    ) : (
+                      <p className="text-lg font-medium text-gray-800 ml-9">
+                        {profile.phone || "Chưa cập nhật"}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Thông tin bổ sung */}
+                  <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-6 rounded-2xl border border-gray-100">
+                    <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
+                      <div className="bg-gray-100 p-2 rounded-lg mr-3">
+                        <FaCog className="text-gray-600" />
+                      </div>
+                      Thông tin bổ sung
+                    </h4>
+                    <div className="grid grid-cols-1 gap-4 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Vai trò:</span>
+                        <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">Chủ xe</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Trạng thái:</span>
+                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium flex items-center">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                          Hoạt động
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Email */}
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100">
-                <div className="flex items-center mb-4">
-                  <div className="bg-green-100 p-2 rounded-lg mr-3">
-                    <FaEnvelope className="text-green-600" />
+              {/* Địa chỉ - Full Width */}
+              <div className="mt-8">
+                <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-6 rounded-2xl border border-orange-100">
+                  <div className="flex items-center mb-4">
+                    <div className="bg-orange-100 p-2 rounded-lg mr-3">
+                      <FaMapMarkerAlt className="text-orange-600" />
+                    </div>
+                    <label className="text-sm font-semibold text-gray-700">Địa chỉ</label>
                   </div>
-                  <label className="text-sm font-semibold text-gray-700">Email</label>
+                  {isEditing ? (
+                    <textarea
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                      placeholder="Nhập địa chỉ"
+                    />
+                  ) : (
+                    <p className="text-lg font-medium text-gray-800 ml-9">
+                      {profile.userDetail?.address || "Chưa cập nhật"}
+                    </p>
+                  )}
                 </div>
-                {isEditing ? (
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
-                    placeholder="Nhập email"
-                  />
-                ) : (
-                  <p className="text-lg font-medium text-gray-800 ml-9">
-                    {profile.email || "Chưa cập nhật"}
-                  </p>
-                )}
               </div>
-            </div>
+            </>
+          )}
 
-            {/* Right Column */}
-            <div className="space-y-6">
-              {/* Số điện thoại */}
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100">
-                <div className="flex items-center mb-4">
-                  <div className="bg-purple-100 p-2 rounded-lg mr-3">
-                    <FaPhone className="text-purple-600" />
-                  </div>
-                  <label className="text-sm font-semibold text-gray-700">Số điện thoại</label>
-                </div>
-                {isEditing ? (
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                    placeholder="Nhập số điện thoại"
-                  />
-                ) : (
-                  <p className="text-lg font-medium text-gray-800 ml-9">
-                    {profile.phone || "Chưa cập nhật"}
-                  </p>
-                )}
-              </div>
-
-              {/* Thông tin bổ sung */}
-              <div className="bg-gradient-to-br from-gray-50 to-slate-50 p-6 rounded-2xl border border-gray-100">
-                <h4 className="font-semibold text-gray-700 mb-4 flex items-center">
-                  <div className="bg-gray-100 p-2 rounded-lg mr-3">
-                    <FaUser className="text-gray-600" />
-                  </div>
-                  Thông tin bổ sung
-                </h4>
-                <div className="grid grid-cols-1 gap-4 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Vai trò:</span>
-                    <span className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">Chủ xe</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Trạng thái:</span>
-                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium flex items-center">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                      Hoạt động
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Địa chỉ - Full Width */}
-          <div className="mt-8">
-            <div className="bg-gradient-to-br from-orange-50 to-amber-50 p-6 rounded-2xl border border-orange-100">
-              <div className="flex items-center mb-4">
-                <div className="bg-orange-100 p-2 rounded-lg mr-3">
-                  <FaMapMarkerAlt className="text-orange-600" />
-                </div>
-                <label className="text-sm font-semibold text-gray-700">Địa chỉ</label>
-              </div>
-              {isEditing ? (
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                  placeholder="Nhập địa chỉ"
-                />
-              ) : (
-                <p className="text-lg font-medium text-gray-800 ml-9">
-                  {profile.userDetail?.address || "Chưa cập nhật"}
+          {/* ✅ BANKING TAB */}
+          {activeTab === 'banking' && (
+            <div className="supplier-banking-section">
+              <div className="mb-6">
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">Tài khoản nhận thanh toán</h3>
+                <p className="text-gray-600">
+                  Quản lý tài khoản ngân hàng để nhận tiền từ khách hàng thuê xe của bạn. 
+                  Tài khoản chính sẽ được sử dụng mặc định cho các giao dịch.
                 </p>
-              )}
+              </div>
+              
+              {/* ✅ TÍCH HỢP BANKACCOUNTMANAGER */}
+              <BankAccountManager 
+                embedded={true}
+                showHeader={false}
+                title="Tài khoản nhận thanh toán"
+                subtitle="Quản lý tài khoản để nhận tiền từ khách hàng"
+              />
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-export default SupplierProfile; 
+export default SupplierProfile;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import { 
   getSupplierOrders, 
   supplierConfirmReturn, 
@@ -35,6 +35,8 @@ import Papa from 'papaparse';
 import LoadingSpinner from "@/components/ui/Loading/LoadingSpinner";
 import ErrorMessage from "@/components/ui/ErrorMessage/ErrorMessage";
 import CashPaymentManagementModal from "./CashPaymentManagementModal";
+import CarConditionReportView from '@/components/CarConditionReport/CarConditionReportView';
+import { AuthContext } from '@/store/AuthContext';
 
 const SupplierOrderManagement = () => {
   // States
@@ -54,6 +56,11 @@ const SupplierOrderManagement = () => {
   const [pendingPlatformFees, setPendingPlatformFees] = useState([]);
   const [totalPendingFees, setTotalPendingFees] = useState(0);
   const [cashPaymentLoading, setCashPaymentLoading] = useState(false);
+  const [highlightedBookingId, setHighlightedBookingId] = useState(null);
+
+  // Car condition report view modal states
+  const [showReportViewModal, setShowReportViewModal] = useState(false);
+  const [selectedReportBooking, setSelectedReportBooking] = useState(null);
 
   // Effects
   useEffect(() => {
@@ -61,12 +68,50 @@ const SupplierOrderManagement = () => {
     fetchCashPaymentData();
   }, []);
 
+  // Sound notification for new cash payments
+  useEffect(() => {
+    if (pendingCashPayments.length > 0) {
+      const currentCount = pendingCashPayments.length;
+      const previousCount = localStorage.getItem('previousCashPaymentCount') || '0';
+      
+      if (parseInt(currentCount) > parseInt(previousCount)) {
+        try {
+          // Optional: Add notification sound
+          const audio = new Audio('/notification-sound.mp3');
+          audio.volume = 0.3;
+          audio.play().catch(() => {});
+        } catch (error) {
+          console.log('Cannot play notification sound');
+        }
+      }
+      
+      localStorage.setItem('previousCashPaymentCount', currentCount.toString());
+    }
+  }, [pendingCashPayments.length]);
+
+  const { user } = useContext(AuthContext);
+
   // Fetch functions
   const fetchOrders = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await getSupplierOrders();
+      console.log('🔍 Supplier orders data:', data); // Debug log
+      
+      // Debug: Check report fields for each order
+      if (data && Array.isArray(data)) {
+        data.forEach((order, index) => {
+          console.log(`📋 Order ${index + 1} (ID: ${order.bookingId}):`, {
+            statusName: order.statusName,
+            hasPickupReport: order.hasPickupReport,
+            hasReturnReport: order.hasReturnReport,
+            pickupReportConfirmed: order.pickupReportConfirmed,
+            returnReportConfirmed: order.returnReportConfirmed
+          });
+        });
+      }
+      
       setOrders(data || []);
     } catch (err) {
       setError(err.message || 'Không thể tải đơn đặt xe');
@@ -75,81 +120,68 @@ const SupplierOrderManagement = () => {
     }
   };
 
+  // ✅ BỎ MOCK DATA - Dùng API thực
   const fetchCashPaymentData = async () => {
     try {
       setCashPaymentLoading(true);
       
-      // Mock data for testing UI
-      const mockPendingPayments = [
-        {
-          paymentId: 1,
-          bookingId: 123,
-          amountReceived: 500000,
-          platformFee: 25000,
-          confirmationType: 'pickup',
-          createdAt: new Date().toISOString()
-        },
-        {
-          paymentId: 2,
-          bookingId: 124,
-          amountReceived: 750000,
-          platformFee: 37500,
-          confirmationType: 'delivery',
-          createdAt: new Date().toISOString()
-        }
-      ];
+      let pendingPayments = [];
+      let pendingFees = [];
+      let totalFees = { totalAmount: 0 };
 
-      const mockPendingFees = [
-        {
-          paymentId: 1,
-          bookingId: 121,
-          platformFee: 30000,
-          platformFeeDueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-          platformFeeStatus: 'pending'
-        },
-        {
-          paymentId: 2,
-          bookingId: 122,
-          platformFee: 45000,
-          platformFeeDueDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          platformFeeStatus: 'overdue'
-        }
-      ];
-
-      let pendingPayments = mockPendingPayments;
-      let pendingFees = mockPendingFees;
-      let totalFees = { totalAmount: 75000 };
-
-      // Try to fetch real data, fallback to mock
+      // Fetch real data from API
       try {
         pendingPayments = await getPendingCashPayments();
+        console.log('✅ Real pending payments:', pendingPayments);
       } catch (err) {
-        console.warn('Using mock data for pending payments:', err.message);
+        console.error('❌ getPendingCashPayments error:', err.message);
+        pendingPayments = []; // Fallback to empty array
       }
 
       try {
         pendingFees = await getPendingPlatformFees();
+        console.log('✅ Real pending fees:', pendingFees);
       } catch (err) {
-        console.warn('Using mock data for platform fees:', err.message);
+        console.error('❌ getPendingPlatformFees error:', err.message);
+        pendingFees = []; // Fallback to empty array
       }
 
       try {
         totalFees = await getTotalPendingPlatformFees();
+        console.log('✅ Real total fees:', totalFees);
       } catch (err) {
-        console.warn('Using mock data for total fees:', err.message);
+        console.error('❌ getTotalPendingPlatformFees error:', err.message);
+        totalFees = { totalAmount: 0 }; // Fallback
       }
 
       setPendingCashPayments(pendingPayments || []);
       setPendingPlatformFees(pendingFees || []);
-      setTotalPendingFees(totalFees?.totalAmount || 75000);
+      setTotalPendingFees(totalFees?.totalAmount || 0);
+      
     } catch (err) {
-      console.error('Error fetching cash payment data:', err);
+      console.error('❌ Error fetching cash payment data:', err);
       setPendingCashPayments([]);
       setPendingPlatformFees([]);
       setTotalPendingFees(0);
     } finally {
       setCashPaymentLoading(false);
     }
+  };
+
+  // ✅ THÊM: Helper functions để check cash payment status
+  const hasPendingCashPayment = (order) => {
+    return order.statusName === 'delivered' &&
+      order.customerCashPaymentConfirmed === true &&
+      order.supplierCashPaymentConfirmed !== true &&
+      order.hasFullPayment !== true;
+  };
+
+  const hasCustomerCashConfirmed = (order) => {
+    return order.customerCashPaymentConfirmed === true;
+  };
+
+  const hasCashFullPayment = (order) => {
+    return order.hasFullPayment === true;
   };
 
   // Helper functions
@@ -214,6 +246,32 @@ const SupplierOrderManagement = () => {
 
   const hasPayout = (order) =>
     order.paymentDetails?.some(p => p.paymentType === 'payout' && p.paymentStatus === 'paid');
+
+  // ✅ THÊM: Tooltip component cho cash payment
+  const CashPaymentTooltip = ({ pendingCount, onOpenModal }) => {
+    if (pendingCount === 0) return null;
+    
+    return (
+      <div className="relative group">
+        <button
+          onClick={onOpenModal}
+          className="flex items-center gap-1 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-semibold hover:bg-orange-200 transition-colors animate-pulse border border-orange-300"
+        >
+          <FaMoneyCheckAlt className="w-3 h-3" />
+          <span>💰 Có tiền mặt cần nhận</span>
+          <div className="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
+        </button>
+        
+        {/* Tooltip */}
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+          <div className="bg-gray-800 text-white text-xs rounded py-2 px-3 whitespace-nowrap">
+            Click để mở quản lý thanh toán tiền mặt
+            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Event handlers
   const handleConfirmOrder = async (orderId) => {
@@ -292,27 +350,44 @@ const SupplierOrderManagement = () => {
     }
   };
 
+  // ✅ SỬA: Handler cho cash received confirmation
   const handleConfirmCashReceived = async (paymentId, confirmationData) => {
     try {
+      console.log('🔄 Confirming cash received:', { paymentId, confirmationData });
+      
       await confirmCashReceived(paymentId, confirmationData);
       toast.success('Đã xác nhận nhận tiền mặt thành công');
-      fetchCashPaymentData();
-      fetchOrders();
+      
+      // Refresh data
+      await fetchCashPaymentData();
+      await fetchOrders();
     } catch (err) {
-      console.error('Error confirming cash received:', err);
+      console.error('❌ Error confirming cash received:', err);
       toast.error(err.message || 'Không thể xác nhận nhận tiền mặt');
     }
   };
 
+  // ✅ SỬA: Handler cho platform fee payment
   const handlePayPlatformFee = async (confirmationId) => {
     try {
+      console.log('🔄 Paying platform fee:', confirmationId);
+      
       await payPlatformFee(confirmationId);
       toast.success('Đã thanh toán phí platform thành công');
-      fetchCashPaymentData();
+      
+      // Refresh data
+      await fetchCashPaymentData();
     } catch (err) {
-      console.error('Error paying platform fee:', err);
+      console.error('❌ Error paying platform fee:', err);
       toast.error(err.message || 'Không thể thanh toán phí platform');
     }
+  };
+
+  // ✅ THÊM: Handler để mở modal với highlight
+  const handleOpenCashPaymentModal = (bookingId = null) => {
+    setHighlightedBookingId(bookingId);
+    setShowCashPaymentModal(true);
+    fetchCashPaymentData();
   };
 
   const handleExportCSV = () => {
@@ -353,6 +428,12 @@ const SupplierOrderManagement = () => {
     setSelectedPaymentOrder(null);
   };
 
+  // Handler for viewing car condition reports
+  const handleViewCarReports = (order) => {
+    setSelectedReportBooking(order);
+    setShowReportViewModal(true);
+  };
+
   // Filter orders
   const filteredOrders = orders.filter(order => {
     const matchesStatus = filterStatus === 'all' || (order.status?.statusName || order.statusName)?.toLowerCase() === filterStatus.toLowerCase();
@@ -391,20 +472,24 @@ const SupplierOrderManagement = () => {
               </div>
             </div>
             
-            {/* Cash Payment Management Button */}
+            {/* ✅ SỬA: Cash Payment Management Button với notification thông minh */}
             <button
-              onClick={() => {
-                setShowCashPaymentModal(true);
-                fetchCashPaymentData();
-              }}
+              onClick={() => handleOpenCashPaymentModal()}
               className="flex items-center gap-2 bg-orange-600 text-white px-6 py-3 rounded-xl hover:bg-orange-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
             >
               <FaMoneyCheckAlt className="w-5 h-5" />
               <span>Quản lý tiền mặt</span>
               {(pendingCashPayments.length > 0 || pendingPlatformFees.length > 0) && (
-                <span className="bg-red-500 text-white rounded-full px-2 py-1 text-xs font-bold ml-2">
-                  {pendingCashPayments.length + pendingPlatformFees.length}
-                </span>
+                <div className="flex items-center gap-1">
+                  <span className="bg-red-500 text-white rounded-full px-2 py-1 text-xs font-bold">
+                    {pendingCashPayments.length + pendingPlatformFees.length}
+                  </span>
+                  {pendingCashPayments.length > 0 && (
+                    <span className="bg-yellow-500 text-white rounded-full px-2 py-1 text-xs font-bold animate-bounce">
+                      💰
+                    </span>
+                  )}
+                </div>
               )}
             </button>
           </div>
@@ -547,11 +632,26 @@ const SupplierOrderManagement = () => {
                             {getStatusLabel(order.status?.statusName || order.statusName || '')}
                           </span>
                         </div>
+                        
+                        {/* ✅ THÊM: Badge thông báo cash payment */}
+                        {order.statusName === 'delivered' && hasPendingCashPayment(order) && (
+                          <CashPaymentTooltip 
+                            pendingCount={1}
+                            onOpenModal={() => handleOpenCashPaymentModal(order.bookingId)}
+                          />
+                        )}
+                        
+                        {order.statusName === 'delivered' && hasCustomerCashConfirmed(order) && !hasPendingCashPayment(order) && (
+                          <div className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold mt-1 text-center">
+                            ⏳ Chờ khách trả tiền mặt
+                          </div>
+                        )}
+                        
                         {isBookingFullyCompleted(order) && (
                           <div className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold mt-1 text-center">
                             {order.paymentDetails?.find(p => p.paymentType === 'full_payment' && p.paymentStatus === 'paid' && p.paymentMethod === 'cash')
-                              ? 'Đã nhận đủ tiền mặt'
-                              : 'Đã nhận đủ tiền'}
+                              ? '✅ Đã nhận đủ tiền mặt'
+                              : '✅ Đã nhận đủ tiền'}
                           </div>
                         )}
                         {hasPayout(order) && (
@@ -582,7 +682,7 @@ const SupplierOrderManagement = () => {
                             <span>Chi tiết</span>
                           </button>
                           
-                          {/* Xác nhận booking */}
+                          {/* Xác nhận booking - Pending */}
                           {(order.status?.statusName || order.statusName)?.toLowerCase() === 'pending' && (
                             <>
                               <button 
@@ -604,8 +704,11 @@ const SupplierOrderManagement = () => {
                             </>
                           )}
                           
-                          {/* Xác nhận đã nhận đủ tiền */}
-                          {(order.status?.statusName || order.statusName)?.toLowerCase() === 'confirmed' && order.hasFullPayment && !order.supplierConfirmedFullPayment && (
+                          {/* Xác nhận đã nhận đủ tiền - Confirmed với full payment online*/}
+                          {(order.status?.statusName || order.statusName)?.toLowerCase() === 'confirmed' && 
+                           order.hasFullPayment && 
+                           !order.supplierConfirmedFullPayment &&
+                           !hasCustomerCashConfirmed(order) && (
                             <button
                               onClick={() => handleConfirmFullPayment(order.bookingId)}
                               className="flex items-center gap-1 bg-green-100 text-green-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-green-200 transition-all text-sm"
@@ -616,8 +719,33 @@ const SupplierOrderManagement = () => {
                             </button>
                           )}
                           
-                          {/* Xác nhận nhận lại xe */}
-                          {(['in progress', 'in_progress'].includes((order.statusName || order.status?.statusName || order.status || '').toLowerCase())
+                          {/* Chuẩn bị xe - Confirmed */}
+                          {(order.status?.statusName || order.statusName)?.toLowerCase() === 'confirmed' && 
+                           !order.statusNext && (
+                            <button
+                              onClick={() => handlePrepareCar(order.bookingId)}
+                              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-yellow-200 transition-all text-sm"
+                              title="Đã chuẩn bị xe"
+                            >
+                              <FaCar className="w-4 h-4" />
+                              <span>Đã chuẩn bị xe</span>
+                            </button>
+                          )}
+                          
+                          {/* Giao xe - Ready for pickup */}
+                          {order.statusName === 'ready_for_pickup' && !order.supplierDeliveryConfirm && (
+                            <button
+                              className="flex items-center gap-1 bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-orange-200 transition-all text-sm border-2 border-orange-200"
+                              onClick={() => handleSupplierDeliveryConfirm(order.bookingId)}
+                              title="Đã giao xe cho khách"
+                            >
+                              <FaCar className="w-4 h-4" />
+                              <span>Đã giao xe</span>
+                            </button>
+                          )}
+                          
+                          {/* Xác nhận nhận lại xe - In progress */}
+                          {(['in progress', 'in_progress'].includes((order.statusName || order.status?.statusName || '').toLowerCase())
                             && Boolean(order.customerReturnConfirm)
                             && !Boolean(order.supplierReturnConfirm)) && (
                             <button
@@ -630,29 +758,7 @@ const SupplierOrderManagement = () => {
                             </button>
                           )}
                           
-                          {/* Đã chuẩn bị xe */}
-                          {(order.status?.statusName || order.statusName)?.toLowerCase() === 'confirmed' && (!order.statusNext || order.statusNext !== 'ready_for_pickup') && (
-                            <button
-                              onClick={() => handlePrepareCar(order.bookingId)}
-                              className="flex items-center gap-1 bg-yellow-100 text-yellow-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-yellow-200 transition-all text-sm"
-                              title="Đã chuẩn bị xe"
-                            >
-                              <FaCar className="w-4 h-4" />
-                              <span>Đã chuẩn bị xe</span>
-                            </button>
-                          )}
-                          
-                          {order.statusName === 'ready_for_pickup' && !order.supplierDeliveryConfirm && (
-                            <button
-                              className="flex items-center gap-1 bg-orange-100 text-orange-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-orange-200 transition-all text-sm border-2 border-orange-200"
-                              onClick={() => handleSupplierDeliveryConfirm(order.bookingId)}
-                              title="Đã giao xe cho khách"
-                            >
-                              <FaCar className="w-4 h-4" />
-                              <span>Đã giao xe</span>
-                            </button>
-                          )}
-                          
+                          {/* Button xem thanh toán */}
                           <button
                             className="flex items-center gap-1 bg-purple-100 text-purple-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-purple-200 transition-all text-sm"
                             title="Xem chi tiết thanh toán"
@@ -661,6 +767,23 @@ const SupplierOrderManagement = () => {
                             <FaMoneyCheckAlt className="w-4 h-4" />
                             <span>Thanh toán</span>
                           </button>
+
+                          {/* Button xem báo cáo xe - Hiển thị từ khi delivered trở đi */}
+                          {(['delivered', 'in_progress', 'in progress', 'completed', 'refunded', 'payout'].includes((order.statusName || order.status?.statusName || '').toLowerCase())) && (
+                            <button
+                              className="flex items-center gap-1 bg-teal-100 text-teal-700 px-4 py-2 rounded-xl font-semibold shadow hover:bg-teal-200 transition-all text-sm"
+                              title="Xem/xác nhận báo cáo tình trạng xe"
+                              onClick={() => handleViewCarReports(order)}
+                            >
+                              <i className="fas fa-clipboard-list"></i>
+                              <span>Xem báo cáo xe</span>
+                              {/* Hiển thị badge nếu có báo cáo chưa xác nhận */}
+                              {((order.hasPickupReport && !order.pickupReportConfirmed) || 
+                                (order.hasReturnReport && !order.returnReportConfirmed)) && (
+                                <div className="w-2 h-2 bg-red-500 rounded-full animate-ping ml-1"></div>
+                              )}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -942,17 +1065,37 @@ const SupplierOrderManagement = () => {
         </div>
       )}
       
-      {/* Modal quản lý tiền mặt */}
+      {/* ✅ SỬA: Modal quản lý tiền mặt với highlight */}
       {showCashPaymentModal && (
         <CashPaymentManagementModal 
           isOpen={showCashPaymentModal} 
-          onClose={() => setShowCashPaymentModal(false)} 
+          onClose={() => {
+            setShowCashPaymentModal(false);
+            setHighlightedBookingId(null); // Reset highlight
+          }}
           pendingCashPayments={pendingCashPayments} 
           pendingPlatformFees={pendingPlatformFees}
           totalPendingFees={totalPendingFees}
           loading={cashPaymentLoading}
           onConfirmCashReceived={handleConfirmCashReceived}
           onPayPlatformFee={handlePayPlatformFee}
+          highlightedBookingId={highlightedBookingId} // ✅ THÊM
+        />
+      )}
+
+      {/* Car Condition Report View Modal */}
+      {showReportViewModal && selectedReportBooking && (
+        <CarConditionReportView
+          isOpen={showReportViewModal}
+          onClose={() => {
+            setShowReportViewModal(false);
+            setSelectedReportBooking(null);
+          }}
+          bookingId={selectedReportBooking.bookingId}
+          currentUser={user}
+          onConfirm={() => {
+            fetchOrders();
+          }}
         />
       )}
     </div>

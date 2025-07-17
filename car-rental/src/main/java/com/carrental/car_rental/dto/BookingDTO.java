@@ -24,7 +24,7 @@ public class BookingDTO {
     private CarDTO car;
     private String carLicensePlate;
     private Integer driverId; // Maps to Booking.driver_id
-     private Boolean isSelfDrive;
+    private Boolean isSelfDrive;
     private Integer regionId; // Maps to Booking.region_id
     private LocalDateTime bookingDate; // Maps to Booking.bookingDate
     private String pickupLocation; // Maps to Booking.pickup_location
@@ -62,6 +62,7 @@ public class BookingDTO {
     // private Instant bookingInstant;
     // private Instant createdInstant;
 
+    private BigDecimal totalPaidAmount;
     private String paymentStatus; // "paid", "pending", "failed"
     private String paymentType;   // "deposit", "full_payment", "refund"
     private BigDecimal paymentAmount;
@@ -72,7 +73,7 @@ public class BookingDTO {
     }
     public void setIsSelfDrive(Boolean isSelfDrive) { this.isSelfDrive = isSelfDrive; }
     
-     @JsonProperty("hasRated")
+    @JsonProperty("hasRated")
     private Boolean hasRated; // Computed field - không map từ entity
     
     // getter/setter
@@ -87,7 +88,7 @@ public class BookingDTO {
         this.hasRated = hasRated;
     }
 
-      public boolean canCustomerConfirmDelivery() {
+    public boolean canCustomerConfirmDelivery() {
         return "confirmed".equals(statusName) && 
                Boolean.TRUE.equals(supplierDeliveryConfirm) && 
                !Boolean.TRUE.equals(customerReceiveConfirm) &&
@@ -109,7 +110,7 @@ public class BookingDTO {
                Boolean.TRUE.equals(supplierReturnConfirm);
     }
 
-      public boolean isPaid() {
+    public boolean isPaid() {
         return "paid".equals(paymentStatus);
     }
     
@@ -137,7 +138,7 @@ public class BookingDTO {
         this.hasDeposit = hasDeposit;
     }
 
-     public List<PaymentDTO> getPaymentDetails() {
+    public List<PaymentDTO> getPaymentDetails() {
         return paymentDetails != null ? paymentDetails : new ArrayList<>();
     }
     
@@ -169,9 +170,22 @@ public class BookingDTO {
     
     // ✅ THÊM: Helper để tính tổng đã trả (deposit + full_payment)
     public BigDecimal getTotalPaidAmount() {
-        BigDecimal deposit = getDepositPayment() != null ? getDepositPayment().getAmount() : BigDecimal.ZERO;
-        BigDecimal fullPayment = getFullPayment() != null ? getFullPayment().getAmount() : BigDecimal.ZERO;
-        return deposit.add(fullPayment);
+        if (totalPaidAmount != null) return totalPaidAmount;
+        // Nếu đã full payment, trả về totalAmount
+        if (getHasFullPayment() && getTotalAmount() != null) return getTotalAmount();
+        // Nếu chỉ cọc, trả về số tiền cọc
+        if (getDepositPayment() != null && getDepositPayment().getAmount() != null) return getDepositPayment().getAmount();
+        // Nếu có nhiều payment, cộng lại
+        if (paymentDetails != null && !paymentDetails.isEmpty()) {
+            return paymentDetails.stream()
+                .filter(p -> p.getAmount() != null && ("paid".equals(p.getStatusName()) || "paid".equals(p.getPaymentStatus())))
+                .map(PaymentDTO::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+        return BigDecimal.ZERO;
+    }
+    public void setTotalPaidAmount(BigDecimal totalPaidAmount) {
+        this.totalPaidAmount = totalPaidAmount;
     }
 
     // ✅ THÊM: Trường tổng tiền và breakdown cho API by-payment
@@ -216,4 +230,54 @@ public class BookingDTO {
     public void setRatings(List<RatingDTO> ratings) {
         this.ratings = ratings != null ? ratings : new ArrayList<>();
     }
+
+// Thêm vào BookingDTO:
+private Boolean customerCashPaymentConfirmed = false;
+private Boolean supplierCashPaymentConfirmed = false;
+private Boolean hasCashDepositPending = false;
+
+// Getters and setters
+public Boolean getCustomerCashPaymentConfirmed() {
+    return customerCashPaymentConfirmed;
+}
+
+public void setCustomerCashPaymentConfirmed(Boolean customerCashPaymentConfirmed) {
+    this.customerCashPaymentConfirmed = customerCashPaymentConfirmed;
+}
+
+public Boolean getSupplierCashPaymentConfirmed() {
+    return supplierCashPaymentConfirmed;
+}
+
+public void setSupplierCashPaymentConfirmed(Boolean supplierCashPaymentConfirmed) {
+    this.supplierCashPaymentConfirmed = supplierCashPaymentConfirmed;
+}
+
+public Boolean getHasCashDepositPending() {
+    return hasCashDepositPending;
+}
+
+public void setHasCashDepositPending(Boolean hasCashDepositPending) {
+    this.hasCashDepositPending = hasCashDepositPending;
+}
+
+// Thêm các field cho car condition reports
+private Boolean hasPickupReport = false;
+private Boolean hasReturnReport = false;
+
+public Boolean getHasPickupReport() {
+    return hasPickupReport;
+}
+
+public void setHasPickupReport(Boolean hasPickupReport) {
+    this.hasPickupReport = hasPickupReport;
+}
+
+public Boolean getHasReturnReport() {
+    return hasReturnReport;
+}
+
+public void setHasReturnReport(Boolean hasReturnReport) {
+    this.hasReturnReport = hasReturnReport;
+}
 }

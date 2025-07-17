@@ -1452,10 +1452,31 @@ export const getPendingCashPayments = async () => {
 // Xác nhận đã nhận tiền mặt
 export const confirmCashReceived = async (paymentId, confirmationData) => {
     try {
-        const response = await api.post(`/api/cash-payments/${paymentId}/confirm`, confirmationData);
+        // Sử dụng endpoint đúng với CashPaymentController
+        const response = await api.post(`/api/cash-payments/${paymentId}/confirm-received`, confirmationData);
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Không thể xác nhận nhận tiền mặt');
+    }
+};
+
+// ✅ Customer xác nhận đã thanh toán tiền mặt
+export const customerConfirmCashPickupPayment = async (bookingId) => {
+    const response = await api.post(`/api/cash-payments/bookings/${bookingId}/customer-confirm-cash-pickup`, {
+        customerConfirmedAt: new Date().toISOString(),
+        confirmedBy: getCurrentUserId(),
+        note: "Customer confirmed cash payment for pickup"
+    });
+    return response.data;
+};
+
+// ✅ Supplier xác nhận đã nhận tiền mặt
+export const supplierConfirmCashPickupPayment = async (bookingId, confirmationData) => {
+    try {
+        const response = await api.post(`/api/cash-payments/bookings/${bookingId}/supplier-confirm-cash-pickup`, confirmationData);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể xác nhận nhận tiền mặt từ khách');
     }
 };
 
@@ -1497,4 +1518,411 @@ export const getOverduePlatformFees = async () => {
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Không thể lấy danh sách phí quá hạn');
     }
+};
+
+
+/**
+ * Lấy tất cả tài khoản ngân hàng của user hiện tại
+ */
+export const getMyBankAccounts = async () => {
+    try {
+        const response = await api.get('/api/bank-accounts/my-accounts');
+        return response.data; // <-- ĐÚNG: trả về data thực sự
+    } catch (error) {
+        console.error('Error fetching bank accounts:', error);
+        throw error;
+    }
+};
+
+/**
+ * Lấy tài khoản chính của user
+ */
+export const getMyPrimaryBankAccount = async () => {
+    try {
+        const response = await api.get('/api/bank-accounts/my-primary');
+        return response;
+    } catch (error) {
+        console.error('Error fetching primary bank account:', error);
+        throw error;
+    }
+};
+
+/**
+ * Lấy tài khoản đã xác thực của user
+ */
+export const getMyVerifiedBankAccounts = async () => {
+    try {
+        const response = await api.get('/api/bank-accounts/my-verified');
+        return response;
+    } catch (error) {
+        console.error('Error fetching verified bank accounts:', error);
+        throw error;
+    }
+};
+
+/**
+ * Lấy chi tiết tài khoản ngân hàng theo ID
+ */
+export const getBankAccountById = async (id) => {
+    try {
+        const response = await api.get(`/api/bank-accounts/${id}`);
+        return response;
+    } catch (error) {
+        console.error('Error fetching bank account:', error);
+        throw error;
+    }
+};
+
+/**
+ * Tạo tài khoản ngân hàng mới
+ */
+export const createBankAccount = async (bankAccountData) => {
+    try {
+        const response = await post('/api/bank-accounts', bankAccountData);
+        return response;
+    } catch (error) {
+        console.error('Error creating bank account:', error);
+        throw error;
+    }
+};
+
+/**
+ * Tạo tài khoản ngân hàng đơn giản
+ */
+export const createSimpleBankAccount = async (accountNumber, accountHolderName, bankName, accountType = 'checking', isPrimary = false) => {
+    try {
+        const params = new URLSearchParams({
+            accountNumber,
+            accountHolderName,
+            bankName,
+            accountType,
+            isPrimary: isPrimary.toString()
+        });
+        
+        const response = await post(`/api/bank-accounts/simple?${params}`);
+        return response;
+    } catch (error) {
+        console.error('Error creating simple bank account:', error);
+        throw error;
+    }
+};
+
+/**
+ * Cập nhật tài khoản ngân hàng
+ */
+export const updateBankAccount = async (id, bankAccountData) => {
+    try {
+        const {
+            accountNumber,
+            accountHolderName,
+            bankName,
+            bankBranch,
+            accountType,
+            swiftCode,
+            routingNumber,
+            isPrimary,
+            userId // <-- thêm dòng này
+        } = bankAccountData;
+        const payload = {
+            bankAccountId: id,
+            userId, // <-- thêm dòng này
+            accountNumber,
+            accountHolderName,
+            bankName,
+            bankBranch,
+            accountType,
+            isPrimary
+        };
+        if (swiftCode) payload.swiftCode = swiftCode;
+        if (routingNumber) payload.routingNumber = routingNumber;
+        const response = await api.put(`/api/bank-accounts/${id}`, payload);
+        return response.data;
+    } catch (error) {
+        console.error('Error updating bank account:', error);
+        throw error;
+    }
+};
+
+/**
+ * Đặt tài khoản làm tài khoản chính
+ */
+export const setPrimaryBankAccount = async (id) => {
+    try {
+        const response = await api.put(`/api/bank-accounts/${id}/set-primary`);
+        return response;
+    } catch (error) {
+        console.error('Error setting primary bank account:', error);
+        throw error;
+    }
+};
+
+/**
+ * Bỏ đặt tài khoản chính
+ */
+export const removePrimaryBankAccount = async () => {
+    try {
+        const response = await api.put('/api/bank-accounts/remove-primary');
+        return response;
+    } catch (error) {
+        console.error('Error removing primary bank account:', error);
+        throw error;
+    }
+};
+
+/**
+ * Xóa tài khoản ngân hàng
+ */
+export const deleteBankAccount = async (id) => {
+    try {
+        const response = await api.delete(`/api/bank-accounts/${id}`);
+        return response;
+    } catch (error) {
+        console.error('Error deleting bank account:', error);
+        throw error;
+    }
+};
+
+/**
+ * Kiểm tra tài khoản ngân hàng có tồn tại không
+ */
+export const checkBankAccountExists = async (accountNumber, bankName) => {
+    try {
+        const params = new URLSearchParams({ accountNumber, bankName });
+        const response = await api.get(`/api/bank-accounts/check-exists?${params}`);
+        return response;
+    } catch (error) {
+        console.error('Error checking bank account exists:', error);
+        throw error;
+    }
+};
+
+/**
+ * Lấy thống kê tài khoản ngân hàng của user
+ */
+export const getMyBankAccountStats = async () => {
+    try {
+        const response = await api.get('/api/bank-accounts/my-stats');
+        return response;
+    } catch (error) {
+        console.error('Error fetching bank account stats:', error);
+        throw error;
+    }
+};
+
+// ================== ADMIN ONLY FUNCTIONS ==================
+
+/**
+ * Xác thực tài khoản ngân hàng (Admin only)
+ */
+export const verifyBankAccount = async (id) => {
+    try {
+        const response = await api.put(`/api/bank-accounts/${id}/verify`);
+        return response;
+    } catch (error) {
+        console.error('Error verifying bank account:', error);
+        throw error;
+    }
+};
+
+/**
+ * Xác thực hàng loạt tài khoản ngân hàng (Admin only)
+ */
+export const batchVerifyBankAccounts = async (accountIds) => {
+    try {
+        const response = await api.put('/api/bank-accounts/batch-verify', accountIds);
+        return response;
+    } catch (error) {
+        console.error('Error batch verifying bank accounts:', error);
+        throw error;
+    }
+};
+
+/**
+ * Khôi phục tài khoản đã xóa (Admin only)
+ */
+export const restoreBankAccount = async (id) => {
+    try {
+        const response = await api.put(`/api/bank-accounts/${id}/restore`);
+        return response;
+    } catch (error) {
+        console.error('Error restoring bank account:', error);
+        throw error;
+    }
+};
+
+/**
+ * Tìm kiếm tài khoản ngân hàng (Admin only)
+ */
+export const searchBankAccounts = async (keyword) => {
+    try {
+        const response = await api.get(`/api/bank-accounts/search?keyword=${encodeURIComponent(keyword)}`);
+        return response;
+    } catch (error) {
+        console.error('Error searching bank accounts:', error);
+        throw error;
+    }
+};
+
+/**
+ * Lấy tài khoản theo trạng thái xác thực (Admin only)
+ */
+export const getBankAccountsByVerification = async (isVerified) => {
+    try {
+        const response = await api.get(`/api/bank-accounts/admin/by-verification?isVerified=${isVerified}`);
+        return response;
+    } catch (error) {
+        console.error('Error fetching bank accounts by verification:', error);
+        throw error;
+    }
+};
+
+/**
+ * Lấy tất cả tài khoản với phân trang (Admin only)
+ */
+export const getAllBankAccounts = async (page = 0, size = 10, sortBy = 'createdAt', sortDir = 'desc') => {
+    try {
+        const params = new URLSearchParams({ page, size, sortBy, sortDir });
+        const response = await api.get(`/api/bank-accounts/admin/all?${params}`);
+        return response;
+    } catch (error) {
+        console.error('Error fetching all bank accounts:', error);
+        throw error;
+    }
+};
+
+/**
+ * Lấy thống kê hệ thống (Admin only)
+ */
+export const getSystemBankAccountStats = async () => {
+    try {
+        const response = await api.get('/api/bank-accounts/admin/stats');
+        return response;
+    } catch (error) {
+        console.error('Error fetching system bank account stats:', error);
+        throw error;
+    }
+};
+
+// Thêm vào file api.js
+
+// Car Condition Report APIs
+export const createCarConditionReport = async (bookingId, reportData, images = []) => {
+    const formData = new FormData();
+    
+    // Add booking ID
+    formData.append('bookingId', bookingId);
+    
+    // Add report data
+    Object.keys(reportData).forEach(key => {
+        if (reportData[key] !== null && reportData[key] !== undefined) {
+            formData.append(key, reportData[key]);
+        }
+    });
+    
+    // Add images - extract the file objects from the image objects
+    images.forEach((imageObj, index) => {
+        if (imageObj.file) {
+            formData.append('images', imageObj.file);
+            formData.append('imageTypes', imageObj.type || 'other');
+            formData.append('imageDescriptions', imageObj.description || '');
+        }
+    });
+    
+    const response = await api.post('/api/car-condition-reports', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        }
+    });
+    return response.data;
+};
+
+export const getCarConditionReportByBooking = async (bookingId, reportType) => {
+    const response = await api.get(`/api/car-condition-reports/booking/${bookingId}/type/${reportType}`);
+    return response.data;
+};
+
+export const getCarConditionReportsByBooking = async (bookingId) => {
+    const response = await api.get(`/api/car-condition-reports/booking/${bookingId}`);
+    return response.data;
+};
+
+export const confirmCarConditionReport = async (reportId) => {
+    const response = await api.post(`/api/car-condition-reports/${reportId}/confirm`);
+    return response.data;
+};
+
+export const disputeCarConditionReport = async (reportId, disputeReason = '') => {
+    const response = await api.post(`/api/car-condition-reports/${reportId}/dispute`, {
+        disputeReason
+    });
+    return response.data;
+};
+
+export const updateCarConditionReport = async (reportId, data) => {
+    const response = await api.put(`/api/car-condition-reports/${reportId}`, data);
+    return response.data;
+};
+
+export const deleteCarConditionReport = async (reportId) => {
+    const response = await api.delete(`/api/car-condition-reports/${reportId}`);
+    return response.data;
+};
+
+// Export car condition reports (Admin/Management)
+export const exportCarConditionReports = async (filters = {}) => {
+    try {
+        const response = await api.get('/api/car-condition-reports/export', {
+            params: filters,
+            responseType: 'blob' // Important for file downloads
+        });
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Xuất báo cáo tình trạng xe thất bại');
+    }
+};
+
+// Get all car condition reports (Admin/Management)
+export const getAllCarConditionReports = async (filters = {}) => {
+    try {
+        const response = await api.get('/api/car-condition-reports', {
+            params: filters
+        });
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Lấy danh sách báo cáo tình trạng xe thất bại');
+    }
+};
+
+// Get car condition report statistics (Admin/Management)
+export const getCarConditionReportStats = async () => {
+    try {
+        const response = await api.get('/api/car-condition-reports/stats');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Lấy thống kê báo cáo tình trạng xe thất bại');
+    }
+};
+
+// Get pending car condition reports (Admin/Management)
+export const getPendingCarConditionReports = async () => {
+    try {
+        const response = await api.get('/api/car-condition-reports/pending');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Lấy danh sách báo cáo chờ xử lý thất bại');
+    }
+};
+
+// Helper function to get current user ID
+const getCurrentUserId = () => {
+    // Try multiple ways to get user ID
+    const userId = localStorage.getItem('userId');
+    if (userId) return parseInt(userId);
+    
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.userId) return user.userId;
+    if (user.id) return user.id;
+    
+    // If no user ID found, return null
+    return null;
 };

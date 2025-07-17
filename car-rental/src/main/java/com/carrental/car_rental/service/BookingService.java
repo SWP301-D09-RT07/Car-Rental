@@ -31,6 +31,9 @@ import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
+import jakarta.persistence.EntityNotFoundException;
+import java.util.Objects;
+
 @Service
 public class BookingService {
     private static final Logger logger = LoggerFactory.getLogger(BookingService.class);
@@ -43,13 +46,15 @@ public class BookingService {
     private final DriverRepository driverRepository;
     private final RegionRepository regionRepository;
     private final StatusRepository statusRepository;
-    private final BookingMapper bookingMapper;
     private final BookingFinancialsService financialsService;
     private final PromotionRepository promotionRepository;
     private final PaymentRepository paymentRepository;
     private final RatingRepository ratingRepository;
+    private final CarConditionReportRepository carConditionReportRepository;
+
     private final UserMapper userMapper;
     private final RatingMapper ratingMapper;
+    private final BookingMapper bookingMapper;
 
     private static final int AVAILABLE_STATUS_ID = 11;
     private static final int PENDING_STATUS_ID = 1;
@@ -69,7 +74,10 @@ public class BookingService {
             BookingFinancialsService financialsService,
             PromotionRepository promotionRepository,
             PaymentRepository paymentRepository,
-            RatingRepository ratingRepository, UserMapper userMapper, RatingMapper ratingMapper) {
+            RatingRepository ratingRepository, 
+            UserMapper userMapper, 
+            RatingMapper ratingMapper,
+            CarConditionReportRepository carConditionReportRepository) {
         this.bookingRepository = bookingRepository;
         this.carRepository = carRepository;
         this.insuranceRepository = insuranceRepository;
@@ -85,6 +93,7 @@ public class BookingService {
         this.ratingRepository = ratingRepository;
         this.userMapper = userMapper;
         this.ratingMapper = ratingMapper;
+        this.carConditionReportRepository = carConditionReportRepository;
     }
 
     @Transactional(readOnly = true)
@@ -104,6 +113,7 @@ public class BookingService {
                 booking.getRegion() != null ? booking.getRegion().getRegionName() :
                 (booking.getCar() != null && booking.getCar().getRegion() != null ? booking.getCar().getRegion().getRegionName() : null)
             );
+            enrichWithPaymentInfo(dto, id);
             return dto;
         } catch (Exception e) {
             logger.error("Error fetching booking with id: {}", id, e);
@@ -129,6 +139,7 @@ public class BookingService {
             booking.getRegion() != null ? booking.getRegion().getRegionName() :
             (booking.getCar() != null && booking.getCar().getRegion() != null ? booking.getCar().getRegion().getRegionName() : null)
         );
+        enrichWithPaymentInfo(dto, booking.getId());
         return dto;
     }
 
@@ -175,6 +186,10 @@ public class BookingService {
                 }
                 // ✅ Đảm bảo set payment info cho từng booking
                 loadPaymentInfo(dto, dto.getBookingId());
+                // ✅ Luôn enrich với payment info
+                enrichWithPaymentInfo(dto, dto.getBookingId());
+                // ✅ Enrich với car condition report info
+                enrichWithCarReportInfo(dto, dto.getBookingId());
             });
             return bookingDTOs;
         } catch (Exception e) {
@@ -186,10 +201,15 @@ public class BookingService {
 
     public List<BookingDTO> findByCarId(Integer carId) {
         logger.info("Fetching bookings for carId: {}", carId);
-        return bookingRepository.findByCarIdAndIsDeleted(carId, false)
+        List<BookingDTO> bookingDTOs = bookingRepository.findByCarIdAndIsDeleted(carId, false)
                 .stream()
                 .map(bookingMapper::toDTO)
                 .collect(Collectors.toList());
+        
+        // ✅ Enrich với car condition report info
+        bookingDTOs.forEach(dto -> enrichWithCarReportInfo(dto, dto.getBookingId()));
+        
+        return bookingDTOs;
     }
 
     @Transactional
@@ -447,9 +467,11 @@ public class BookingService {
                 Set<Integer> ratedSet = new HashSet<>(ratedBookingIds);
                 
                 // Set hasRated flag
-                bookingDTOs.forEach(dto -> 
-                    dto.setHasRated(ratedSet.contains(dto.getBookingId()))
-                );
+                bookingDTOs.forEach(dto -> {
+                    dto.setHasRated(ratedSet.contains(dto.getBookingId()));
+                    // ✅ Enrich với car condition report info
+                    enrichWithCarReportInfo(dto, dto.getBookingId());
+                });
             }
             
             return bookingDTOs;
@@ -506,6 +528,12 @@ public BookingDTO findByIdWithDetails(Integer bookingId) {
         dto.setHasRated(hasRated);
         logger.info("✅ Successfully fetched booking details: {}, hasRated: {}, paymentStatus: {}", 
             dto.getBookingId(), hasRated, dto.getPaymentStatus());
+        // ✅ Luôn enrich với payment info
+        enrichWithPaymentInfo(dto, bookingId);
+        
+        // ✅ Enrich với car condition report info
+        enrichWithCarReportInfo(dto, bookingId);
+        
         return dto;
     } catch (Exception e) {
         logger.error("❌ Error fetching booking with id: {}", bookingId, e);
@@ -671,6 +699,8 @@ public BookingDTO confirmReturn(Integer bookingId, Boolean isSupplier) {
 
             // ✅ Load payment info cho từng booking
             loadPaymentInfo(dto, booking.getId());
+            // ✅ SỬA: Luôn set paymentDetails cho từng booking (fix cash paymentDetails missing)
+            dto.setPaymentDetails(getBookingPaymentDetails(booking.getId()));
             
             // ✅ Load hasRated flag
             boolean hasRated = ratingRepository.existsByBookingId(booking.getId());
@@ -690,6 +720,12 @@ public BookingDTO confirmReturn(Integer bookingId, Boolean isSupplier) {
             List<RatingDTO> ratings = ratingRepository.findByBookingIdAndCustomerIdAndIsDeletedFalse(booking.getId(), userId)
                 .stream().map(ratingMapper::toDTO).collect(Collectors.toList());
             dto.setRatings(ratings != null ? ratings : new ArrayList<>());
+
+            // ✅ Luôn enrich với payment info
+            enrichWithPaymentInfo(dto, booking.getId());
+            
+            // ✅ THÊM: Load car condition report info
+            enrichWithCarReportInfo(dto, booking.getId());
 
             return dto;
         }).collect(Collectors.toList());
@@ -969,6 +1005,10 @@ public List<PaymentDTO> getBookingPaymentDetails(Integer bookingId) {
                 dto.setPaymentMethod(payment.getPaymentMethod());
                 dto.setPaymentType(payment.getPaymentType());
                 
+                // ✅ THÊM: Set cash confirmation fields
+                dto.setCustomerCashConfirmed(payment.getCustomerCashConfirmed());
+                dto.setSupplierCashConfirmed(payment.getSupplierCashConfirmed());
+                
                 if (payment.getPaymentDate() != null) {
                     dto.setPaymentDate(LocalDateTime.ofInstant(
                         payment.getPaymentDate(), 
@@ -1019,7 +1059,7 @@ public List<PaymentDTO> getBookingPaymentDetails(Integer bookingId) {
         List<Booking> failedBookings = bookingRepository.findByStatusAndCreatedAtBeforeAndIsDeletedFalse(failedStatus, oneDayAgo);
         for (Booking booking : failedBookings) {
             // Xóa payment liên quan
-            List<Payment> payments = paymentRepository.findByBookingIdAndIsDeletedFalse(booking.getId());
+            List<Payment> payments = paymentRepository.findActivePaymentsByBookingId(booking.getId());
             for (Payment payment : payments) {
                 paymentRepository.delete(payment);
             }
@@ -1044,7 +1084,7 @@ public List<PaymentDTO> getBookingPaymentDetails(Integer bookingId) {
     }
 
     public void deleteAllPaymentsForBooking(Integer bookingId) {
-        List<Payment> payments = paymentRepository.findByBookingIdAndIsDeletedFalse(bookingId);
+        List<Payment> payments = paymentRepository.findActivePaymentsByBookingId(bookingId);
         for (Payment payment : payments) {
             paymentRepository.delete(payment);
         }
@@ -1057,6 +1097,121 @@ public List<PaymentDTO> getBookingPaymentDetails(Integer bookingId) {
 
     public BigDecimal calculateTotalRevenue() {
         return bookingRepository.calculateTotalRevenue();
+    }
+
+     public BookingDTO getBookingDTOWithPaymentInfo(Booking booking) {
+        // Chuyển entity sang DTO
+        BookingDTO dto = bookingMapper.toDTO(booking);
+        
+        // Enrich với payment information
+        enrichWithPaymentInfo(dto, booking.getId());
+        
+        return dto;
+    }
+    
+    /**
+     * Enrich BookingDTO with payment information
+     */
+    private void enrichWithPaymentInfo(BookingDTO dto, Integer bookingId) {
+        List<Payment> payments = paymentRepository.findActivePaymentsByBookingId(bookingId);
+        List<PaymentDTO> paymentDTOs = payments.stream().map(payment -> {
+            PaymentDTO dtoPayment = new PaymentDTO();
+            dtoPayment.setPaymentId(payment.getId());
+            dtoPayment.setBookingId(payment.getBooking().getId());
+            dtoPayment.setAmount(payment.getAmount());
+            dtoPayment.setCurrency(payment.getRegion().getCurrency());
+            dtoPayment.setTransactionId(payment.getTransactionId());
+            dtoPayment.setPaymentMethod(payment.getPaymentMethod());
+            dtoPayment.setPaymentType(payment.getPaymentType());
+            dtoPayment.setPaymentDate(LocalDateTime.ofInstant(payment.getPaymentDate(), ZoneId.systemDefault()));
+            dtoPayment.setStatusName(payment.getPaymentStatus().getStatusName());
+            dtoPayment.setCustomerCashConfirmed(payment.getCustomerCashConfirmed());
+            dtoPayment.setSupplierCashConfirmed(payment.getSupplierCashConfirmed());
+            return dtoPayment;
+        }).toList();
+        dto.setPaymentDetails(paymentDTOs);
+        // Tổng hợp các flag
+        boolean hasFullPayment = paymentDTOs.stream().anyMatch(
+            p -> "full_payment".equals(p.getPaymentType()) && "paid".equals(p.getStatusName())
+        );
+        dto.setHasFullPayment(hasFullPayment);
+
+        boolean customerCashPaymentConfirmed = paymentDTOs.stream().anyMatch(
+            p -> ("deposit".equals(p.getPaymentType()) || "full_payment".equals(p.getPaymentType()))
+                && Boolean.TRUE.equals(p.getCustomerCashConfirmed())
+        );
+        dto.setCustomerCashPaymentConfirmed(customerCashPaymentConfirmed);
+
+        boolean supplierCashPaymentConfirmed = paymentDTOs.stream().anyMatch(
+            p -> "full_payment".equals(p.getPaymentType()) && Boolean.TRUE.equals(p.getSupplierCashConfirmed())
+        );
+        dto.setSupplierCashPaymentConfirmed(supplierCashPaymentConfirmed);
+
+        boolean hasCashDepositPending = paymentDTOs.stream().anyMatch(
+            p -> "deposit".equals(p.getPaymentType()) && "cash".equals(p.getPaymentMethod())
+                && "pending".equals(p.getStatusName()) && !Boolean.TRUE.equals(p.getCustomerCashConfirmed())
+        );
+        dto.setHasCashDepositPending(hasCashDepositPending);
+
+        // Tổng số tiền đã thanh toán
+        BigDecimal totalPaid = paymentDTOs.stream()
+            .filter(p -> "paid".equals(p.getStatusName()))
+            .map(PaymentDTO::getAmount)
+            .filter(Objects::nonNull)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        dto.setTotalPaidAmount(totalPaid);
+        // Nếu đã full payment, set totalPaidAmount = totalAmount
+        if (hasFullPayment && dto.getTotalAmount() != null && dto.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+            dto.setTotalPaidAmount(dto.getTotalAmount());
+        }
+        // Nếu totalAmount chưa có, lấy từ priceBreakdown.total hoặc sum các payment
+        if (dto.getTotalAmount() == null || dto.getTotalAmount().compareTo(BigDecimal.ZERO) == 0) {
+            if (dto.getPriceBreakdown() != null && dto.getPriceBreakdown().getTotal() != null) {
+                dto.setTotalAmount(dto.getPriceBreakdown().getTotal());
+            } else {
+                BigDecimal sum = paymentDTOs.stream().map(PaymentDTO::getAmount).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+                dto.setTotalAmount(sum);
+            }
+        }
+        // Set paymentStatus, paymentType cho booking
+        if (hasFullPayment) {
+            dto.setPaymentStatus("paid");
+            dto.setPaymentType("full_payment");
+        } else if (customerCashPaymentConfirmed) { // Use customerCashPaymentConfirmed
+            dto.setPaymentStatus("deposit_paid");
+            dto.setPaymentType("deposit");
+        } else {
+            dto.setPaymentStatus("pending");
+            dto.setPaymentType(null);
+        }
+    }
+
+    /**
+     * Enrich BookingDTO with car condition report information
+     */
+    private void enrichWithCarReportInfo(BookingDTO dto, Integer bookingId) {
+        try {
+            Long bookingIdLong = bookingId.longValue();
+            
+            // Check if pickup report exists
+            Optional<CarConditionReport> pickupReport = carConditionReportRepository
+                .findByBookingAndType(bookingIdLong, CarConditionReport.ReportType.PICKUP);
+            dto.setHasPickupReport(pickupReport.isPresent());
+            
+            // Check if return report exists  
+            Optional<CarConditionReport> returnReport = carConditionReportRepository
+                .findByBookingAndType(bookingIdLong, CarConditionReport.ReportType.RETURN);
+            dto.setHasReturnReport(returnReport.isPresent());
+            
+            logger.debug("🔍 Booking {} - hasPickupReport: {}, hasReturnReport: {}", 
+                bookingId, dto.getHasPickupReport(), dto.getHasReturnReport());
+                
+        } catch (Exception e) {
+            logger.error("❌ Error enriching car report info for booking {}: {}", bookingId, e.getMessage());
+            // Set default values if error occurs
+            dto.setHasPickupReport(false);
+            dto.setHasReturnReport(false);
+        }
     }
 
 }

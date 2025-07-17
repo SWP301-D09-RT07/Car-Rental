@@ -14,7 +14,9 @@ import java.util.Optional;
 
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Integer> {
-    List<Payment> findByBookingIdAndIsDeletedFalse(Integer bookingId);
+
+    @Query("SELECT p FROM Payment p WHERE p.booking.id = :bookingId AND p.isDeleted = false")
+    List<Payment> findActivePaymentsByBookingId(@Param("bookingId") Integer bookingId);
     Optional<Payment> findByTransactionIdAndIsDeletedFalse(String transactionId);
 
      @Query("SELECT p FROM Payment p WHERE p.booking.id = :bookingId AND p.isDeleted = false")
@@ -67,4 +69,30 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
 
     @Query("SELECT SUM(p.amount) FROM Payment p WHERE p.booking.car.supplier = :supplier AND p.paymentType = 'payout' AND p.isDeleted = false AND p.paymentDate >= :start AND p.paymentDate <= :end")
     BigDecimal sumMonthlyPayoutBySupplier(@Param("supplier") User supplier, @Param("start") Instant start, @Param("end") Instant end);
+
+
+    // Thêm vào PaymentRepository:
+    // ✅ THÊM MỚI: Method cho cash payment management
+    @Query("SELECT p FROM Payment p WHERE p.booking.id = :bookingId AND p.isDeleted = false")
+    List<Payment> findAllPaymentsByBookingId(@Param("bookingId") Integer bookingId);
+    
+    @Query("SELECT p FROM Payment p WHERE p.booking.id = :bookingId AND p.paymentMethod = :paymentMethod AND p.paymentType = :paymentType AND p.isDeleted = false")
+    Optional<Payment> findByBookingIdAndPaymentMethodAndType(
+        @Param("bookingId") Integer bookingId, 
+        @Param("paymentMethod") String paymentMethod,
+        @Param("paymentType") String paymentType
+    );
+    
+    @Query("SELECT p FROM Payment p WHERE p.booking.id = :bookingId AND p.paymentMethod = :paymentMethod AND p.isDeleted = false")
+    Optional<Payment> findByBookingIdAndPaymentMethod(
+        @Param("bookingId") Integer bookingId, 
+        @Param("paymentMethod") String paymentMethod
+    );
+    
+    // ✅ THÊM: Method để tìm cash payments cần confirmation
+    @Query("SELECT p FROM Payment p WHERE p.paymentMethod = 'cash' AND p.paymentType = 'deposit' AND p.customerCashConfirmed = true AND p.supplierCashConfirmed = false AND p.isDeleted = false")
+    List<Payment> findPendingSupplierCashConfirmations();
+    
+    @Query("SELECT p FROM Payment p WHERE p.paymentMethod = 'cash' AND p.customerCashConfirmed = false AND p.isDeleted = false")
+    List<Payment> findPendingCustomerCashConfirmations();
 }

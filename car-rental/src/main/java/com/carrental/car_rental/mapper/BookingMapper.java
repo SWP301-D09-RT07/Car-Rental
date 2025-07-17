@@ -149,7 +149,6 @@ public interface BookingMapper {
     @Mapping(target = "isSelfDrive", ignore = true)
     @Mapping(target = "paymentAmount", ignore = true)
     @Mapping(target = "paymentDate", ignore = true)
-    @Mapping(target = "paymentDetails", ignore = true)
     @Mapping(target = "paymentStatus", ignore = true)
     @Mapping(target = "paymentType", ignore = true)
     @Mapping(target = "payoutStatus", ignore = true)
@@ -160,6 +159,8 @@ public interface BookingMapper {
     @Mapping(target = "regionName", ignore = true)
     @Mapping(target = "supplierConfirmedFullPayment", ignore = true)
     @Mapping(target = "totalAmount", ignore = true)
+    @Mapping(target = "totalPaidAmount", ignore = true)
+    @Mapping(target = "paymentDetails", ignore = true)
     BookingDTO toDTO(Booking entity);
 
     @Mapping(source = "bookingId", target = "id")
@@ -194,4 +195,6 @@ public interface BookingMapper {
     default Instant localDateTimeToInstant(LocalDateTime localDateTime) {
         return localDateTime != null ? localDateTime.atZone(ZoneId.systemDefault()).toInstant() : null;
     }
+
+    
 }

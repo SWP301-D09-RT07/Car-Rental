@@ -12,6 +12,8 @@ public interface PaymentMapper {
     @Mapping(target = "statusName", source = "paymentStatus.statusName")
     @Mapping(target = "paymentDate", expression = "java(entity.getPaymentDate() != null ? entity.getPaymentDate().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime() : null)")
     @Mapping(target = "paymentType", source = "paymentType")
+    @Mapping(target = "customerCashConfirmed", source = "customerCashConfirmed", defaultValue = "false")
+    @Mapping(target = "supplierCashConfirmed", source = "supplierCashConfirmed", defaultValue = "false")
     PaymentDTO toDTO(Payment entity);
 
     @Mapping(target = "booking", ignore = true)
@@ -19,5 +21,7 @@ public interface PaymentMapper {
     @Mapping(target = "paymentStatus", ignore = true)
     @Mapping(target = "paymentDate", expression = "java(dto.getPaymentDate() != null ? java.time.Instant.from(dto.getPaymentDate().atZone(java.time.ZoneId.systemDefault())) : null)")
     @Mapping(target = "paymentType", source = "paymentType")
+    @Mapping(target = "customerCashConfirmed", source = "customerCashConfirmed")
+    @Mapping(target = "supplierCashConfirmed", source = "supplierCashConfirmed")
     Payment toEntity(PaymentDTO dto);
 }

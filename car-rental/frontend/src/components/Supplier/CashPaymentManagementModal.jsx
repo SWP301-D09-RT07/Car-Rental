@@ -45,6 +45,38 @@ const CashPaymentManagementModal = ({
     }).format(amount);
   };
 
+  // Trong SupplierOrderManagement component, cập nhật handleConfirmCashReceived:
+
+const handleConfirmCashReceived = async (paymentId, confirmationData) => {
+    try {
+        setCashPaymentLoading(true);
+        
+        // Sử dụng API hiện tại
+        await confirmCashReceived(paymentId, confirmationData);
+        
+        // Refresh data
+        await fetchCashPaymentData();
+        await fetchOrders();
+        
+        toast.success('Đã xác nhận nhận tiền mặt thành công');
+    } catch (error) {
+        toast.error(error.message || 'Không thể xác nhận nhận tiền mặt');
+    } finally {
+        setCashPaymentLoading(false);
+    }
+};
+
+// Thêm handler cho supplier confirm cash pickup:
+const handleSupplierConfirmCashPickup = async (bookingId) => {
+    try {
+        await supplierConfirmCashPickupPayment(bookingId);
+        toast.success('Đã xác nhận nhận tiền mặt, đơn hàng chuyển sang đang thực hiện');
+        await fetchOrders();
+    } catch (error) {
+        toast.error(error.message || 'Không thể xác nhận nhận tiền mặt');
+    }
+};
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('vi-VN', {
       year: 'numeric',

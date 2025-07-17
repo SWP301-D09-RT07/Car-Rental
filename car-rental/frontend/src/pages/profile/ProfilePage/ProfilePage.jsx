@@ -29,6 +29,9 @@ import { toast } from 'react-toastify';
 import './ProfilePage.scss';
 import RetryPaymentHandler from '@/components/features/payments/RetryPaymentHandler';
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
+import BankAccountManager from '@/components/BankAccount/BankAccountManager'; // ✅ Đúng path mới
+import CarConditionReportModal from '@/components/CarConditionReport/CarConditionReportModal';
+import CustomerCarConditionReportView from '@/components/CarConditionReport/CustomerCarConditionReportView';
 
 const StarRating = ({
     rating = 0,
@@ -156,32 +159,80 @@ const ProfilePage = () => {
     // Thêm state cho modal đặt lại xe
     const [showRebookModal, setShowRebookModal] = useState(false);
     const [rebookCarData, setRebookCarData] = useState(null);
+    const [showReportModal, setShowReportModal] = useState(false);
+    const [showReportViewModal, setShowReportViewModal] = useState(false);
+    const [reportModalData, setReportModalData] = useState(null);
     console.log('🔍 ProfilePage render - authUser:', authUser, 'user:', user, 'loading:', loading);
-   
 
-    const canCustomerConfirmReturn = (booking) => {
-        return booking.statusName === 'in progress' &&
-            !booking.customerReturnConfirm;
-    };
-    // ✅ THÊM: Helper để check cần thanh toán tiền nhận xe
-    const needsPickupPayment = (booking) => {
-        return booking.statusName === 'confirmed' &&
-            booking.paymentStatus === 'paid' &&
-            booking.hasDeposit && // Đã có deposit
-            !booking.hasFullPayment; // Chưa có full payment
-    };
-    // ✅ THÊM: Helper để check chờ nhận xe
-    const waitingForPickup = (booking) => {
-        return booking.statusName === 'confirmed' &&
-            booking.paymentStatus === 'paid' &&
-            booking.hasFullPayment && // Đã có full payment
-            !booking.supplierDeliveryConfirm; // Supplier chưa giao xe
-    };
+
+    // ✅ SỬA: Helper để check cash deposit pending
+const hasCashDepositPending = (booking) => {
+    return booking.paymentDetails?.some(p => 
+        p.paymentMethod === 'cash' && 
+        p.paymentType === 'deposit' && 
+        p.paymentStatus === 'pending'
+    );
+};
+
+// ✅ THÊM: Helper để check có cash full payment chưa
+const hasCashFullPayment = (booking) => {
+    // Nếu backend trả về hasFullPayment (true khi đã thanh toán đủ bằng bất kỳ phương thức nào)
+    // và booking có paymentType là 'full_payment' và paymentMethod là 'cash' (nếu có)
+    // hoặc có thể chỉ cần hasFullPayment nếu backend đã chuẩn hóa
+    return booking.hasFullPayment === true;
+};
+
+// ✅ SỬA: Helper để check cần customer confirm cash payment
+const needsCashPickupConfirmation = (booking) => {
+    return booking.statusName === 'delivered' &&
+        booking.paymentDetails?.some(p =>
+            (p.paymentType === 'deposit' || p.paymentType === 'full_payment') &&
+            p.paymentMethod === 'cash' &&
+            p.paymentStatus === 'pending' &&
+            !p.customerCashConfirmed
+        );
+};
+
+// ✅ THÊM: Helper để check đang chờ supplier confirm cash payment  
+const waitingForSupplierCashConfirmation = (booking) => {
+    return booking.statusName === 'delivered' &&
+        booking.paymentDetails?.some(p =>
+            (p.paymentType === 'deposit' || p.paymentType === 'full_payment') &&
+            p.paymentMethod === 'cash' &&
+            p.paymentStatus === 'pending' &&
+            p.customerCashConfirmed &&
+            !p.supplierCashConfirmed
+        );
+};
+
+// ✅ SỬA: Helper để check cần thanh toán pickup (cho online payment)
+const needsPickupPayment = (booking) => {
+    // Chỉ áp dụng cho online payment
+    const hasOnlineDeposit = booking.paymentDetails?.some(p => 
+        p.paymentMethod !== 'cash' && 
+        p.paymentType === 'deposit' && 
+        p.paymentStatus === 'paid'
+    );
+    
+    return booking.statusName === 'confirmed' &&
+        hasOnlineDeposit &&
+        booking.hasDeposit && // Đã có deposit
+        !booking.hasFullPayment; // Chưa có full payment
+};
+
+// ✅ SỬA: Cập nhật helper waitingForPickup
+const waitingForPickup = (booking) => {
+    return booking.statusName === 'delivered' &&
+        (booking.hasFullPayment || 
+         hasCashFullPayment(booking) || 
+         booking.supplierCashPaymentConfirmed) && // Đã có payment hoặc supplier đã confirm cash
+        !booking.customerReceiveConfirm; // Customer chưa nhận xe
+};
     const canCustomerConfirmDelivery = (booking) => {
-        return booking.statusName === 'confirmed' &&
-            booking.paymentStatus === 'paid' &&
-            booking.hasFullPayment && // Đã có full payment
-            booking.supplierDeliveryConfirm && // Supplier đã xác nhận giao xe
+        return booking.statusName === 'delivered' &&
+            (booking.hasFullPayment || 
+             hasCashFullPayment(booking) || 
+             booking.supplierCashPaymentConfirmed) && // Đã có payment hoặc supplier đã confirm cash
             !booking.customerReceiveConfirm; // Customer chưa nhận xe
     };
     const COLLATERAL_AMOUNT = 5000000;
@@ -730,10 +781,24 @@ const handleCancelBooking = async (bookingId) => {
 
     // Set activeTab from navigation state if provided
     useEffect(() => {
+        // Check URL params for tab
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        if (tabParam && ['account', 'bookings', 'banking', 'favorites', 'security'].includes(tabParam)) {
+            setActiveTab(tabParam);
+        }
+        // Set activeTab from navigation state if provided
         if (location && location.state && location.state.activeTab) {
             setActiveTab(location.state.activeTab);
         }
     }, [location]);
+
+    // Update URL when tab changes
+    useEffect(() => {
+        const url = new URL(window.location);
+        url.searchParams.set('tab', activeTab);
+        window.history.replaceState({}, '', url);
+    }, [activeTab]);
 
     // Show loading state
     if (loading) {
@@ -946,6 +1011,7 @@ const handleCancelBooking = async (bookingId) => {
                 {/* Booking List */}
                 <div className="space-y-4">
                     {bookings.map((booking, index) => {
+                        console.log('Booking:', booking);
                         const statusInfo = getStatusInfo(booking);
 
                         return (
@@ -1036,7 +1102,59 @@ const handleCancelBooking = async (bookingId) => {
 
                                         {/* Actions */}
                                         <div className="flex flex-wrap gap-2">
-                                            {booking.statusName === 'in progress' && !booking.customerReturnConfirm && (
+                                            {/* Cash Payment Confirmation - Ưu tiên cao nhất */}
+                                            {needsCashPickupConfirmation(booking) && (
+                                                <button
+                                                    className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCustomerConfirmCashPickup(booking);
+                                                    }}
+                                                >
+                                                    <i className="fas fa-money-bill-wave"></i>
+                                                    Xác nhận đã trả tiền mặt
+                                                </button>
+                                            )}
+
+                                            {/* Chờ supplier xác nhận cash payment */}
+                                            {waitingForSupplierCashConfirmation(booking) && (
+                                                <div className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+                                                    <i className="fas fa-clock"></i>
+                                                    Chờ supplier xác nhận tiền mặt
+                                                </div>
+                                            )}
+
+                                            {/* Online Payment for Pickup */}
+                                            {needsPickupPayment(booking) && (
+                                                <button
+                                                    className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handlePickupPayment(booking);
+                                                    }}
+                                                >
+                                                    <i className="fas fa-credit-card"></i>
+                                                    Thanh toán nhận xe
+                                                </button>
+                                            )}
+
+                                            {/* Confirm Delivery - Sau khi đã thanh toán (online hoặc cash) */}
+                                            {(booking.statusName === 'delivered' && 
+                                              (booking.hasFullPayment || (hasCashFullPayment(booking) || booking.supplierCashPaymentConfirmed)) && 
+                                              !booking.customerReceiveConfirm) && (
+                                                <button
+                                                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleConfirmDelivery(booking.bookingId);
+                                                    }}
+                                                >
+                                                    <i className="fas fa-check-circle"></i>
+                                                    Đã nhận xe
+                                                </button>
+                                            )}
+
+                                            {booking.statusName === 'in progress' && booking.hasReturnReport && !booking.customerReturnConfirm && (
                                                 <button
                                                     className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                                                     onClick={(e) => {
@@ -1137,20 +1255,65 @@ const handleCancelBooking = async (bookingId) => {
                                                     Thanh toán nhận xe
                                                 </button>
                                             )}
-                                            
-                                            {booking.statusName === 'delivered' && booking.hasFullPayment && !booking.customerReceiveConfirm && (
+                                            {/* Car Condition Report Actions */}
+                                            {canCreatePickupReport(booking) && (
                                                 <button
-                                                    className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleConfirmDelivery(booking.bookingId);
+                                                        handleCreateReport(booking, 'pickup');
                                                     }}
                                                 >
-                                                    <i className="fas fa-check-circle"></i>
-                                                    Đã nhận xe
+                                                    <i className="fas fa-clipboard-check"></i>
+                                                    Báo cáo nhận xe
+                                                </button>
+                                            )}
+                                            {canCreateReturnReport(booking) && (
+                                                <button
+                                                    className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCreateReport(booking, 'return');
+                                                    }}
+                                                >
+                                                    <i className="fas fa-clipboard-check"></i>
+                                                    Báo cáo trả xe
+                                                </button>
+                                            )}
+                                            {canViewReports(booking) && (
+                                                <button
+                                                    className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleViewReports(booking);
+                                                    }}
+                                                >
+                                                    <i className="fas fa-eye"></i>
+                                                    Xem báo cáo
                                                 </button>
                                             )}
                                         </div>
+                                        
+                                        {/* Report Status Notice */}
+                                        {(() => {
+                                            const reportStatus = getReportStatusInfo(booking);
+                                            if (!reportStatus) return null;
+                                            
+                                            const statusColors = {
+                                                warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+                                                info: 'bg-blue-50 border-blue-200 text-blue-800',
+                                                success: 'bg-green-50 border-green-200 text-green-800'
+                                            };
+                                            
+                                            return (
+                                                <div className={`mt-3 p-3 rounded-lg border ${statusColors[reportStatus.type]}`}>
+                                                    <div className="flex items-center gap-2">
+                                                        <i className={`fas ${reportStatus.type === 'warning' ? 'fa-exclamation-triangle' : reportStatus.type === 'info' ? 'fa-info-circle' : 'fa-check-circle'}`}></i>
+                                                        <span className="text-sm font-medium">{reportStatus.message}</span>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Tiến trình booking theo luồng thực tế */}
@@ -1238,7 +1401,11 @@ const handleCancelBooking = async (bookingId) => {
                                                 <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                                                     <div className="text-sm text-blue-800">
                                                         <i className="fas fa-info-circle mr-2"></i>
-                                                        {!booking.hasFullPayment ? 
+                                                        {needsCashPickupConfirmation(booking) ? 
+                                                            "Vui lòng xác nhận đã thanh toán tiền mặt để hoàn tất quá trình nhận xe" :
+                                                            waitingForSupplierCashConfirmation(booking) ?
+                                                            "Đang chờ supplier xác nhận việc nhận tiền mặt" :
+                                                            !booking.hasFullPayment && !hasCashFullPayment(booking) ? 
                                                             "Vui lòng thanh toán phần còn lại để nhận xe" :
                                                             "Xe đã sẵn sàng, vui lòng xác nhận đã nhận xe"
                                                         }
@@ -1517,12 +1684,7 @@ const handleCancelBooking = async (bookingId) => {
 
     // Navigate to cars page
     const handleNavigateToCars = () => {
-        navigate('/cars');
-    };
-
-    // Navigate to booking page
-    const handleNavigateToBooking = () => {
-        navigate('/booking');
+        navigate('/search');
     };
 
     // Helper kiểm tra hoàn tất booking và hoàn cọc
@@ -1541,6 +1703,141 @@ const handleCancelBooking = async (bookingId) => {
       if (!dateStr) return 'N/A';
       const d = new Date(dateStr);
       return d.toLocaleString('vi-VN', { hour12: false });
+    };
+
+    const canCreatePickupReport = (booking) => {
+        // Customer có thể tạo báo cáo nhận xe khi:
+        // 1. Đã nhận xe (customerReceiveConfirm = true) 
+        // 2. Chưa có báo cáo pickup
+        // 3. Status là 'delivered' hoặc 'in_progress' (vừa nhận xe, hoặc vừa chuyển sang in_progress)
+        const normalizedStatus = booking.statusName?.toLowerCase().replace(/\s+/g, '_');
+        return booking.customerReceiveConfirm && 
+               !booking.hasPickupReport &&
+               ['delivered', 'in_progress'].includes(normalizedStatus); // Cho phép cả delivered và in_progress
+    };
+
+    const canCreateReturnReport = (booking) => {
+        // Customer có thể tạo báo cáo trả xe khi:
+        // 1. Status là 'in_progress' (đang thuê xe)
+        // 2. Chưa có báo cáo return (không cần customerReturnConfirm)
+        // 3. Đã có báo cáo pickup và đã được xác nhận
+        const normalizedStatus = booking.statusName?.toLowerCase().replace(/\s+/g, '_');
+        return normalizedStatus === 'in_progress' && 
+               !booking.hasReturnReport &&
+               booking.hasPickupReport; // Phải có báo cáo pickup đã được xác nhận
+    };
+    
+
+    const canViewReports = (booking) => {
+        // Có thể xem báo cáo nếu:
+        // 1. Đã có ít nhất 1 báo cáo được tạo
+        return booking.hasPickupReport || booking.hasReturnReport;
+    };
+
+    // Helper to check if customer needs to create pickup report after receiving car
+    const needsPickupReport = (booking) => {
+        return booking.customerReceiveConfirm && 
+               !booking.hasPickupReport &&
+               booking.statusName?.toLowerCase() === 'delivered';
+    };
+
+    // Helper to check if customer needs to create return report after returning car  
+    const needsReturnReport = (booking) => {
+        return !booking.hasReturnReport &&
+               booking.statusName?.toLowerCase() === 'in_progress' &&
+               booking.hasPickupReport; // Must have pickup report first
+    };
+
+    // Helper to check if customer can confirm return after creating report
+    const canConfirmReturn = (booking) => {
+        return booking.hasReturnReport && 
+               !booking.customerReturnConfirm &&
+               booking.statusName?.toLowerCase() === 'in_progress';
+    };
+
+    // Helper to get report status info
+    const getReportStatusInfo = (booking) => {
+        const status = booking.statusName?.toLowerCase();
+        
+        if (status === 'delivered' && booking.customerReceiveConfirm && !booking.hasPickupReport) {
+            return {
+                message: 'Cần tạo báo cáo nhận xe để tiếp tục',
+                type: 'warning',
+                action: 'create-pickup-report'
+            };
+        }
+        
+        if (status === 'delivered' && booking.hasPickupReport && !booking.pickupReportConfirmed) {
+            return {
+                message: 'Đang chờ chủ xe xác nhận báo cáo nhận xe',
+                type: 'info',
+                action: 'waiting-pickup-confirmation'
+            };
+        }
+        
+        if (status === 'in_progress' && !booking.hasReturnReport) {
+            return {
+                message: 'Cần tạo báo cáo trả xe trước khi trả xe',
+                type: 'warning', 
+                action: 'create-return-report'
+            };
+        }
+        
+        if (status === 'in_progress' && booking.hasReturnReport && !booking.customerReturnConfirm) {
+            return {
+                message: 'Có thể xác nhận trả xe sau khi đã tạo báo cáo',
+                type: 'info',
+                action: 'can-confirm-return'
+            };
+        }
+        
+        if (status === 'in_progress' && booking.hasReturnReport && !booking.returnReportConfirmed) {
+            return {
+                message: 'Đang chờ chủ xe xác nhận báo cáo trả xe',
+                type: 'info',
+                action: 'waiting-return-confirmation'
+            };
+        }
+        
+        return null;
+    };
+
+    const handleCreateReport = (booking, reportType) => {
+        setReportModalData({ booking, reportType });
+        setShowReportModal(true);
+    };
+
+    const handleViewReports = (booking) => {
+        setReportModalData({ booking });
+        setShowReportViewModal(true);
+    };
+
+    const handleReportSuccess = () => {
+        fetchBookings(); // Refresh để cập nhật trạng thái
+    };
+
+    // ✅ THÊM: Handle customer confirm cash pickup payment
+    const handleCustomerConfirmCashPickup = async (booking) => {
+        if (!window.confirm('Bạn xác nhận đã thanh toán tiền mặt cho việc nhận xe?')) {
+            return;
+        }
+
+        try {
+            const response = await post(`/api/cash-payments/bookings/${booking.bookingId}/customer-confirm-cash-pickup`, {
+                confirmedAt: new Date().toISOString(),
+                note: 'Customer confirmed cash payment for pickup'
+            });
+
+            if (response.success) {
+                toast.success('Xác nhận thanh toán tiền mặt thành công!');
+                await fetchBookings(); // Refresh danh sách
+            } else {
+                throw new Error(response.error || 'Không thể xác nhận thanh toán tiền mặt');
+            }
+        } catch (error) {
+            console.error('❌ Confirm cash pickup error:', error);
+            toast.error(error.message || 'Không thể xác nhận thanh toán tiền mặt');
+        }
     };
 
     return (
@@ -1695,6 +1992,14 @@ const handleCancelBooking = async (bookingId) => {
                             {bookings.length > 0 && (
                                 <div className="notification-dot">{bookings.length}</div>
                             )}
+                        </button>
+                        {/* ✅ TAB BANKING */}
+                        <button 
+                            className={`nav-tab ${activeTab === 'banking' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('banking')}
+                        >
+                            <i className="fas fa-university"></i>
+                            <span>Tài khoản ngân hàng</span>
                         </button>
                         <button 
                             className={`nav-tab ${activeTab === 'favorites' ? 'active' : ''}`}
@@ -1919,7 +2224,20 @@ const handleCancelBooking = async (bookingId) => {
                                 {renderBookingHistory()}
                             </>
                         )}
-
+                        {/* ✅ TAB BANKING CONTENT */}
+                        {activeTab === 'banking' && (
+                            <>
+                                <div className="content-header">
+                                    <div>
+                                        <h2>Tài khoản ngân hàng</h2>
+                                        <p className="subtitle">Quản lý thông tin thanh toán và tài khoản ngân hàng của bạn</p>
+                                    </div>
+                                </div>
+                                <div className="banking-section">
+                                    <BankAccountManager />
+                                </div>
+                            </>
+                        )}
                         {activeTab === 'favorites' && (
                             <>
                                 <div className="content-header">
@@ -1931,7 +2249,6 @@ const handleCancelBooking = async (bookingId) => {
                                 {renderFavorites()}
                             </>
                         )}
-
                         {activeTab === 'security' && (
                             <>
                                 <div className="content-header">
@@ -2407,10 +2724,36 @@ const handleCancelBooking = async (bookingId) => {
                 />
               </>
             )}
+            {/* Car Condition Report Modals */}
+            {showReportModal && reportModalData && (
+                <CarConditionReportModal
+                    isOpen={showReportModal}
+                    onClose={() => {
+                        setShowReportModal(false);
+                        setReportModalData(null);
+                    }}
+                    booking={reportModalData.booking}
+                    reportType={reportModalData.reportType}
+                    currentUser={user}
+                    onSuccess={handleReportSuccess}
+                />
+            )}
+
+            {showReportViewModal && reportModalData && (
+                <CustomerCarConditionReportView
+                    isOpen={showReportViewModal}
+                    onClose={() => {
+                        setShowReportViewModal(false);
+                        setReportModalData(null);
+                    }}
+                    bookingId={reportModalData.booking.bookingId}
+                />
+            )}
         </div>
     );
-};
 
+} // Đóng component ProfilePage đúng chuẩn
+export default ProfilePage;
 // PaymentModal component
 const PaymentModal = ({ data, onClose, onPayment }) => {
     const [paymentMethod, setPaymentMethod] = useState('');
@@ -2494,4 +2837,3 @@ const PaymentModal = ({ data, onClose, onPayment }) => {
         </div>
     );
 };
-export default ProfilePage;

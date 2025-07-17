@@ -61,4 +61,15 @@ public class Payment {
     @Column(name = "payment_type", length = 20, nullable = false)
     private String paymentType; // "deposit", "full_payment", "refund"
 
+    @Column(name = "customer_cash_confirmed")
+    private Boolean customerCashConfirmed = false;
+
+    @Column(name = "customer_cash_confirmed_at")
+    private Instant customerCashConfirmedAt;
+
+    @Column(name = "supplier_cash_confirmed")
+    private Boolean supplierCashConfirmed = false;
+
+    @Column(name = "supplier_cash_confirmed_at")
+    private Instant supplierCashConfirmedAt;
 }

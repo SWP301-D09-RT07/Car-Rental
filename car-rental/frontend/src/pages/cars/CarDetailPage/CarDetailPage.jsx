@@ -766,7 +766,7 @@ const CarDetailPage = () => {
 
                   <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
                     <FaMapMarkerAlt className="mr-2 text-red-500" />
-                    <span className="font-medium">{car.location || "TP. Hồ Chí Minh"}</span>
+                    <span className="font-medium">{car.regionName || car.region?.regionName || "TP. Hồ Chí Minh"}</span>
                   </div>
                   <div className="flex items-center bg-white rounded-2xl px-6 py-4 shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300">
                     <FaThumbsUp className="mr-3 text-green-500 text-xl" />

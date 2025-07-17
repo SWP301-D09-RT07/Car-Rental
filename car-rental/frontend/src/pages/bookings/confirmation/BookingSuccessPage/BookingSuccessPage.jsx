@@ -524,73 +524,24 @@ const BookingSuccessPage = () => {
             </div>
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Không tìm thấy thông tin</h1>
             <p className="text-xl text-gray-600 mb-8">{error}</p>
-            
             <div className="bg-gray-100 rounded-xl p-4 mb-8 text-left text-sm">
-              <h3 className="font-bold mb-2">Thông tin debug:</h3>
+              <h3 className="font-bold mb-2">Thông tin thanh toán:</h3>
               <div className="space-y-1">
                 <p><strong>Payment ID:</strong> {paymentId || 'Không có'}</p>
                 <p><strong>Booking ID:</strong> {bookingId || 'Không có'}</p>
                 <p><strong>Transaction Ref:</strong> {searchParams.get("txn_ref") || 'Không có'}</p>
                 <p><strong>Order Info Booking ID:</strong> {orderInfoBookingId || 'Không có'}</p>
-                <p><strong>Detected Payment Method:</strong> {detectedPaymentMethod || 'Không xác định'}</p>
-                
-                {/* Payment Info Debug */}
+                <p><strong>Phương thức thanh toán:</strong> {paymentInfo.paymentMethod ? (paymentInfo.paymentMethod === 'vnpay' ? 'VNPay' : paymentInfo.paymentMethod === 'momo' ? 'MoMo' : paymentInfo.paymentMethod === 'cash' ? 'Tiền mặt' : paymentInfo.paymentMethod) : 'Không xác định'}</p>
                 <div className="mt-3 pt-3 border-t border-gray-300">
-                  <p className="font-semibold">Payment Info:</p>
-                  <p><strong>Total Amount:</strong> {paymentInfo.totalAmount.toLocaleString()} VND</p>
-                  <p><strong>Paid Amount:</strong> {paymentInfo.paidAmount.toLocaleString()} VND</p>
-                  <p><strong>Remaining Amount:</strong> {paymentInfo.remainingAmount.toLocaleString()} VND</p>
-                  <p><strong>Final Payment Method:</strong> {paymentInfo.paymentMethod || 'Không có'}</p>
-                  {paymentInfo.depositPayment && (
-                    <p><strong>Deposit Payment:</strong> {Number(paymentInfo.depositPayment.amount).toLocaleString()} VND</p>
-                  )}
-                  {paymentInfo.fullPayment && (
-                    <p><strong>Full Payment:</strong> {Number(paymentInfo.fullPayment.amount).toLocaleString()} VND</p>
-                  )}
+                  <p className="font-semibold">Tổng tiền:</p>
+                  <p>{paymentInfo.totalAmount.toLocaleString()} VND</p>
+                  <p className="font-semibold mt-2">Đã thanh toán:</p>
+                  <p>{paymentInfo.paidAmount.toLocaleString()} VND</p>
+                  <p className="font-semibold mt-2">Còn lại:</p>
+                  <p>{paymentInfo.remainingAmount.toLocaleString()} VND</p>
                 </div>
-                
-                {/* VNPay Info */}
-                <div className="mt-3 pt-3 border-t border-gray-300">
-                  <p className="font-semibold">VNPay Parameters:</p>
-                  <p><strong>vnp_TxnRef:</strong> {vnpTxnRef || 'Không có'}</p>
-                  <p><strong>vnp_ResponseCode:</strong> {vnpayResponseCode || 'Không có'}</p>
-                  <p><strong>vnp_TransactionStatus:</strong> {vnpayTransactionStatus || 'Không có'}</p>
-                  <p><strong>vnp_OrderInfo:</strong> {vnpayOrderInfo || 'Không có'}</p>
-                </div>
-                
-                {/* MoMo Info */}
-                <div className="mt-3 pt-3 border-t border-gray-300">
-                  <p className="font-semibold">MoMo Parameters:</p>
-                  <p><strong>orderId:</strong> {momoOrderId || 'Không có'}</p>
-                  <p><strong>requestId:</strong> {momoRequestId || 'Không có'}</p>
-                  <p><strong>resultCode:</strong> {momoResultCode || 'Không có'}</p>
-                  <p><strong>message:</strong> {momoMessage || 'Không có'}</p>
-                  <p><strong>orderInfo:</strong> {momoOrderInfo || 'Không có'}</p>
-                  <p><strong>transId:</strong> {momoTransId || 'Không có'}</p>
-                </div>
-                
-                <p><strong>Current URL:</strong> {window.location.href}</p>
-                <p><strong>Has State Data:</strong> {stateBookingData ? 'Có' : 'Không'}</p>
               </div>
-              
-              {process.env.NODE_ENV === 'development' && (
-                <div className="mt-4 pt-4 border-t border-gray-300">
-                  <button
-                    onClick={() => {
-                      console.log("🐛 Full Debug Info:", {
-                        searchParams: Object.fromEntries(searchParams),
-                        locationState: location.state,
-                        window: window.location
-                      })
-                    }}
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
-                  >
-                    Log Full Debug Info
-                  </button>
-                </div>
-              )}
             </div>
-            
             <div className="space-y-4">
               <Link
                 to="/"
@@ -599,7 +550,6 @@ const BookingSuccessPage = () => {
                 <FaHome className="mr-3" />
                 Về trang chủ
               </Link>
-              
               <div className="mt-4">
                 <button
                   onClick={() => window.location.reload()}
@@ -608,7 +558,6 @@ const BookingSuccessPage = () => {
                   <FaReceipt className="mr-2" />
                   Thử lại
                 </button>
-                
                 <Link
                   to="/profile?tab=bookings"
                   className="inline-flex items-center px-6 py-3 bg-blue-200 text-blue-700 font-semibold rounded-xl hover:bg-blue-300 transition-all duration-300"
@@ -642,22 +591,12 @@ const BookingSuccessPage = () => {
 
   // Parse payment information từ booking data với enhanced fallback logic
   const getPaymentInfo = () => {
-    // DEBUG: log toàn bộ dữ liệu liên quan payment
-    console.log("[DEBUG][getPaymentInfo] bookingData:", bookingData);
-    console.log("[DEBUG][getPaymentInfo] paymentDetails:", paymentDetails);
-    console.log("[DEBUG][getPaymentInfo] priceBreakdown:", priceBreakdown);
-    console.log("[DEBUG][getPaymentInfo] paymentMethod:", paymentMethod, detectedPaymentMethod);
-    console.log("[DEBUG][getPaymentInfo] totalAmount:", totalAmount, stateTotalAmount, paymentAmount);
-
-    let depositPayment = null;
-    let fullPayment = null;
     let actualPaymentMethod = paymentMethod || detectedPaymentMethod;
     let actualTotalAmount = 0;
     let actualPaidAmount = 0;
 
     // Ưu tiên lấy tổng tiền đúng cho online (vnpay/momo)
     if (actualPaymentMethod === 'vnpay' || actualPaymentMethod === 'momo') {
-      // Ưu tiên priceBreakdown.total > totalAmount > stateTotalAmount > amount
       if (priceBreakdown && priceBreakdown.total && priceBreakdown.total > 0) {
         actualTotalAmount = Number(priceBreakdown.total);
       } else if (totalAmount && totalAmount > 0) {
@@ -669,8 +608,8 @@ const BookingSuccessPage = () => {
       } else if (bookingData?.amount && bookingData.amount > 0) {
         actualTotalAmount = Number(bookingData.amount);
       }
-    } else {
-      // Tiền mặt hoặc khác: giữ logic cũ
+      actualPaidAmount = actualTotalAmount;
+    } else if (actualPaymentMethod === 'cash') {
       if (priceBreakdown && priceBreakdown.total && priceBreakdown.total > 0) {
         actualTotalAmount = Number(priceBreakdown.total);
       } else if (totalAmount && totalAmount > 0) {
@@ -682,47 +621,26 @@ const BookingSuccessPage = () => {
       } else if (bookingData?.amount && bookingData.amount > 0) {
         actualTotalAmount = Number(bookingData.amount);
       }
-    }
-
-    // Nếu có paymentDetails, lấy tổng số tiền đã thanh toán từ các paymentStatus: 'paid'
-    if (paymentDetails && Array.isArray(paymentDetails) && paymentDetails.length > 0) {
-      depositPayment = paymentDetails.find(p => p.paymentType === 'deposit' && p.paymentStatus === 'paid');
-      fullPayment = paymentDetails.find(p => p.paymentType === 'full_payment' && p.paymentStatus === 'paid');
-      // Lấy payment method từ payment gần nhất
-      const latestPayment = paymentDetails
-        .filter(p => p.paymentStatus === 'paid')
-        .sort((a, b) => new Date(b.paymentDate || b.createdAt) - new Date(a.paymentDate || a.createdAt))[0];
-      if (latestPayment?.paymentMethod) {
-        actualPaymentMethod = latestPayment.paymentMethod;
-      }
-      // Tổng số tiền đã thanh toán
-      actualPaidAmount = paymentDetails
-        .filter(p => p.paymentStatus === 'paid')
-        .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      actualPaidAmount = 0;
     } else {
-      // Fallback: không có paymentDetails, dùng paymentAmount hoặc amount
-      if (actualPaymentMethod === 'vnpay' || actualPaymentMethod === 'momo') {
-        // Online: đã thanh toán đủ nếu actualPaidAmount = actualTotalAmount
-        actualPaidAmount = actualTotalAmount;
-      } else {
-        // Tiền mặt: lấy paymentAmount hoặc amount
-        if (paymentAmount && paymentAmount > 0) actualPaidAmount = Number(paymentAmount);
-        else if (bookingData?.amount && bookingData.amount > 0) actualPaidAmount = Number(bookingData.amount);
-        else actualPaidAmount = 0;
+      // fallback: treat as online if unknown
+      if (priceBreakdown && priceBreakdown.total && priceBreakdown.total > 0) {
+        actualTotalAmount = Number(priceBreakdown.total);
+      } else if (totalAmount && totalAmount > 0) {
+        actualTotalAmount = Number(totalAmount);
+      } else if (stateTotalAmount && stateTotalAmount > 0) {
+        actualTotalAmount = Number(stateTotalAmount);
+      } else if (paymentAmount && paymentAmount > 0) {
+        actualTotalAmount = Number(paymentAmount);
+      } else if (bookingData?.amount && bookingData.amount > 0) {
+        actualTotalAmount = Number(bookingData.amount);
       }
+      actualPaidAmount = actualTotalAmount;
     }
 
     const remainingAmount = Math.max(0, actualTotalAmount - actualPaidAmount);
 
-    // DEBUG: log kết quả cuối cùng
-    console.log("[DEBUG][getPaymentInfo] actualTotalAmount:", actualTotalAmount);
-    console.log("[DEBUG][getPaymentInfo] actualPaidAmount:", actualPaidAmount);
-    console.log("[DEBUG][getPaymentInfo] remainingAmount:", remainingAmount);
-    console.log("[DEBUG][getPaymentInfo] actualPaymentMethod:", actualPaymentMethod);
-
     return {
-      depositPayment,
-      fullPayment,
       paidAmount: actualPaidAmount,
       totalAmount: actualTotalAmount,
       remainingAmount,
@@ -793,440 +711,370 @@ const BookingSuccessPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
-      <PageHeader />
-      
-      {/* Confetti Effect */}
-      {showConfetti && (
-        <div className="fixed inset-0 pointer-events-none z-50">
-          {[...Array(50)].map((_, i) => (
-            <div
-              key={i}
-              className={`absolute w-3 h-3 animate-bounce ${
-                i % 4 === 0 ? 'bg-green-500' : 
-                i % 4 === 1 ? 'bg-blue-500' : 
-                i % 4 === 2 ? 'bg-yellow-500' : 'bg-purple-500'
-              } rounded-full`}
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 2}s`,
-                animationDuration: `${2 + Math.random() * 3}s`,
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      <main className="container mx-auto px-4 py-12">
-        {/* Success Header */}
-        <div className="text-center mb-16">
-          <div className="relative">
-            <div className="w-32 h-32 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
-              <FaCheckCircle className="text-6xl text-green-600 animate-bounce" />
-            </div>
-            <div className="absolute -top-4 -right-4 w-8 h-8 bg-yellow-400 rounded-full animate-ping"></div>
-            <div className="absolute -bottom-4 -left-4 w-6 h-6 bg-blue-400 rounded-full animate-bounce"></div>
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
+        <PageHeader />
+        
+        {/* Confetti Effect */}
+        {showConfetti && (
+          <div className="fixed inset-0 pointer-events-none z-50">
+            {[...Array(50)].map((_, i) => (
+              <div
+                key={i}
+                className={`absolute w-3 h-3 animate-bounce ${
+                  i % 4 === 0 ? 'bg-green-500' : 
+                  i % 4 === 1 ? 'bg-blue-500' : 
+                  i % 4 === 2 ? 'bg-yellow-500' : 'bg-purple-500'
+                } rounded-full`}
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 2}s`,
+                  animationDuration: `${2 + Math.random() * 3}s`,
+                }}
+              />
+            ))}
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
-            Đặt xe thành công!
-          </h1>
-          <p className="text-2xl text-gray-700 mb-4">
-            Cảm ơn bạn đã chọn <span className="font-bold text-blue-600">DriveLuxe</span>
-          </p>
-          <p className="text-lg text-gray-600">
-            Thông tin xác nhận đã được gửi đến email của bạn
-          </p>
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto items-start">
-          {/* Left Column - Booking Details */}
-          <div className="lg:col-span-2 space-y-8">
-            
-            {/* Booking Information Card */}
-            <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100 h-fit">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mr-4">
-                  <FaFileAlt className="text-2xl text-blue-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Thông tin đặt xe</h2>
+        <main className="container mx-auto px-4 py-12">
+          {/* Success Header */}
+          <div className="text-center mb-16">
+            <div className="relative">
+              <div className="w-32 h-32 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+                <FaCheckCircle className="text-6xl text-green-600 animate-bounce" />
               </div>
+              <div className="absolute -top-4 -right-4 w-8 h-8 bg-yellow-400 rounded-full animate-ping"></div>
+              <div className="absolute -bottom-4 -left-4 w-6 h-6 bg-blue-400 rounded-full animate-bounce"></div>
+            </div>
+            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
+              Đặt xe thành công!
+            </h1>
+            <p className="text-2xl text-gray-700 mb-4">
+              Cảm ơn bạn đã chọn <span className="font-bold text-blue-600">DriveLuxe</span>
+            </p>
+            <p className="text-lg text-gray-600">
+              Thông tin xác nhận đã được gửi đến email của bạn
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto items-start">
+            {/* Left Column - Booking Details */}
+            <div className="lg:col-span-2 space-y-8">
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
-                    <FaClipboardList className="text-blue-600 mr-3" />
+              {/* Booking Information Card */}
+              <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100 h-fit">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mr-4">
+                    <FaFileAlt className="text-2xl text-blue-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">Thông tin đặt xe</h2>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+                      <FaClipboardList className="text-blue-600 mr-3" />
+                      <div>
+                        <p className="text-sm text-gray-600">Mã đặt xe</p>
+                        <p className="font-bold text-gray-900">#{bookingId}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
+                      <FaCalendarAlt className="text-green-600 mr-3" />
+                      <div>
+                        <p className="text-sm text-gray-600">Thời gian thuê</p>
+                        <p className="font-bold text-gray-900">{rentalDays} ngày</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl">
+                      <FaReceipt className="text-yellow-600 mr-3" />
+                      <div>
+                        <p className="text-sm text-gray-600">Mã thanh toán</p>
+                        <p className="font-bold text-gray-900">#{paymentId || 'Đang cập nhật'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
+                      <FaThumbsUp className="text-purple-600 mr-3" />
+                      <div>
+                        <p className="text-sm text-gray-600">Trạng thái</p>
+                        <p className="font-bold text-green-600">Đã xác nhận</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Car Information Card */}
+              <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100 h-fit">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center mr-4">
+                    <FaCar className="text-2xl text-purple-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">Thông tin xe</h2>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-sm text-gray-600">Mã đặt xe</p>
-                      <p className="font-bold text-gray-900">#{bookingId}</p>
+                      <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                        {carInfo.model || carInfo.name || carInfo.carModel || 'Thông tin xe đang được cập nhật'}
+                      </h3>
+                      <p className="text-gray-600">
+                        {carInfo.brandName || carInfo.brand?.brandName || carInfo.brand?.name || carInfo.brand || 'Thương hiệu'} 
+                        {carInfo.year && ` - ${carInfo.year}`}
+                        
+                      </p>
+                      {carInfo.describe && (
+                        <p className="text-sm text-gray-500 mt-2">{carInfo.describe}</p>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-4">
+                        <FaParking className="text-blue-600 mb-2" />
+                        <p className="text-sm text-gray-600 mb-1">Biển số</p>
+                        <p className="font-bold text-gray-900">
+                          {carInfo.licensePlate || carInfo.plateNumber || carInfo.numberPlate || 'Chưa có thông tin'}
+                        </p>
+                      </div>
+                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4">
+                        <FaUsers className="text-green-600 mb-2" />
+                        <p className="text-sm text-gray-600 mb-1">Số ghế</p>
+                        <p className="font-bold text-gray-900">
+                          {carInfo.numOfSeats || carInfo.seats || carInfo.seatCount || carInfo.numberOfSeats || 
+                           bookingData.seatNumber || 'Chưa xác định'}
+                        </p>
+                      </div>
+                      <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4">
+                        <FaCog className="text-yellow-600 mb-2" />
+                        <p className="text-sm text-gray-600 mb-1">Màu sắc</p>
+                        <p className="font-bold text-gray-900">
+                          {carInfo.color || carInfo.carColor || 'Chưa có thông tin'}
+                        </p>
+                      </div>
+                      <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-4">
+                        <FaGasPump className="text-red-600 mb-2" />
+                        <p className="text-sm text-gray-600 mb-1">Nhiên liệu</p>
+                        <p className="font-bold text-gray-900">
+                          {carInfo.fuelTypeName || carInfo.fuelType?.fuelTypeName || carInfo.fuelType?.name || carInfo.fuel || 'Chưa xác định'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <div className="relative group">
+                      <div className="w-64 h-48 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center overflow-hidden">
+                        {carImageUrl ? (
+                          <img
+                            src={carImageUrl}
+                            alt={carInfo.model || carInfo.name || 'Car'}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            onError={(e) => {
+                              console.log("Image load error:", e.target.src)
+                              e.target.style.display = 'none'
+                              e.target.parentNode.innerHTML = '<div class="text-6xl text-gray-400 flex items-center justify-center h-full"><svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M39 39a56.06 56.06 0 0 0 0 79.2L67.64 146.8C75.75 126.6 93.8 112 115.2 112H410c22.34 0 40.89 15.28 48.48 36.15C459.79 159.86 472 179.71 472 200v192c0 22.09-17.91 40-40 40H80c-22.09 0-40-17.91-40-40V200c0-20.29 12.21-40.14 13.52-51.85C61.11 127.28 79.66 112 102 112h13.2c21.4 0 39.45 14.6 47.56 34.8L191.36 118.2a56.06 56.06 0 0 0 0-79.2zM256 328c37.49 0 72.07-14.54 96-40.97V328c0 53.02-42.98 96-96 96s-96-42.98-96-96v-40.97C184.07 313.46 218.65 328 256 328z"></path></svg></div>'
+                            }}
+                          />
+                        ) : (
+                          <FaCar className="text-6xl text-gray-400" />
+                        )}
+                      </div>
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                        <FaCheckCircle className="text-white text-sm" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trip Details Card */}
+              <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100 h-fit">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center mr-4">
+                    <FaMapMarkerAlt className="text-2xl text-green-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">Chi tiết chuyến đi</h2>
+                </div>
+                
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl">
+                      <div className="flex items-center mb-4">
+                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                          <FaCalendarAlt className="text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Thời gian nhận xe</p>
+                          <p className="font-bold text-gray-900">
+                            {new Date(pickupDateTime).toLocaleString("vi-VN", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start">
+                        <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center mr-3 mt-1">
+                          <FaMapMarkerAlt className="text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Địa điểm nhận xe</p>
+                          <p className="font-bold text-gray-900">{pickupLocation || 'Đang cập nhật'}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl">
+                      <div className="flex items-center mb-4">
+                        <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center mr-3">
+                          <FaCalendarAlt className="text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Thời gian trả xe</p>
+                          <p className="font-bold text-gray-900">
+                            {new Date(dropoffDateTime).toLocaleString("vi-VN", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start">
+                        <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center mr-3 mt-1">
+                          <FaMapMarkerAlt className="text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-600">Địa điểm trả xe</p>
+                          <p className="font-bold text-gray-900">{dropoffLocation || 'Đang cập nhật'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Additional Services */}
+                  {(withDriver || deliveryRequested) && (
+                    <div className="p-6 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl">
+                      <h3 className="font-bold text-gray-900 mb-4 flex items-center">
+                        <FaGift className="text-yellow-600 mr-2" />
+                        Dịch vụ bổ sung
+                      </h3>
+                      <div className="space-y-2">
+                        {withDriver && (
+                          <div className="flex items-center text-gray-700">
+                            <FaUser className="text-blue-600 mr-2" />
+                            <span>Thuê xe có tài xế</span>
+                          </div>
+                        )}
+                        {deliveryRequested && (
+                          <div className="flex items-center text-gray-700">
+                            <FaCarSide className="text-green-600 mr-2" />
+                            <span>Giao xe tận nơi</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Customer Information Card */}
+              <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100 h-fit">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center mr-4">
+                    <FaUser className="text-2xl text-orange-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900">Thông tin khách hàng</h2>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="flex items-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+                    <FaUser className="text-blue-600 mr-3 text-xl" />
+                    <div>
+                      <p className="text-sm text-gray-600">Họ và tên</p>
+                      <p className="font-bold text-gray-900">
+                        {customerInfo.fullName || customerInfo.username || 'Đang cập nhật'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
-                    <FaCalendarAlt className="text-green-600 mr-3" />
+                    <FaPhone className="text-green-600 mr-3 text-xl" />
                     <div>
-                      <p className="text-sm text-gray-600">Thời gian thuê</p>
-                      <p className="font-bold text-gray-900">{rentalDays} ngày</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl">
-                    <FaReceipt className="text-yellow-600 mr-3" />
-                    <div>
-                      <p className="text-sm text-gray-600">Mã thanh toán</p>
-                      <p className="font-bold text-gray-900">#{paymentId || 'Đang cập nhật'}</p>
+                      <p className="text-sm text-gray-600">Số điện thoại</p>
+                      <p className="font-bold text-gray-900">{customerInfo.phone || 'Đang cập nhật'}</p>
                     </div>
                   </div>
                   <div className="flex items-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
-                    <FaThumbsUp className="text-purple-600 mr-3" />
+                    <FaEnvelope className="text-purple-600 mr-3 text-xl" />
                     <div>
-                      <p className="text-sm text-gray-600">Trạng thái</p>
-                      <p className="font-bold text-green-600">Đã xác nhận</p>
+                      <p className="text-sm text-gray-600">Email</p>
+                      <p className="font-bold text-gray-900">{customerInfo.email || 'Đang cập nhật'}</p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Car Information Card */}
-            <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100 h-fit">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center mr-4">
-                  <FaCar className="text-2xl text-purple-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Thông tin xe</h2>
-              </div>
+            {/* Right Column - Payment Summary & Actions */}
+            <div className="space-y-8">
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Next Steps Card - Di chuyển lên trên */}
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-3xl p-8 border border-blue-100">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mr-4">
+                    <FaInfoCircle className="text-2xl text-blue-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Bước tiếp theo</h2>
+                </div>
+                
                 <div className="space-y-4">
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                      {carInfo.model || carInfo.name || carInfo.carModel || 'Thông tin xe đang được cập nhật'}
-                    </h3>
-                    <p className="text-gray-600">
-                      {carInfo.brandName || carInfo.brand?.brandName || carInfo.brand?.name || carInfo.brand || 'Thương hiệu'} 
-                      {carInfo.year && ` - ${carInfo.year}`}
-                      
-                    </p>
-                    {carInfo.describe && (
-                      <p className="text-sm text-gray-500 mt-2">{carInfo.describe}</p>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl p-4">
-                      <FaParking className="text-blue-600 mb-2" />
-                      <p className="text-sm text-gray-600 mb-1">Biển số</p>
-                      <p className="font-bold text-gray-900">
-                        {carInfo.licensePlate || carInfo.plateNumber || carInfo.numberPlate || 'Chưa có thông tin'}
-                      </p>
+                  <div className="flex items-start">
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-4 mt-1 flex-shrink-0">
+                      <span className="text-white font-bold text-sm">1</span>
                     </div>
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4">
-                      <FaUsers className="text-green-600 mb-2" />
-                      <p className="text-sm text-gray-600 mb-1">Số ghế</p>
-                      <p className="font-bold text-gray-900">
-                        {carInfo.numOfSeats || carInfo.seats || carInfo.seatCount || carInfo.numberOfSeats || 
-                         bookingData.seatNumber || 'Chưa xác định'}
-                      </p>
-                    </div>
-                    <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4">
-                      <FaCog className="text-yellow-600 mb-2" />
-                      <p className="text-sm text-gray-600 mb-1">Màu sắc</p>
-                      <p className="font-bold text-gray-900">
-                        {carInfo.color || carInfo.carColor || 'Chưa có thông tin'}
-                      </p>
-                    </div>
-                    <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-4">
-                      <FaGasPump className="text-red-600 mb-2" />
-                      <p className="text-sm text-gray-600 mb-1">Nhiên liệu</p>
-                      <p className="font-bold text-gray-900">
-                        {carInfo.fuelTypeName || carInfo.fuelType?.fuelTypeName || carInfo.fuelType?.name || carInfo.fuel || 'Chưa xác định'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-center">
-                  <div className="relative group">
-                    <div className="w-64 h-48 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl flex items-center justify-center overflow-hidden">
-                      {carImageUrl ? (
-                        <img
-                          src={carImageUrl}
-                          alt={carInfo.model || carInfo.name || 'Car'}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          onError={(e) => {
-                            console.log("Image load error:", e.target.src)
-                            e.target.style.display = 'none'
-                            e.target.parentNode.innerHTML = '<div class="text-6xl text-gray-400 flex items-center justify-center h-full"><svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 512 512" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg"><path d="M39 39a56.06 56.06 0 0 0 0 79.2L67.64 146.8C75.75 126.6 93.8 112 115.2 112H410c22.34 0 40.89 15.28 48.48 36.15C459.79 159.86 472 179.71 472 200v192c0 22.09-17.91 40-40 40H80c-22.09 0-40-17.91-40-40V200c0-20.29 12.21-40.14 13.52-51.85C61.11 127.28 79.66 112 102 112h13.2c21.4 0 39.45 14.6 47.56 34.8L191.36 118.2a56.06 56.06 0 0 0 0-79.2zM256 328c37.49 0 72.07-14.54 96-40.97V328c0 53.02-42.98 96-96 96s-96-42.98-96-96v-40.97C184.07 313.46 218.65 328 256 328z"></path></svg></div>'
-                          }}
-                        />
-                      ) : (
-                        <FaCar className="text-6xl text-gray-400" />
-                      )}
-                    </div>
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                      <FaCheckCircle className="text-white text-sm" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Trip Details Card */}
-            <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100 h-fit">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center mr-4">
-                  <FaMapMarkerAlt className="text-2xl text-green-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Chi tiết chuyến đi</h2>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl">
-                    <div className="flex items-center mb-4">
-                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                        <FaCalendarAlt className="text-white" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Thời gian nhận xe</p>
-                        <p className="font-bold text-gray-900">
-                          {new Date(pickupDateTime).toLocaleString("vi-VN", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start">
-                      <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center mr-3 mt-1">
-                        <FaMapMarkerAlt className="text-white" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Địa điểm nhận xe</p>
-                        <p className="font-bold text-gray-900">{pickupLocation || 'Đang cập nhật'}</p>
-                      </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">Kiểm tra email xác nhận</p>
+                      <p className="text-sm text-gray-600">Chúng tôi đã gửi thông tin chi tiết đến email của bạn</p>
                     </div>
                   </div>
                   
-                  <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl">
-                    <div className="flex items-center mb-4">
-                      <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center mr-3">
-                        <FaCalendarAlt className="text-white" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Thời gian trả xe</p>
-                        <p className="font-bold text-gray-900">
-                          {new Date(dropoffDateTime).toLocaleString("vi-VN", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
+                  <div className="flex items-start">
+                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-4 mt-1 flex-shrink-0">
+                      <span className="text-white font-bold text-sm">2</span>
                     </div>
-                    <div className="flex items-start">
-                      <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center mr-3 mt-1">
-                        <FaMapMarkerAlt className="text-white" />
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Địa điểm trả xe</p>
-                        <p className="font-bold text-gray-900">{dropoffLocation || 'Đang cập nhật'}</p>
-                      </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">Chuẩn bị giấy tờ</p>
+                      <p className="text-sm text-gray-600">Mang theo CMND/CCCD và bằng lái xe khi nhận xe</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-4 mt-1 flex-shrink-0">
+                      <span className="text-white font-bold text-sm">3</span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">Liên hệ hỗ trợ</p>
+                      <p className="text-sm text-gray-600">Gọi hotline 1900-xxxx nếu cần hỗ trợ</p>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Additional Services */}
-                {(withDriver || deliveryRequested) && (
-                  <div className="p-6 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl">
-                    <h3 className="font-bold text-gray-900 mb-4 flex items-center">
-                      <FaGift className="text-yellow-600 mr-2" />
-                      Dịch vụ bổ sung
-                    </h3>
-                    <div className="space-y-2">
-                      {withDriver && (
-                        <div className="flex items-center text-gray-700">
-                          <FaUser className="text-blue-600 mr-2" />
-                          <span>Thuê xe có tài xế</span>
-                        </div>
-                      )}
-                      {deliveryRequested && (
-                        <div className="flex items-center text-gray-700">
-                          <FaCarSide className="text-green-600 mr-2" />
-                          <span>Giao xe tận nơi</span>
-                        </div>
-                      )}
-                    </div>
+              {/* Payment Summary Card */}
+              <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100 h-fit">
+                <div className="flex items-center mb-6">
+                  <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center mr-4">
+                    <FaCreditCard className="text-2xl text-green-600" />
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Customer Information Card */}
-            <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100 h-fit">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center mr-4">
-                  <FaUser className="text-2xl text-orange-600" />
+                  <h2 className="text-2xl font-bold text-gray-900">Tóm tắt thanh toán</h2>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Thông tin khách hàng</h2>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="flex items-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
-                  <FaUser className="text-blue-600 mr-3 text-xl" />
-                  <div>
-                    <p className="text-sm text-gray-600">Họ và tên</p>
-                    <p className="font-bold text-gray-900">
-                      {customerInfo.fullName || customerInfo.username || 'Đang cập nhật'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl">
-                  <FaPhone className="text-green-600 mr-3 text-xl" />
-                  <div>
-                    <p className="text-sm text-gray-600">Số điện thoại</p>
-                    <p className="font-bold text-gray-900">{customerInfo.phone || 'Đang cập nhật'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl">
-                  <FaEnvelope className="text-purple-600 mr-3 text-xl" />
-                  <div>
-                    <p className="text-sm text-gray-600">Email</p>
-                    <p className="font-bold text-gray-900">{customerInfo.email || 'Đang cập nhật'}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Payment Summary & Actions */}
-          <div className="space-y-8">
-            
-            {/* Next Steps Card - Di chuyển lên trên */}
-            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-3xl p-8 border border-blue-100">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mr-4">
-                  <FaInfoCircle className="text-2xl text-blue-600" />
-                </div>
-                <h2 className="text-xl font-bold text-gray-900">Bước tiếp theo</h2>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-start">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-4 mt-1 flex-shrink-0">
-                    <span className="text-white font-bold text-sm">1</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Kiểm tra email xác nhận</p>
-                    <p className="text-sm text-gray-600">Chúng tôi đã gửi thông tin chi tiết đến email của bạn</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-4 mt-1 flex-shrink-0">
-                    <span className="text-white font-bold text-sm">2</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Chuẩn bị giấy tờ</p>
-                    <p className="text-sm text-gray-600">Mang theo CMND/CCCD và bằng lái xe khi nhận xe</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start">
-                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center mr-4 mt-1 flex-shrink-0">
-                    <span className="text-white font-bold text-sm">3</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Liên hệ hỗ trợ</p>
-                    <p className="text-sm text-gray-600">Gọi hotline 1900-xxxx nếu cần hỗ trợ</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Payment Summary Card */}
-            <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl border border-gray-100 h-fit">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center mr-4">
-                  <FaCreditCard className="text-2xl text-green-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Tóm tắt thanh toán</h2>
-              </div>
-              {/* Render bảng tóm tắt thanh toán cho mọi phương thức */}
-              {getPaymentSummaryData().priceBreakdown && Object.keys(getPaymentSummaryData().priceBreakdown).length > 0 ? (
-                // Bảng chi tiết breakdown nếu có
-                <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-blue-50 p-6 mb-4">
-                  <table className="w-full text-left text-gray-800">
-                    <tbody>
-                      {getPaymentSummaryData().priceBreakdown.basePrice && (
-                        <tr>
-                          <td className="py-2">Giá thuê xe</td>
-                          <td className="py-2 text-right font-semibold">{getPaymentSummaryData().priceBreakdown.basePrice.toLocaleString()} VND</td>
-                        </tr>
-                      )}
-                      {getPaymentSummaryData().priceBreakdown.serviceFee && (
-                        <tr>
-                          <td className="py-2">Phí dịch vụ</td>
-                          <td className="py-2 text-right">{getPaymentSummaryData().priceBreakdown.serviceFee.toLocaleString()} VND</td>
-                        </tr>
-                      )}
-                      {getPaymentSummaryData().priceBreakdown.tax && (
-                        <tr>
-                          <td className="py-2">Thuế VAT</td>
-                          <td className="py-2 text-right">{getPaymentSummaryData().priceBreakdown.tax.toLocaleString()} VND</td>
-                        </tr>
-                      )}
-                      {getPaymentSummaryData().priceBreakdown.driverFee && getPaymentSummaryData().withDriver && (
-                        <tr>
-                          <td className="py-2">Phí tài xế</td>
-                          <td className="py-2 text-right">{getPaymentSummaryData().priceBreakdown.driverFee.toLocaleString()} VND</td>
-                        </tr>
-                      )}
-                      {getPaymentSummaryData().priceBreakdown.deliveryFee && getPaymentSummaryData().deliveryRequested && (
-                        <tr>
-                          <td className="py-2">Phí giao xe tận nơi</td>
-                          <td className="py-2 text-right">{getPaymentSummaryData().priceBreakdown.deliveryFee.toLocaleString()} VND</td>
-                        </tr>
-                      )}
-                      {getPaymentSummaryData().priceBreakdown.extraFee && (
-                        <tr>
-                          <td className="py-2">Phí phát sinh</td>
-                          <td className="py-2 text-right">{getPaymentSummaryData().priceBreakdown.extraFee.toLocaleString()} VND</td>
-                        </tr>
-                      )}
-                      {getPaymentSummaryData().priceBreakdown.discount && getPaymentSummaryData().priceBreakdown.discount > 0 && (
-                        <tr>
-                          <td className="py-2">Giảm giá</td>
-                          <td className="py-2 text-right text-green-600">- {getPaymentSummaryData().priceBreakdown.discount.toLocaleString()} VND</td>
-                        </tr>
-                      )}
-                      {getPaymentSummaryData().collateralAmount && getPaymentSummaryData().collateralAmount > 0 && (
-                        <tr>
-                          <td className="py-2">Tiền thế chấp</td>
-                          <td className="py-2 text-right">{Number(getPaymentSummaryData().collateralAmount).toLocaleString()} VND</td>
-                        </tr>
-                      )}
-                      <tr className="border-t-2 border-blue-200">
-                        <td className="py-3 font-bold text-lg">Tổng cộng</td>
-                        <td className="py-3 text-right font-bold text-lg text-blue-700">
-                          {(() => {
-                            const pb = getPaymentSummaryData().priceBreakdown;
-                            if (pb && pb.total) return pb.total.toLocaleString() + ' VND';
-                            if (typeof getPaymentSummaryData().totalAmount !== 'undefined' && getPaymentSummaryData().totalAmount > 0) return getPaymentSummaryData().totalAmount.toLocaleString() + ' VND';
-                            if (typeof paymentInfo.paidAmount !== 'undefined' && paymentInfo.paidAmount > 0) return paymentInfo.paidAmount.toLocaleString() + ' VND';
-                            return '0 VND';
-                          })()}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                // Luôn hiển thị bảng đơn giản nếu không có breakdown
                 <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white to-blue-50 p-6 mb-4">
                   <table className="w-full text-left text-gray-800">
                     <tbody>
@@ -1238,256 +1086,238 @@ const BookingSuccessPage = () => {
                       </tr>
                       <tr>
                         <td className="py-2">Đã thanh toán</td>
-                        <td className="py-2 text-right">{paymentInfo.paidAmount ? paymentInfo.paidAmount.toLocaleString() + ' VND' : '0 VND'}</td>
+                        <td className="py-2 text-right">
+                          {paymentInfo.paidAmount ? paymentInfo.paidAmount.toLocaleString() + ' VND' : '0 VND'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2">Còn lại</td>
+                        <td className="py-2 text-right">
+                          {paymentInfo.remainingAmount ? paymentInfo.remainingAmount.toLocaleString() + ' VND' : '0 VND'}
+                        </td>
                       </tr>
                       <tr>
                         <td className="py-2">Phương thức</td>
-                        <td className="py-2 text-right">{paymentInfo.paymentMethod ? (paymentInfo.paymentMethod === 'vnpay' ? 'VNPay' : paymentInfo.paymentMethod === 'momo' ? 'MoMo' : paymentInfo.paymentMethod === 'cash' ? 'Tiền mặt' : paymentInfo.paymentMethod) : 'Không xác định'}</td>
+                        <td className="py-2 text-right">
+                          {(() => {
+                            const method = paymentInfo.paymentMethod || detectedPaymentMethod
+                            switch(method) {
+                              case 'vnpay': return 'VNPay'
+                              case 'momo': return 'MoMo'
+                              case 'cash': return 'Tiền mặt'
+                              case 'online': return 'Thanh toán online'
+                              default: return method || 'Chưa xác định'
+                            }
+                          })()}
+                        </td>
                       </tr>
                     </tbody>
                   </table>
-                  <div className="text-xs text-gray-400 mt-2">Không có dữ liệu chi tiết breakdown từ hệ thống.</div>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Enhanced Payment Method Info */}
-            {(paymentInfo.paymentMethod || detectedPaymentMethod) && (
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 mb-6 border border-blue-200">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <FaCreditCard className="text-blue-600 text-xl" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600 mb-1">Phương thức thanh toán</p>
-                    <p className="text-xl font-bold text-gray-900">
-                      {(() => {
-                        const method = paymentInfo.paymentMethod || detectedPaymentMethod
-                        switch(method) {
-                          case 'vnpay': return 'VNPay'
-                          case 'momo': return 'MoMo' 
-                          case 'cash': return 'Tiền mặt'
-                          case 'online': return 'Thanh toán online'
-                          default: return method || 'Chưa xác định'
-                        }
-                      })()}
-                    </p>
-                    
-                    {/* Payment Gateway Status */}
-                    {(vnpayResponseCode || momoResultCode) && (
-                      <div className="mt-2">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${
-                          vnpayResponseCode === "00" || momoResultCode === "0" 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-red-100 text-red-700'
-                        }`}>
-                          {vnpayResponseCode === "00" ? (
-                            <>
-                              <FaCheckCircle />
-                              VNPay: Thanh toán thành công
-                            </>
-                          ) : vnpayResponseCode ? (
-                            <>
-                              <FaTimesCircle />
-                              VNPay: Lỗi {vnpayResponseCode}
-                            </>
-                          ) : momoResultCode === "0" ? (
-                            <>
-                              <FaCheckCircle />
-                              MoMo: Thanh toán thành công
-                            </>
-                          ) : momoResultCode ? (
-                            <>
-                              <FaTimesCircle />
-                              MoMo: Lỗi {momoResultCode}
-                            </>
-                          ) : (
-                            <>
-                              <FaInfoCircle />
-                              Đang xử lý thanh toán...
-                            </>
+              {/* Enhanced Payment Method Info */}
+              {(paymentInfo.paymentMethod || detectedPaymentMethod) && (
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 mb-6 border border-blue-200">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <FaCreditCard className="text-blue-600 text-xl" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600 mb-1">Phương thức thanh toán</p>
+                      <p className="text-xl font-bold text-gray-900">
+                        {(() => {
+                          const method = paymentInfo.paymentMethod || detectedPaymentMethod
+                          switch(method) {
+                            case 'vnpay': return 'VNPay'
+                            case 'momo': return 'MoMo' 
+                            case 'cash': return 'Tiền mặt'
+                            case 'online': return 'Thanh toán online'
+                            default: return method || 'Chưa xác định'
+                          }
+                        })()}
+                      </p>
+                      {/* Payment Gateway Status */}
+                      {(vnpayResponseCode || momoResultCode) && (
+                        <div className="mt-2">
+                          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${
+                            vnpayResponseCode === "00" || momoResultCode === "0" 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-red-100 text-red-700'
+                          }`}>
+                            {vnpayResponseCode === "00" ? (
+                              <>
+                                <FaCheckCircle />
+                                VNPay: Thanh toán thành công
+                              </>
+                            ) : vnpayResponseCode ? (
+                              <>
+                                <FaTimesCircle />
+                                VNPay: Lỗi {vnpayResponseCode}
+                              </>
+                            ) : momoResultCode === "0" ? (
+                              <>
+                                <FaCheckCircle />
+                                MoMo: Thanh toán thành công
+                              </>
+                            ) : momoResultCode ? (
+                              <>
+                                <FaTimesCircle />
+                                MoMo: Lỗi {momoResultCode}
+                              </>
+                            ) : (
+                              <>
+                                <FaInfoCircle />
+                                Đang xử lý thanh toán...
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {/* Payment Details Timeline */}
+                      {(paymentInfo.depositPayment || paymentInfo.fullPayment) && (
+                        <div className="mt-4 space-y-2">
+                          {paymentInfo.depositPayment && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span>Cọc: {new Date(paymentInfo.depositPayment.paymentDate || paymentInfo.depositPayment.createdAt).toLocaleDateString('vi-VN')}</span>
+                            </div>
+                          )}
+                          {paymentInfo.fullPayment && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span>Thanh toán đầy đủ: {new Date(paymentInfo.fullPayment.paymentDate || paymentInfo.fullPayment.createdAt).toLocaleDateString('vi-VN')}</span>
+                            </div>
                           )}
                         </div>
-                      </div>
-                    )}
-                    
-                    {/* Payment Details Timeline */}
-                    {(paymentInfo.depositPayment || paymentInfo.fullPayment) && (
-                      <div className="mt-4 space-y-2">
-                        {paymentInfo.depositPayment && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span>Cọc: {new Date(paymentInfo.depositPayment.paymentDate || paymentInfo.depositPayment.createdAt).toLocaleDateString('vi-VN')}</span>
-                          </div>
-                        )}
-                        {paymentInfo.fullPayment && (
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span>Thanh toán đầy đủ: {new Date(paymentInfo.fullPayment.paymentDate || paymentInfo.fullPayment.createdAt).toLocaleDateString('vi-VN')}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Debug info cho development */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="mt-4 p-3 bg-gray-100 rounded-xl border-t border-gray-200">
-                    <p className="text-xs font-semibold text-gray-700 mb-1">Debug Information:</p>
-                    <div className="text-xs text-gray-600 space-y-1">
-                      <p>Payment Method: {paymentInfo.paymentMethod || 'null'}</p>
-                      <p>Detected: {detectedPaymentMethod || 'null'}</p>
-                      <p>VNPay Code: {vnpayResponseCode || 'null'}</p>
-                      <p>MoMo Code: {momoResultCode || 'null'}</p>
-                      <p className="font-semibold mt-2">Total Amount Calculation:</p>
-                      <p>Final Total: {paymentInfo.totalAmount} VND</p>
-                      <p>Paid Amount: {paymentInfo.paidAmount} VND</p>
-                      <p>Remaining: {paymentInfo.remainingAmount} VND</p>
-                      <div className="mt-1">
-                        <p className="font-semibold">PriceBreakdown:</p>
-                        {priceBreakdown && Object.keys(priceBreakdown).length > 0 ? (
-                          <div className="ml-2">
-                            {priceBreakdown.basePrice && <p>Base: {priceBreakdown.basePrice}</p>}
-                            {priceBreakdown.serviceFee && <p>Service: {priceBreakdown.serviceFee}</p>}
-                            {priceBreakdown.tax && <p>Tax: {priceBreakdown.tax}</p>}
-                            {priceBreakdown.driverFee && <p>Driver: {priceBreakdown.driverFee}</p>}
-                            {priceBreakdown.deliveryFee && <p>Delivery: {priceBreakdown.deliveryFee}</p>}
-                            {priceBreakdown.extraFee && <p>Extra: {priceBreakdown.extraFee}</p>}
-                            {priceBreakdown.discount && <p>Discount: -{priceBreakdown.discount}</p>}
-                            {priceBreakdown.total && <p>Total Field: {priceBreakdown.total}</p>}
-                          </div>
-                        ) : (
-                          <p className="ml-2">No priceBreakdown data</p>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="space-y-4">
-              <button
-                onClick={() => window.print()}
-                className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-2xl hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl"
-              >
-                <FaPrint className="mr-3" />
-                In hóa đơn
-              </button>
-              
-              <Link
-                to="/profile?tab=bookings"
-                className="w-full flex items-center justify-center px-6 py-4 bg-white border-2 border-blue-600 text-blue-600 font-semibold rounded-2xl hover:bg-blue-50 transition-all duration-300"
-              >
-                <FaSearch className="mr-3" />
-                Xem lịch sử đặt xe
-              </Link>
-              
-              <Link
-                to="/"
-                className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-2xl hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
-              >
-                <FaHome className="mr-3" />
-                Về trang chủ
-              </Link>
-            </div>
-
-            {/* Support Card */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-3xl p-8 border border-green-100">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FaHeadset className="text-3xl text-green-600" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Cần hỗ trợ?</h3>
-                <p className="text-gray-600 mb-4">Đội ngũ hỗ trợ 24/7 sẵn sàng giúp bạn</p>
-                <div className="space-y-2">
-                  <a
-                    href="tel:1900-xxxx"
-                    className="flex items-center justify-center text-green-600 font-semibold hover:text-green-700"
-                  >
-                    <FaPhone className="mr-2" />
-                    1900-xxxx
-                  </a>
-                  <a
-                    href="mailto:support@driveluxe.com"
-                    className="flex items-center justify-center text-green-600 font-semibold hover:text-green-700"
-                  >
-                    <FaEnvelope className="mr-2" />
-                    support@driveluxe.com
-                  </a>
+              )}
+
+              {/* Action Buttons */}
+              <div className="space-y-4">
+                <button
+                  onClick={() => window.print()}
+                  className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-2xl hover:scale-105 transition-all duration-300 shadow-xl hover:shadow-2xl"
+                >
+                  <FaPrint className="mr-3" />
+                  In hóa đơn
+                </button>
+                
+                <Link
+                  to="/profile?tab=bookings"
+                  className="w-full flex items-center justify-center px-6 py-4 bg-white border-2 border-blue-600 text-blue-600 font-semibold rounded-2xl hover:bg-blue-50 transition-all duration-300"
+                >
+                  <FaSearch className="mr-3" />
+                  Xem lịch sử đặt xe
+                </Link>
+                
+                <Link
+                  to="/"
+                  className="w-full flex items-center justify-center px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-2xl hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
+                >
+                  <FaHome className="mr-3" />
+                  Về trang chủ
+                </Link>
+              </div>
+
+              {/* Support Card */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-3xl p-8 border border-green-100">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FaHeadset className="text-3xl text-green-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Cần hỗ trợ?</h3>
+                  <p className="text-gray-600 mb-4">Đội ngũ hỗ trợ 24/7 sẵn sàng giúp bạn</p>
+                  <div className="space-y-2">
+                    <a
+                      href="tel:1900-xxxx"
+                      className="flex items-center justify-center text-green-600 font-semibold hover:text-green-700"
+                    >
+                      <FaPhone className="mr-2" />
+                      1900-xxxx
+                    </a>
+                    <a
+                      href="mailto:support@driveluxe.com"
+                      className="flex items-center justify-center text-green-600 font-semibold hover:text-green-700"
+                    >
+                      <FaEnvelope className="mr-2" />
+                      support@driveluxe.com
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        
-        {/* Rating Reminder */}
-        <div className="mt-16 max-w-4xl mx-auto">
-          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-3xl p-8 text-center border border-yellow-100">
-            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FaStar className="text-3xl text-yellow-600" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Hãy chia sẻ trải nghiệm của bạn!</h3>
-            <p className="text-gray-600 mb-6">
-              Đánh giá của bạn giúp chúng tôi cải thiện dịch vụ và hỗ trợ khách hàng khác đưa ra lựa chọn tốt hơn
-            </p>
-            <div className="flex justify-center space-x-2 mb-6">
-              {[...Array(5)].map((_, i) => (
-                <FaStar key={i} className="text-3xl text-yellow-400 hover:text-yellow-500 cursor-pointer transition-colors" />
-              ))}
-            </div>
-            <p className="text-sm text-gray-500">
-              Chúng tôi sẽ gửi lời nhắc đánh giá sau khi bạn hoàn thành chuyến đi
-            </p>
-          </div>
-        </div>
-      </main>
-      {/* Footer */}
-      <footer className="relative bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 text-white pt-20 pb-10 overflow-hidden mt-16">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.1),transparent_50%)]"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(14,165,233,0.1),transparent_50%)]"></div>
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 via-pink-500 via-orange-500 to-yellow-500"></div>
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center mb-8">
-            <Link to="/" className="inline-flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white">
-                <FaCarSide />
+          
+          {/* Rating Reminder */}
+          <div className="mt-16 max-w-4xl mx-auto">
+            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-3xl p-8 text-center border border-yellow-100">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FaStar className="text-3xl text-yellow-600" />
               </div>
-              <span className="font-bold text-3xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                DriveLuxe
-              </span>
-            </Link>
-            <p className="text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
-              Cảm ơn bạn đã tin tưởng và lựa chọn DriveLuxe cho chuyến đi của mình. 
-              Chúng tôi cam kết mang đến trải nghiệm tuyệt vời nhất!
-            </p>
-            <div className="flex justify-center space-x-8 text-gray-400">
-              <a href="#" className="hover:text-blue-400 transition-colors">Điều khoản dịch vụ</a>
-              <a href="#" className="hover:text-green-400 transition-colors">Chính sách bảo mật</a>
-              <a href="#" className="hover:text-pink-400 transition-colors">Liên hệ</a>
-            </div>
-          </div>
-          {/* Divider - subtle line */}
-          <div className="w-full h-px bg-slate-700/40 my-8"></div>
-          <div className="flex flex-col lg:flex-row justify-between items-center pt-0">
-            <div className="mb-4 lg:mb-0">
-              <p className="text-gray-400 text-sm flex items-center">
-                <span>© {new Date().getFullYear()} DriveLuxe. All rights reserved.</span>
-                <span className="mx-2 text-red-400">❤️</span>
-                <span>Made with love in Vietnam</span>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Hãy chia sẻ trải nghiệm của bạn!</h3>
+              <p className="text-gray-600 mb-6">
+                Đánh giá của bạn giúp chúng tôi cải thiện dịch vụ và hỗ trợ khách hàng khác đưa ra lựa chọn tốt hơn
+              </p>
+              <div className="flex justify-center space-x-2 mb-6">
+                {[...Array(5)].map((_, i) => (
+                  <FaStar key={i} className="text-3xl text-yellow-400 hover:text-yellow-500 cursor-pointer transition-colors" />
+                ))}
+              </div>
+              <p className="text-sm text-gray-500">
+                Chúng tôi sẽ gửi lời nhắc đánh giá sau khi bạn hoàn thành chuyến đi
               </p>
             </div>
           </div>
-        </div>
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-blue-400 rounded-full opacity-20 animate-ping"></div>
-          <div className="absolute top-3/4 right-1/3 w-1 h-1 bg-purple-400 rounded-full opacity-30 animate-pulse"></div>
-          <div className="absolute bottom-1/4 left-2/3 w-1.5 h-1.5 bg-pink-400 rounded-full opacity-25 animate-bounce"></div>
-        </div>
-      </footer>
-    </div>
+        </main>
+        {/* Footer */}
+        <footer className="relative bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 text-white pt-20 pb-10 overflow-hidden mt-16">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.1),transparent_50%)]"></div>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(14,165,233,0.1),transparent_50%)]"></div>
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 via-pink-500 via-orange-500 to-yellow-500"></div>
+          <div className="container mx-auto px-4 relative z-10">
+            <div className="text-center mb-8">
+              <Link to="/" className="inline-flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white">
+                  <FaCarSide />
+                </div>
+                <span className="font-bold text-3xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  DriveLuxe
+                </span>
+              </Link>
+              <p className="text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
+                Cảm ơn bạn đã tin tưởng và lựa chọn DriveLuxe cho chuyến đi của mình. 
+                Chúng tôi cam kết mang đến trải nghiệm tuyệt vời nhất!
+              </p>
+              <div className="flex justify-center space-x-8 text-gray-400">
+                <a href="#" className="hover:text-blue-400 transition-colors">Điều khoản dịch vụ</a>
+                <a href="#" className="hover:text-green-400 transition-colors">Chính sách bảo mật</a>
+                <a href="#" className="hover:text-pink-400 transition-colors">Liên hệ</a>
+              </div>
+            </div>
+            {/* Divider - subtle line */}
+            <div className="w-full h-px bg-slate-700/40 my-8"></div>
+            <div className="flex flex-col lg:flex-row justify-between items-center pt-0">
+              <div className="mb-4 lg:mb-0">
+                <p className="text-gray-400 text-sm flex items-center">
+                  <span>© {new Date().getFullYear()} DriveLuxe. All rights reserved.</span>
+                  <span className="mx-2 text-red-400">❤️</span>
+                  <span>Made with love in Vietnam</span>
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-blue-400 rounded-full opacity-20 animate-ping"></div>
+            <div className="absolute top-3/4 right-1/3 w-1 h-1 bg-purple-400 rounded-full opacity-30 animate-pulse"></div>
+            <div className="absolute bottom-1/4 left-2/3 w-1.5 h-1.5 bg-pink-400 rounded-full opacity-25 animate-bounce"></div>
+          </div>
+        </footer>
+      </div>
+    </>
   )
 }
 

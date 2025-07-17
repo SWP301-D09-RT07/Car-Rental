@@ -21,9 +21,9 @@ CREATE TABLE cash_payment_confirmations (
     updated_at DATETIME2 DEFAULT GETDATE(),
     
     CONSTRAINT FK_cash_payment_confirmations_payment_id 
-        FOREIGN KEY (payment_id) REFERENCES Payment(payment_id) ON DELETE CASCADE,
+        FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE,
     CONSTRAINT FK_cash_payment_confirmations_supplier_id 
-        FOREIGN KEY (supplier_id) REFERENCES [User](user_id) ON DELETE CASCADE
+        FOREIGN KEY (supplier_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Create indexes

@@ -67,6 +67,7 @@ public class SecurityConfig {
                                 "/api/cars/*/features", "/api/service-types/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/ratings", "/api/ratings/summary", "/api/ratings/**").permitAll()
                         .requestMatchers("/api/payments/callback", "/api/payments/test", "/api/payments/test-cash", "/api/payments/momo-callback").permitAll()
+                        .requestMatchers("/api/cash-payments/debug/**").permitAll() // DEBUG endpoint public
                         .requestMatchers(HttpMethod.GET,"/api/bookings/**").authenticated()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/customer/**").hasRole("customer")

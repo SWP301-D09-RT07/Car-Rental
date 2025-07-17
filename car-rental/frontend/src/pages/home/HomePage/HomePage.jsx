@@ -60,6 +60,7 @@ import Footer from '@/components/layout/Footer/Footer';
 import { getItem } from '@/utils/auth';
 import TestimonialCarousel from '@/components/Rating/TestimonialCarousel';
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
+import CozeChatbot from '@/components/CozeChatbot';
 
 // Images
 const bg1 = "/images/bg_1.jpg"
@@ -422,6 +423,7 @@ const HomePage = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+             <CozeChatbot />
             <Header
                 isUserDropdownOpen={isUserDropdownOpen}
                 setIsUserDropdownOpen={setIsUserDropdownOpen}
@@ -1173,7 +1175,7 @@ const HomePage = () => {
                 car={selectedCar}
                 onSubmitBooking={handleSubmitBooking}
             />
-         
+            
         </div>
     )
 }

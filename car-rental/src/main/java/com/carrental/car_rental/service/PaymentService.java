@@ -334,6 +334,10 @@ public class PaymentService {
             }
         }
 
+        // Sau khi tạo payment, enrich lại booking
+        // (Không cần khai báo lại biến booking/bookingDTO nếu đã có ở trên, hoặc bỏ block này nếu không cần thiết)
+        // Đảm bảo không có duplicate variable
+        // (Nếu enrichWithPaymentInfo cần thiết, hãy gọi từ BookingService ở nơi khác)
         return response;
     }
 
@@ -968,6 +972,10 @@ public class PaymentService {
 
         logger.info("Payment with booking processed successfully. Booking ID: {}, Payment ID: {}", 
                    response.getBookingId(), response.getPaymentId());
+        // Sau khi tạo payment, enrich lại booking
+        // (Không cần khai báo lại biến booking/bookingDTO nếu đã có ở trên, hoặc bỏ block này nếu không cần thiết)
+        // Đảm bảo không có duplicate variable
+        // (Nếu enrichWithPaymentInfo cần thiết, hãy gọi từ BookingService ở nơi khác)
         return response;
     }
 

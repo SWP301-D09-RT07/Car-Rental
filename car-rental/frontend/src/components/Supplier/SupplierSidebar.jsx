@@ -15,7 +15,7 @@ const menuItems = [
 
 const SupplierSidebar = ({ user, selected, setSelected, onLogout }) => {
   return (
-    <aside className="w-64 min-h-screen bg-white shadow-2xl border-r border-gray-100 flex flex-col rounded-tr-3xl rounded-br-3xl">
+    <aside className="fixed top-0 left-0 z-30 w-64 h-screen bg-white shadow-2xl border-r border-gray-100 flex flex-col rounded-tr-3xl rounded-br-3xl">
       {/* Logo + Avatar */}
       <div className="flex items-center gap-3 px-6 py-8 border-b border-gray-100">
         <div className="w-12 h-12 bg-gradient-to-tr from-blue-600 to-blue-400 rounded-2xl flex items-center justify-center shadow-lg">

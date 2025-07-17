@@ -29,6 +29,7 @@ import Sidebar from '../components/features/admin/Sidebar';
 import OwnerRequests from '../components/features/admin/OwnerRequests';
 import PaymentsAdmin from '../components/features/admin/PaymentsAdmin';
 import AdminCarApproval from '../components/features/admin/CarApprovalPage';
+import CarConditionReportManagement from '../components/CarConditionReport/CarConditionReportManagement';
 
 // Supplier Pages
 import SupplierCarDashboard from '../components/Supplier/SupplierCarDashboard';
@@ -167,6 +168,7 @@ const AppRoutes = () => {
                 <Route path="owner-requests" element={<OwnerRequests />} />
                 <Route path="car-approval" element={<AdminCarApproval />} />
                 <Route path="payments" element={<PaymentsAdmin />} />
+                <Route path="car-condition-reports" element={<CarConditionReportManagement />} />
             </Route>
 
             <Route path="/owner-registration" element={<OwnerRegistrationPage />} />

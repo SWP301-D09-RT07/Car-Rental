@@ -18,8 +18,9 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -50,11 +51,16 @@ public class CashPaymentManagementService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment method is not cash");
         }
         
-        // Check if confirmation already exists
-        cashConfirmationRepository.findByPaymentIdAndIsDeletedFalse(paymentId)
-                .ifPresent(existing -> {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Cash payment already confirmed");
-                });
+        // Check if confirmation already exists and is already confirmed
+        Optional<CashPaymentConfirmation> existingConfirmation = cashConfirmationRepository.findByPaymentIdAndIsDeletedFalse(paymentId);
+        
+        if (existingConfirmation.isPresent()) {
+            CashPaymentConfirmation existing = existingConfirmation.get();
+            if (Boolean.TRUE.equals(existing.getIsConfirmed())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cash payment already confirmed");
+            }
+            // Nếu chưa confirmed, sẽ cập nhật existing record bên dưới
+        }
         
         // Get current supplier
         User currentSupplier = getCurrentSupplier();
@@ -68,14 +74,25 @@ public class CashPaymentManagementService {
         BigDecimal amountReceived = confirmationDTO.getAmountReceived();
         BigDecimal platformFee = amountReceived.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
         
-        // Create confirmation record
-        CashPaymentConfirmation confirmation = new CashPaymentConfirmation();
-        confirmation.setPayment(payment);
-        confirmation.setSupplier(currentSupplier);
+        // ✅ SỬA: Sử dụng existing record nếu có, hoặc tạo mới
+        CashPaymentConfirmation confirmation;
+        if (existingConfirmation.isPresent()) {
+            // Cập nhật existing record
+            confirmation = existingConfirmation.get();
+            logger.info("Updating existing cash payment confirmation ID: {}", confirmation.getId());
+        } else {
+            // Tạo record mới
+            confirmation = new CashPaymentConfirmation();
+            confirmation.setPayment(payment);
+            confirmation.setSupplier(currentSupplier);
+            confirmation.setCurrency(confirmationDTO.getCurrency() != null ? confirmationDTO.getCurrency() : "VND");
+            confirmation.setConfirmationType(confirmationDTO.getConfirmationType());
+            logger.info("Creating new cash payment confirmation for payment ID: {}", paymentId);
+        }
+        
+        // Cập nhật thông tin confirmation (cho cả existing và new record)
         confirmation.setAmountReceived(amountReceived);
-        confirmation.setCurrency(confirmationDTO.getCurrency() != null ? confirmationDTO.getCurrency() : "VND");
         confirmation.setReceivedAt(Instant.now());
-        confirmation.setConfirmationType(confirmationDTO.getConfirmationType());
         confirmation.setSupplierConfirmationCode(generateConfirmationCode());
         confirmation.setIsConfirmed(true);
         confirmation.setNotes(confirmationDTO.getNotes());
@@ -127,22 +144,28 @@ public class CashPaymentManagementService {
     /**
      * Lấy danh sách cash payments cần confirm của supplier
      */
+    @Transactional(readOnly = true)
     public List<CashPaymentConfirmationDTO> getPendingCashPayments(User supplier) {
-        // Lấy các payment cash chưa có confirmation
-        List<Payment> pendingCashPayments = paymentRepository.findAll().stream()
-                .filter(p -> "cash".equalsIgnoreCase(p.getPaymentMethod()))
-                .filter(p -> p.getBooking().getCar().getSupplier().equals(supplier))
-                .filter(p -> cashConfirmationRepository.findByPaymentIdAndIsDeletedFalse(p.getId()).isEmpty())
+        logger.info("Getting pending cash payments for supplier ID: {}", supplier.getId());
+        
+        List<CashPaymentConfirmation> pendingConfirmations = cashConfirmationRepository.findAll().stream()
+                .filter(c -> c.getSupplier().getId().equals(supplier.getId()))
+                .filter(c -> !Boolean.TRUE.equals(c.getIsConfirmed())) // Chưa được supplier confirm
+                .filter(c -> !Boolean.TRUE.equals(c.getIsDeleted())) // Chưa bị xóa
                 .collect(Collectors.toList());
         
-        return pendingCashPayments.stream()
-                .map(this::convertPendingPaymentToDTO)
+        logger.info("Found {} pending cash payment confirmations for supplier {}", 
+                   pendingConfirmations.size(), supplier.getId());
+        
+        return pendingConfirmations.stream()
+                .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
     
     /**
      * Lấy danh sách platform fees chưa thanh toán của supplier
      */
+    @Transactional(readOnly = true)
     public List<CashPaymentConfirmationDTO> getPendingPlatformFees(User supplier) {
         List<CashPaymentConfirmation> pendingFees = cashConfirmationRepository
                 .findBySupplierAndPlatformFeeStatus(supplier, "pending");
@@ -180,9 +203,14 @@ public class CashPaymentManagementService {
     private User getCurrentSupplier() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
+        logger.info("[getCurrentSupplier] Token username: {}", username);
         
-        return userRepository.findByUsername(username)
-                .filter(user -> "supplier".equals(user.getRole()))
+        return userRepository.findByUsernameOrEmail(username, username)
+                .filter(user -> {
+                    String roleName = user.getRole() != null ? user.getRole().getRoleName() : null;
+                    logger.info("[getCurrentSupplier] Found user: username={}, email={}, roleName={}", user.getUsername(), user.getEmail(), roleName);
+                    return roleName != null && "supplier".equalsIgnoreCase(roleName);
+                })
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Only suppliers can confirm cash payments"));
     }
     
@@ -196,26 +224,24 @@ public class CashPaymentManagementService {
         dto.setBookingId(confirmation.getPayment().getBooking().getId());
         dto.setAmountReceived(confirmation.getAmountReceived());
         dto.setCurrency(confirmation.getCurrency());
-        dto.setReceivedAt(confirmation.getReceivedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+        
+        // ✅ SỬA: Kiểm tra null trước khi convert
+        if (confirmation.getReceivedAt() != null) {
+            dto.setReceivedAt(confirmation.getReceivedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+        }
+        
         dto.setNotes(confirmation.getNotes());
         dto.setConfirmationType(confirmation.getConfirmationType());
         dto.setSupplierConfirmationCode(confirmation.getSupplierConfirmationCode());
         dto.setIsConfirmed(confirmation.getIsConfirmed());
         dto.setPlatformFee(confirmation.getPlatformFee());
         dto.setPlatformFeeStatus(confirmation.getPlatformFeeStatus());
-        dto.setPlatformFeeDueDate(confirmation.getPlatformFeeDueDate().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
-        return dto;
-    }
-    
-    private CashPaymentConfirmationDTO convertPendingPaymentToDTO(Payment payment) {
-        CashPaymentConfirmationDTO dto = new CashPaymentConfirmationDTO();
-        dto.setPaymentId(payment.getId());
-        dto.setBookingId(payment.getBooking().getId());
-        dto.setAmountReceived(payment.getAmount());
-        dto.setCurrency("VND");
-        dto.setIsConfirmed(false);
-        dto.setPlatformFee(payment.getAmount().multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP));
-        dto.setPlatformFeeStatus("pending");
+        
+        // ✅ SỬA: Kiểm tra null trước khi convert
+        if (confirmation.getPlatformFeeDueDate() != null) {
+            dto.setPlatformFeeDueDate(confirmation.getPlatformFeeDueDate().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime());
+        }
+        
         return dto;
     }
 }

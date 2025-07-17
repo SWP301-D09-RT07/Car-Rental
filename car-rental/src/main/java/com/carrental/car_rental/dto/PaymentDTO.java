@@ -60,4 +60,16 @@ public class PaymentDTO {
     public void setCustomerName(String customerName) { this.customerName = customerName; }
     public String getSupplierName() { return supplierName; }
     public void setSupplierName(String supplierName) { this.supplierName = supplierName; }
+
+    // Getter cho paymentStatus (alias cho statusName)
+    public String getPaymentStatus() {
+        return statusName;
+    }
+    // Thêm các trường xác nhận tiền mặt
+    private Boolean customerCashConfirmed;
+    private Boolean supplierCashConfirmed;
+    public Boolean getCustomerCashConfirmed() { return customerCashConfirmed; }
+    public void setCustomerCashConfirmed(Boolean customerCashConfirmed) { this.customerCashConfirmed = customerCashConfirmed; }
+    public Boolean getSupplierCashConfirmed() { return supplierCashConfirmed; }
+    public void setSupplierCashConfirmed(Boolean supplierCashConfirmed) { this.supplierCashConfirmed = supplierCashConfirmed; }
 }
