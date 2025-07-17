@@ -70,9 +70,14 @@ public class CashPaymentManagementService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not authorized to confirm this payment");
         }
         
-        // Calculate platform fee
+        // ✅ Calculate platform fee: 5% tiền thuê + tiền thế chấp
         BigDecimal amountReceived = confirmationDTO.getAmountReceived();
-        BigDecimal platformFee = amountReceived.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal collateralAmount = new BigDecimal("5000000"); // 5 triệu VND thế chấp
+        
+        // Tính tiền thuê thực tế từ amount received (trừ đi thế chấp)
+        BigDecimal rentalAmount = amountReceived.subtract(collateralAmount);
+        BigDecimal appFee = rentalAmount.multiply(PLATFORM_FEE_RATE).setScale(2, RoundingMode.HALF_UP); // 5% tiền thuê
+        BigDecimal platformFee = appFee.add(collateralAmount); // App fee + thế chấp
         
         // ✅ SỬA: Sử dụng existing record nếu có, hoặc tạo mới
         CashPaymentConfirmation confirmation;

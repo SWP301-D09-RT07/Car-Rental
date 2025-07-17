@@ -307,9 +307,10 @@ public ResponseEntity<Map<String, Object>> customerConfirmCashPickup(
             confirmation.setConfirmationType("pickup");
             confirmation.setIsConfirmed(false);
             confirmation.setNotes("Khách hàng xác nhận đã trả tiền mặt, chờ supplier xác nhận");
-            // ✅ TÍNH PLATFORM FEE 5% AMOUNT
-            java.math.BigDecimal platformFee = fullPayment.getAmount().multiply(new java.math.BigDecimal("0.05")).setScale(2, java.math.RoundingMode.HALF_UP);
-            confirmation.setPlatformFee(platformFee); // <-- Đảm bảo không NULL
+            // ✅ TÍNH PLATFORM FEE: 5% tiền thuê + tiền thế chấp
+            java.math.BigDecimal appFee = totalAmount.multiply(new java.math.BigDecimal("0.05")).setScale(2, java.math.RoundingMode.HALF_UP); // 5% tiền thuê
+            java.math.BigDecimal platformFee = appFee.add(collateralAmount); // App fee + thế chấp
+            confirmation.setPlatformFee(platformFee); // <-- Platform fee = 5% tiền thuê + 5 triệu thế chấp
             confirmation.setPlatformFeeStatus("pending");
             confirmation.setPlatformFeeDueDate(null);
             confirmation.setIsDeleted(false);
