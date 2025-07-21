@@ -112,96 +112,69 @@ export const formatAddress = (address) => {
     .map(part => part.trim())
     .filter(part => part)
     .join(', ');
-<<<<<<< HEAD
+
 };
 
 /**
- * Format VND currency
+ * Format VND currency - CHỈ FORMAT ĐẦY ĐỦ
  * @param {number} amount - Amount to format
- * @param {boolean} compact - Use compact format (1M instead of 1,000,000)
  * @returns {string} Formatted VND currency string
  */
-export const formatVND = (amount, compact = false) => {
-  if (!amount && amount !== 0) return '0 ₫';
+export const formatVND = (amount) => {
+  if (!amount && amount !== 0) return '0đ';
   
-  if (compact && amount >= 1000000) {
-    if (amount >= 1000000000) {
-      return `${(amount / 1000000000).toFixed(1)}B ₫`;
-    }
-    const millions = amount / 1000000;
-    return `${millions.toFixed(1)}M ₫`;
-  }
-  
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount);
+  return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
 };
 
 /**
- * Format compact VND currency for display
+ * Format VND with custom symbol - CHỈ FORMAT ĐẦY ĐỦ
  * @param {number} amount - Amount to format
- * @returns {string} Compact VND currency string
- */
-export const formatCompactVND = (amount) => {
-  if (!amount && amount !== 0) return '0 ₫';
-  
-  if (amount >= 1000000000) {
-    return `${(amount / 1000000000).toFixed(1)}B ₫`;
-  }
-  if (amount >= 1000000) {
-    return `${(amount / 1000000).toFixed(1)}M ₫`;
-  }
-  if (amount >= 1000) {
-    return `${(amount / 1000).toFixed(0)}K ₫`;
-  }
-  return `${amount.toLocaleString('vi-VN')} ₫`;
-};
-
-/**
- * Format VND with custom symbol
- * @param {number} amount - Amount to format
- * @param {string} symbol - Currency symbol (default: ₫)
+ * @param {string} symbol - Currency symbol (default: đ)
  * @returns {string} Formatted currency with custom symbol
  */
-export const formatVNDWithSymbol = (amount, symbol = '₫') => {
-  if (!amount && amount !== 0) return `0 ${symbol}`;
+export const formatVNDWithSymbol = (amount, symbol = 'đ') => {
+  if (!amount && amount !== 0) return `0${symbol}`;
   
-  return `${amount.toLocaleString('vi-VN')} ${symbol}`;
+  return new Intl.NumberFormat('vi-VN').format(amount) + symbol;
 };
 
 /**
- * Format price range
+ * Format price for display - CHỈ FORMAT ĐẦY ĐỦ
+ * @param {number} amount - Amount to format
+ * @returns {string} Formatted price string
+ */
+export const formatPrice = (amount) => {
+  if (!amount && amount !== 0) return '0đ';
+  
+  return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+};
+
+/**
+ * Format price range - CHỈ FORMAT ĐẦY ĐỦ
  * @param {number} minPrice - Minimum price
  * @param {number} maxPrice - Maximum price
- * @param {boolean} compact - Use compact format
  * @returns {string} Formatted price range
  */
-export const formatPriceRange = (minPrice, maxPrice, compact = true) => {
+export const formatPriceRange = (minPrice, maxPrice) => {
   if (!minPrice && !maxPrice) return '';
   
-  const formatFunc = compact ? formatCompactVND : formatVND;
+  if (!minPrice) return `Dưới ${formatVND(maxPrice)}`;
+  if (!maxPrice) return `Từ ${formatVND(minPrice)}`;
   
-  if (!minPrice) return `Dưới ${formatFunc(maxPrice)}`;
-  if (!maxPrice) return `Từ ${formatFunc(minPrice)}`;
-  
-  return `${formatFunc(minPrice)} - ${formatFunc(maxPrice)}`;
+  return `${formatVND(minPrice)} - ${formatVND(maxPrice)}`;
 };
 
 /**
- * Format discount price
+ * Format discount price - CHỈ FORMAT ĐẦY ĐỦ
  * @param {number} originalPrice - Original price
  * @param {number} discountPercent - Discount percentage
- * @param {boolean} compact - Use compact format
  * @returns {object} Object with formatted original and discounted prices
  */
-export const formatDiscountPrice = (originalPrice, discountPercent, compact = false) => {
+export const formatDiscountPrice = (originalPrice, discountPercent) => {
   if (!originalPrice || !discountPercent) {
     return {
-      original: formatVND(originalPrice, compact),
-      discounted: formatVND(originalPrice, compact),
+      original: formatVND(originalPrice),
+      discounted: formatVND(originalPrice),
       discount: '0%'
     };
   }
@@ -209,12 +182,9 @@ export const formatDiscountPrice = (originalPrice, discountPercent, compact = fa
   const discountedPrice = originalPrice * (1 - discountPercent / 100);
   
   return {
-    original: formatVND(originalPrice, compact),
-    discounted: formatVND(discountedPrice, compact),
+    original: formatVND(originalPrice),
+    discounted: formatVND(discountedPrice),
     discount: `${discountPercent}%`,
-    savings: formatVND(originalPrice - discountedPrice, compact)
+    savings: formatVND(originalPrice - discountedPrice)
   };
 };
-=======
-}; 
->>>>>>> supplier

@@ -1,8 +1,7 @@
 "use client"
-
 import { useState, useEffect, useRef } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
-import { getCarById, getRatingsByCarId, post, searchCars, getUserById, getSimilarCarsAdvanced, getRatingSummaryByCarId  } from "@/services/api.js"
+import { getCarById, getRatingsByCarId, post, searchCars, getUserById, getSimilarCarsAdvanced, getRatingSummaryByCarId } from "@/services/api.js"
 import {
   FaCarSide,
   FaUser,
@@ -73,6 +72,7 @@ import "swiper/css/navigation"
 import TestimonialCarousel from '../../../components/Rating/TestimonialCarousel'
 import { getItem } from '@/utils/auth';
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
+import { formatVND } from '@/utils/format';
 
 
 // Enhanced Error Message Component
@@ -510,9 +510,8 @@ const CarDetailPage = () => {
             <img
               src={car?.images?.[modalImageIndex]?.imageUrl || "https://via.placeholder.com/1200x675"}
               alt={`${car?.model} Image ${modalImageIndex + 1}`}
-              className={`w-full h-full transition-all duration-500 cursor-pointer ${
-                isZoomed ? "object-contain scale-150" : "object-contain hover:scale-105"
-              }`}
+              className={`w-full h-full transition-all duration-500 cursor-pointer ${isZoomed ? "object-contain scale-150" : "object-contain hover:scale-105"
+                }`}
               onClick={toggleZoom}
               onLoad={() => handleImageLoad(modalImageIndex)}
               onError={() => handleImageError(modalImageIndex)}
@@ -563,11 +562,10 @@ const CarDetailPage = () => {
                   setModalImageIndex(idx)
                   setIsZoomed(false)
                 }}
-                className={`flex-shrink-0 w-20 h-16 rounded-xl overflow-hidden border-3 transition-all duration-300 relative ${
-                  modalImageIndex === idx
-                    ? "border-blue-500 shadow-xl scale-110 ring-4 ring-blue-200"
-                    : "border-transparent opacity-60 hover:opacity-100 hover:scale-105"
-                }`}
+                className={`flex-shrink-0 w-20 h-16 rounded-xl overflow-hidden border-3 transition-all duration-300 relative ${modalImageIndex === idx
+                  ? "border-blue-500 shadow-xl scale-110 ring-4 ring-blue-200"
+                  : "border-transparent opacity-60 hover:opacity-100 hover:scale-105"
+                  }`}
               >
                 <img
                   src={img.imageUrl || "https://via.placeholder.com/80x64"}
@@ -601,11 +599,10 @@ const CarDetailPage = () => {
     return (
       <button
         onClick={toggleFavorite}
-        className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 ${
-          isFavorite
-            ? "bg-gradient-to-r from-red-400 to-pink-400 text-white shadow-red-200"
-            : "bg-white/90 backdrop-blur-sm text-gray-600 hover:bg-red-50 hover:text-red-500 border border-gray-200"
-        }`}
+        className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 ${isFavorite
+          ? "bg-gradient-to-r from-red-400 to-pink-400 text-white shadow-red-200"
+          : "bg-white/90 backdrop-blur-sm text-gray-600 hover:bg-red-50 hover:text-red-500 border border-gray-200"
+          }`}
       >
         <FaHeart className="text-xl" />
       </button>
@@ -728,9 +725,9 @@ const CarDetailPage = () => {
                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-3xl p-8 mb-8 border border-blue-100 shadow-lg">
                   <div className="flex items-baseline gap-6 mb-4">
                     <div className="text-5xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                      {(car.dailyRate / 1000).toFixed(0)}K
+                      {formatVND(car.dailyRate)}
                     </div>
-                    <div className="text-gray-500 text-xl line-through">{car.dailyRate?.toLocaleString()}đ</div>
+                    <div className="text-gray-500 text-xl line-through">{formatVND(car.dailyRate * 1.15)}</div>
                     <div className="bg-gradient-to-r from-green-400 to-emerald-400 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
                       <FaGem className="inline mr-2" />
                       Tiết kiệm 15%
@@ -742,26 +739,26 @@ const CarDetailPage = () => {
                 {/* Enhanced Info Row */}
                 <div className="flex flex-wrap items-center gap-6 text-gray-600">
                   {car.averageRating && car.averageRating > 0 ? (
-                      <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
-                        <StarRating rating={car.averageRating} />
-                        <span className="ml-2 font-bold text-gray-800">{car.averageRating.toFixed(1)}</span>
-                        <span className="ml-1 text-sm">/5.0</span>
-                      </div>
+                    <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
+                      <StarRating rating={car.averageRating} />
+                      <span className="ml-2 font-bold text-gray-800">{car.averageRating.toFixed(1)}</span>
+                      <span className="ml-1 text-sm">/5.0</span>
+                    </div>
                   ) : carRatings.length > 0 ? (
-                      <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
-                        <StarRating rating={carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length} />
-                        <span className="ml-2 font-bold text-gray-800">
+                    <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
+                      <StarRating rating={carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length} />
+                      <span className="ml-2 font-bold text-gray-800">
                         {(carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length).toFixed(1)}
                       </span>
-                        <span className="ml-1 text-sm">/5.0</span>
-                      </div>
+                      <span className="ml-1 text-sm">/5.0</span>
+                    </div>
                   ) : null}
 
                   {carRatings.length > 0 && (
-                      <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
-                        <FaComments className="mr-2 text-blue-500" />
-                        <span className="font-medium">{carRatings.length} đánh giá</span>
-                      </div>
+                    <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
+                      <FaComments className="mr-2 text-blue-500" />
+                      <span className="font-medium">{carRatings.length} đánh giá</span>
+                    </div>
                   )}
 
                   <div className="flex items-center bg-white rounded-xl px-4 py-2 shadow-md">
@@ -852,7 +849,7 @@ const CarDetailPage = () => {
               <button
                 onClick={toggleAutoPlay}
                 className={`absolute top-4 left-4 px-4 py-2 rounded-xl font-semibold flex items-center gap-2 shadow-lg transition-all duration-300 ${isAutoPlay ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white' : 'bg-white/90 text-gray-600 hover:bg-gray-50 border border-gray-200'}`}
-                style={{zIndex: 20}}
+                style={{ zIndex: 20 }}
               >
                 {isAutoPlay ? <FaPause /> : <FaPlay />}
                 <span>{isAutoPlay ? "Tạm dừng" : "Tự động"}</span>
@@ -864,11 +861,10 @@ const CarDetailPage = () => {
                 <button
                   key={idx}
                   onClick={() => setActiveImageIndex(idx)}
-                  className={`w-20 h-14 rounded-xl overflow-hidden border-2 transition-all duration-200 relative ${
-                    activeImageIndex === idx
-                      ? "border-blue-500 shadow-lg scale-105"
-                      : "border-gray-200 opacity-70 hover:opacity-100 hover:scale-105"
-                  }`}
+                  className={`w-20 h-14 rounded-xl overflow-hidden border-2 transition-all duration-200 relative ${activeImageIndex === idx
+                    ? "border-blue-500 shadow-lg scale-105"
+                    : "border-gray-200 opacity-70 hover:opacity-100 hover:scale-105"
+                    }`}
                   aria-label={`Xem ảnh ${idx + 1}`}
                 >
                   {imageLoadingStates[idx] && (
@@ -1049,9 +1045,9 @@ const CarDetailPage = () => {
                     <div className="relative z-10">
                       <div className="text-sm text-gray-600 mb-2 font-medium">Dưới 24 giờ</div>
                       <div className="text-3xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                        {(car.dailyRate / 1000).toFixed(0)}K
+                        {formatVND(car.dailyRate)}
                       </div>
-                      <div className="text-xs text-gray-500">{car.dailyRate?.toLocaleString()}đ / ngày</div>
+                      <div className="text-xs text-gray-500">{formatVND(car.dailyRate)} / ngày</div>
                       <div className="mt-3 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
                         Giá chuẩn
                       </div>
@@ -1068,9 +1064,9 @@ const CarDetailPage = () => {
                     <div className="relative z-10">
                       <div className="text-sm text-gray-600 mb-2 font-medium">3-6 ngày</div>
                       <div className="text-3xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-2">
-                        {((car.dailyRate * 0.95) / 1000).toFixed(0)}K
+                        {formatVND(car.dailyRate * 0.95)}
                       </div>
-                      <div className="text-xs text-gray-500">{(car.dailyRate * 0.95).toLocaleString()}đ / ngày</div>
+                      <div className="text-xs text-gray-500">{formatVND(car.dailyRate * 0.95)} / ngày</div>
                       <div className="mt-3 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
                         Tiết kiệm 5%
                       </div>
@@ -1087,9 +1083,9 @@ const CarDetailPage = () => {
                     <div className="relative z-10">
                       <div className="text-sm text-gray-600 mb-2 font-medium">7+ ngày</div>
                       <div className="text-3xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-                        {((car.dailyRate * 0.9) / 1000).toFixed(0)}K
+                        {formatVND(car.dailyRate * 0.9)}
                       </div>
-                      <div className="text-xs text-gray-500">{(car.dailyRate * 0.9).toLocaleString()}đ / ngày</div>
+                      <div className="text-xs text-gray-500">{formatVND(car.dailyRate * 0.9)} / ngày</div>
                       <div className="mt-3 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">
                         Tiết kiệm 10%
                       </div>
@@ -1219,56 +1215,56 @@ const CarDetailPage = () => {
               </div>
 
               {carRatings.length > 0 ? (
-                      <>
-                      {/* Rating Summary */}
-                      <div className="flex flex-col md:flex-row gap-6 mb-8">
-                        <div className="md:w-1/3 bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl text-center">
-                          <div className="text-5xl font-bold text-gray-800 mb-2">
-                            {car.averageRating && car.averageRating > 0
-                                ? car.averageRating.toFixed(1)
-                                : carRatings.length > 0
-                                    ? (carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length).toFixed(1)
-                                    : "Chưa có"
-                            }
-                          </div>
-                          <div className="flex justify-center mb-2">
-                            <StarRating rating={
-                              car.averageRating && car.averageRating > 0
-                                  ? car.averageRating
-                                  : carRatings.length > 0
-                                      ? carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length
-                                      : 0
-                            } size="medium" />
-                          </div>
-                          <div className="text-gray-600">{carRatings.length} đánh giá</div>
-                        </div>
-
-                        <div className="md:w-2/3">
-                          <div className="space-y-2">
-                            {[5, 4, 3, 2, 1].map((star) => {
-                              const count = carRatings.filter((r) => Math.round(r.ratingScore) === star).length
-                              const percentage = carRatings.length > 0 ? (count / carRatings.length) * 100 : 0
-
-                              return (
-                                  <div key={star} className="flex items-center gap-3">
-                                    <span className="text-sm font-medium text-gray-600 w-12">{star} sao</span>
-                                    <div className="flex-1 bg-gray-200 rounded-full h-2">
-                                      <div
-                                          className="bg-gradient-to-r from-yellow-400 to-orange-400 h-2 rounded-full transition-all duration-500"
-                                          style={{ width: `${percentage}%` }}
-                                      />
-                                    </div>
-                                    <span className="text-sm text-gray-500 w-12">{count}</span>
-                                  </div>
-                              )
-                            })}
-                          </div>
-                        </div>
+                <>
+                  {/* Rating Summary */}
+                  <div className="flex flex-col md:flex-row gap-6 mb-8">
+                    <div className="md:w-1/3 bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl text-center">
+                      <div className="text-5xl font-bold text-gray-800 mb-2">
+                        {car.averageRating && car.averageRating > 0
+                          ? car.averageRating.toFixed(1)
+                          : carRatings.length > 0
+                            ? (carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length).toFixed(1)
+                            : "Chưa có"
+                        }
                       </div>
+                      <div className="flex justify-center mb-2">
+                        <StarRating rating={
+                          car.averageRating && car.averageRating > 0
+                            ? car.averageRating
+                            : carRatings.length > 0
+                              ? carRatings.reduce((sum, r) => sum + r.ratingScore, 0) / carRatings.length
+                              : 0
+                        } size="medium" />
+                      </div>
+                      <div className="text-gray-600">{carRatings.length} đánh giá</div>
+                    </div>
 
-                      {/* Horizontal Reviews Carousel - Luôn hiển thị */}
-                      <div className="mb-8">
-                        {/* <div className="flex justify-between items-center mb-6">
+                    <div className="md:w-2/3">
+                      <div className="space-y-2">
+                        {[5, 4, 3, 2, 1].map((star) => {
+                          const count = carRatings.filter((r) => Math.round(r.ratingScore) === star).length
+                          const percentage = carRatings.length > 0 ? (count / carRatings.length) * 100 : 0
+
+                          return (
+                            <div key={star} className="flex items-center gap-3">
+                              <span className="text-sm font-medium text-gray-600 w-12">{star} sao</span>
+                              <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-gradient-to-r from-yellow-400 to-orange-400 h-2 rounded-full transition-all duration-500"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                              <span className="text-sm text-gray-500 w-12">{count}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Horizontal Reviews Carousel - Luôn hiển thị */}
+                  <div className="mb-8">
+                    {/* <div className="flex justify-between items-center mb-6">
                           <h3 className="text-lg font-semibold text-gray-800 border-b border-gray-200 pb-2">
                             Đánh giá từ khách hàng ({carRatings.length})
                           </h3>
@@ -1285,33 +1281,33 @@ const CarDetailPage = () => {
                           </div>
                         </div> */}
 
-                        <TestimonialCarousel carId={carId}
-                                             ratings={carRatings}
-                                             loading={loading}
-                                             error={error} />
-                      </div>
-
-                        {/* Enhanced View All Button */}
-                        {carRatings.length > 6 && (
-                            <div className="text-center bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
-                              <p className="text-gray-600 mb-4">
-                                Còn {carRatings.length - 6} đánh giá khác từ khách hàng
-                              </p>
-                              <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg">
-                                Xem tất cả {carRatings.length} đánh giá
-                                <FaArrowRight className="ml-2 inline" />
-                              </button>
-                            </div>
-                        )}
-                      </>
-              ) : (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <FaComments className="text-gray-400 text-2xl" />
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-800 mb-2">Chưa có đánh giá nào</h3>
-                    <p className="text-gray-600 mb-6">Xe này chưa có đánh giá từ khách hàng</p>
+                    <TestimonialCarousel carId={carId}
+                      ratings={carRatings}
+                      loading={loading}
+                      error={error} />
                   </div>
+
+                  {/* Enhanced View All Button */}
+                  {carRatings.length > 6 && (
+                    <div className="text-center bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6">
+                      <p className="text-gray-600 mb-4">
+                        Còn {carRatings.length - 6} đánh giá khác từ khách hàng
+                      </p>
+                      <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg">
+                        Xem tất cả {carRatings.length} đánh giá
+                        <FaArrowRight className="ml-2 inline" />
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FaComments className="text-gray-400 text-2xl" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">Chưa có đánh giá nào</h3>
+                  <p className="text-gray-600 mb-6">Xe này chưa có đánh giá từ khách hàng</p>
+                </div>
               )}
             </div>
 
@@ -1528,7 +1524,7 @@ const CarDetailPage = () => {
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="text-center bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
                     <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                      {(car.dailyRate / 1000).toFixed(0)}K
+                      {formatVND(car.dailyRate)}
                     </div>
                     <div className="text-sm text-gray-500">/ ngày</div>
                   </div>
@@ -1732,7 +1728,7 @@ const CarDetailPage = () => {
                       }}
                       type="featured"
                       isLoading={false}
-                      onBookNow={() => {}}
+                      onBookNow={() => { }}
                     />
                   </SwiperSlide>
                 ))}
@@ -1748,7 +1744,7 @@ const CarDetailPage = () => {
           )}
         </div>
       </div>
-      {/* <div className="fixed bottom-8 right-8 z-30 flex flex-col space-y-4">           
+      {/* <div className="fixed bottom-8 right-8 z-30 flex flex-col space-y-4">
           {showScrollToTop && (
             <button
               onClick={scrollToTop}

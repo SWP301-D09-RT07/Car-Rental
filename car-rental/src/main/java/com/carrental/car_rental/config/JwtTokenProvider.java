@@ -1,86 +1,81 @@
 package com.carrental.car_rental.config;
 
-import io.jsonwebtoken.*;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.interfaces.DecodedJWT;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
-import com.carrental.car_rental.security.UserPrincipal;
-import jakarta.annotation.PostConstruct;
+
 import java.util.Date;
 
 @Component
 public class JwtTokenProvider {
-    @PostConstruct
-public void logSecret() {
-    System.out.println("JWT SECRET IN USE: " + jwtSecret);
-}
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
+    private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
 
-    @Value("${app.jwtExpirationInMs}")
-    private int jwtExpirationInMs;
+    private final String secretKey;
+    private final long expirationTime;
 
-    public String generateToken(Authentication authentication) {
-        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+    public JwtTokenProvider(@Value("${jwt.secret:defaultSecretKeyForJwtWhichIsLongEnough}") String secret,
+                            @Value("${jwt.expiration:86400000}") long expirationTime) {
+        this.secretKey = secret;
+        this.expirationTime = expirationTime;
+    }
 
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
-
-        String authority = userPrincipal.getAuthorities().iterator().next().getAuthority();
-        String role = authority.startsWith("ROLE_") ? authority.substring(5) : authority;
-
-        return Jwts.builder()
-                .setSubject(userPrincipal.getUsername())
-                .claim("role", role)
-                .setIssuedAt(new Date())
-                .setExpiration(expiryDate)
-                .signWith(SignatureAlgorithm.HS512, jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                .compact();
+    // Tạo token với username và role
+    public String generateToken(String username, String role) {
+        // Lưu role với prefix ROLE_ và uppercase để consistent với Spring Security
+        String roleForJWT = "ROLE_" + role.toUpperCase();
+        logger.info("Generating JWT for username: {}, original role: {}, JWT role: {}", username, role, roleForJWT);
+        return JWT.create()
+                .withSubject(username)
+                .withClaim("role", roleForJWT)
+                .withIssuedAt(new Date())
+                .withExpiresAt(new Date(System.currentTimeMillis() + expirationTime))
+                .sign(Algorithm.HMAC512(secretKey));
     }
 
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                .parseClaimsJws(token)
-                .getBody();
-
-        return claims.getSubject();
+        if (!validateToken(token)) {
+            throw new JWTVerificationException("Invalid or expired token");
+        }
+        DecodedJWT jwt = JWT.decode(token);
+        return jwt.getSubject();
     }
 
     public String getRoleFromToken(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8))
-                .parseClaimsJws(token)
-                .getBody();
-
-        return claims.get("role", String.class);
-    }
-
-    public boolean validateToken(String authToken) {
-        try {
-            Jwts.parser().setSigningKey(jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8)).parseClaimsJws(authToken);
-            return true;
-        } catch (SignatureException ex) {
-            // Invalid JWT signature
-            return false;
-        } catch (MalformedJwtException ex) {
-            // Invalid JWT token
-            return false;
-        } catch (ExpiredJwtException ex) {
-            // Expired JWT token
-            return false;
-        } catch (UnsupportedJwtException ex) {
-            // Unsupported JWT token
-            return false;
-        } catch (IllegalArgumentException ex) {
-            // JWT claims string is empty
-            return false;
+        if (!validateToken(token)) {
+            throw new JWTVerificationException("Invalid or expired token");
         }
+        DecodedJWT jwt = JWT.decode(token);
+        return jwt.getClaim("role").asString();
     }
 
     public Date getExpirationDateFromToken(String token) {
-        Claims claims = Jwts.parser().setSigningKey(jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8)).parseClaimsJws(token).getBody();
-        return claims.getExpiration();
+        if (!validateToken(token)) {
+            throw new JWTVerificationException("Invalid or expired token");
+        }
+        DecodedJWT jwt = JWT.decode(token);
+        return jwt.getExpiresAt();
+    }
+
+    public long getExpirationTime() {
+        return expirationTime;
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            JWT.require(Algorithm.HMAC512(secretKey))
+                    .build()
+                    .verify(token);
+            logger.debug("Xác thực token thành công");
+            return true;
+        } catch (JWTVerificationException e) {
+            logger.error("Xác thực token thất bại: {}", e.getMessage());
+            return false;
+        }
     }
 }

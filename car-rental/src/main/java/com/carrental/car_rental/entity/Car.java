@@ -83,6 +83,18 @@ public class Car {
     @Column(name = "features", length = 500)
     private String features;
 
+    // Thêm thuộc tính transmission
+    @Size(max = 20)
+    @Nationalized
+    @Column(name = "transmission", length = 20)
+    private String transmission;
+
+    // Thêm thuộc tính describe
+    @Size(max = 500)
+    @Nationalized
+    @Column(name = "describe", length = 500)
+    private String describe;
+
     @ColumnDefault("getdate()")
     @Column(name = "created_at")
     private Instant createdAt;

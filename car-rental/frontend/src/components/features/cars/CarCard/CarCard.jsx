@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FaStar, FaHeart, FaCar, FaUsers, FaCog, FaGasPump, FaCalendarAlt } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import FavoriteButton from '@/components/ui/FavoriteButton/FavoriteButton';
-
+import { formatVND } from '@/utils/format';
 // Booking Modal Component
 const BookingModal = ({ isOpen, onClose, car, onSubmit }) => {
     const [bookingData, setBookingData] = useState({
@@ -255,18 +255,7 @@ const CarCard = ({ car, type = "default", isLoading = false, onBookNow }) => {
 
                 {/* Action Buttons */}
                 <div className="absolute top-4 right-4">
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite();
-                        }}
-                        className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-xl backdrop-blur-sm ${isFavorite
-                                ? "bg-red-500 text-white"
-                                : "bg-white/90 text-gray-600 hover:text-red-500"
-                            }`}
-                    >
-                        <FaHeart className="text-sm" />
-                    </button>
+                    <FavoriteButton carId={car.carId} supplierId={car.supplierId} />
                 </div>
             </div>
 
@@ -297,14 +286,14 @@ const CarCard = ({ car, type = "default", isLoading = false, onBookNow }) => {
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                            {(car.dailyRate / 1000).toFixed(0)}K
+                            {formatVND(car.dailyRate)}
                         </span>
                         <span className="text-gray-500 text-sm ml-1">/ngày</span>
                     </div>
                     {car.discount && (
                         <div className="text-right">
                             <span className="text-sm text-gray-500 line-through">
-                                {Math.round(car.dailyRate / (1 - car.discount / 100))}K
+                                {formatVND(Math.round(car.dailyRate / (1 - car.discount / 100)))}
                             </span>
                             <span className="text-xs text-green-600 font-semibold ml-1">-{car.discount}%</span>
                         </div>

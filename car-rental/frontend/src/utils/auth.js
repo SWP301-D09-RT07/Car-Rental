@@ -2,7 +2,9 @@ export const getToken = () => {
     return localStorage.getItem('token');
 };
 
-
+export const setToken = (token) => {
+    localStorage.setItem('token', token);
+};
 
 export const removeToken = () => {
     localStorage.removeItem('token');
@@ -17,6 +19,9 @@ export const getExpiresAt = () => {
     return localStorage.getItem('expiresAt');
 };
 
+export const setExpiresAt = (expiresAt) => {
+    localStorage.setItem('expiresAt', expiresAt);
+};
 
 export const removeExpiresAt = () => {
     localStorage.removeItem('expiresAt');

@@ -333,22 +333,22 @@ export const toggleUserStatus = async (userId, reason = null) => {
 };
 
 // Quản lý yêu thích
-export const getFavorites = async () => {
-    const cacheKey = 'favorites';
-    if (cache.has(cacheKey)) return cache.get(cacheKey);
+export const getFavoriteCars = async () => {
     try {
-        const response = await api.get('/api/favorites');
-        cache.set(cacheKey, response.data);
+        console.log('🔄 Fetching favorite cars...');
+        const response = await api.get('/api/users/favorites');
+        console.log('✅ Favorite cars fetched:', response.data);
         return response.data;
     } catch (error) {
-        throw new Error(error.response?.data?.message || 'Lấy danh sách yêu thích thất bại');
+        console.error('❌ Fetch favorites error:', error.response?.data || error.message);
+        throw new Error(error.response?.data?.error || 'Lỗi khi tải xe yêu thích');
     }
 };
-
-export const addFavorite = async (carId) => {
+export const addFavorite = async (carId, supplierId) => {
     if (!carId) throw new Error('Vui lòng cung cấp ID xe');
+    if (!supplierId) throw new Error('Vui lòng cung cấp ID chủ xe');
     try {
-        const response = await api.post('/api/favorites', { carId });
+        const response = await api.post('/api/favorites', { carId, supplierId });
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Thêm vào yêu thích thất bại');
@@ -381,14 +381,22 @@ export const searchCars = async (filters = {}, page = 0, size = 10) => {
     // XÓA dropoffLocation khỏi filters nếu có
     const { dropoffLocation, ...restFilters } = filters;
     try {
-        const response = await api.get('/api/cars/search', { 
-            params: { 
-                ...restFilters, 
-                page,
-                size,
-                sort: 'createdAt,desc',
-            },
-        });
+        const params = {
+            ...restFilters, 
+            page,
+            size,
+            sort: 'createdAt,desc',
+        };
+
+        // Thêm date filters nếu có
+        if (filters.pickupDateTime) {
+            params.pickupDateTime = filters.pickupDateTime;
+        }
+        if (filters.dropoffDateTime) {
+            params.dropoffDateTime = filters.dropoffDateTime;
+        }
+
+        const response = await api.get('/api/cars/search', { params });
         return response.data;
     } catch (error) {
         if (error.message.includes('CORS')) return { content: [] };
@@ -883,15 +891,15 @@ export const verifyEmail = async (token) => {
         throw new Error(error.response?.data?.error || 'Lỗi khi xác thực email');
     }
 };
-export const getFavoriteCars = async () => {
+export const getFavorites = async () => {
+    const cacheKey = 'favorites';
+    if (cache.has(cacheKey)) return cache.get(cacheKey);
     try {
-        console.log('🔄 Fetching favorite cars...');
-        const response = await api.get('/api/users/favorites');
-        console.log('✅ Favorite cars fetched:', response.data);
+        const response = await api.get('/api/favorites');
+        cache.set(cacheKey, response.data);
         return response.data;
     } catch (error) {
-        console.error('❌ Fetch favorites error:', error.response?.data || error.message);
-        throw new Error(error.response?.data?.error || 'Lỗi khi tải xe yêu thích');
+        throw new Error(error.response?.data?.message || 'Lấy danh sách yêu thích thất bại');
     }
 };
 
@@ -947,6 +955,15 @@ export const getBookingDetails = async (bookingId) => {
 export const filterCars = (filters, page = 0, size = 9, sortBy = "") => {
     const params = { ...filters, page, size };
     if (sortBy) params.sortBy = sortBy;
+    
+    // Thêm date filters nếu có
+    if (filters.pickupDateTime) {
+        params.pickupDateTime = filters.pickupDateTime;
+    }
+    if (filters.dropoffDateTime) {
+        params.dropoffDateTime = filters.dropoffDateTime;
+    }
+    
     return api.get("/api/cars/filter", { params });
 };
 
@@ -965,6 +982,41 @@ export const findCars = async (searchQuery, page = 0, size = 9) => {
     } catch (error) {
         console.error('Error searching cars:', error);
         throw new Error(error.response?.data?.message || 'Tìm kiếm xe thất bại');
+    }
+};
+
+/**
+ * Lấy danh sách xe available theo thời gian
+ * @param {Object} filters - Bộ lọc bao gồm pickupDateTime, dropoffDateTime
+ * @param {number} page - Trang hiện tại
+ * @param {number} size - Số lượng xe mỗi trang
+ * @returns {Promise} Danh sách xe available
+ */
+export const getAvailableCars = async (filters = {}, page = 0, size = 10) => {
+    try {
+        const params = {
+            page,
+            size,
+            ...filters
+        };
+
+        // Đảm bảo có pickupDateTime và dropoffDateTime
+        if (!params.pickupDateTime || !params.dropoffDateTime) {
+            // Nếu không có, sử dụng thời gian mặc định (hiện tại + 1 ngày)
+            const now = new Date();
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            params.pickupDateTime = params.pickupDateTime || now.toISOString();
+            params.dropoffDateTime = params.dropoffDateTime || tomorrow.toISOString();
+        }
+
+        const response = await api.get('/api/cars/available', { params });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching available cars:', error);
+        if (error.message.includes('CORS')) return { content: [], totalElements: 0, totalPages: 1 };
+        throw new Error(error.response?.data?.message || 'Lấy danh sách xe available thất bại');
     }
 };
 
@@ -1431,5 +1483,69 @@ export const supplierConfirmDelivery = async (bookingId) => {
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Không thể xác nhận giao xe');
+    }
+};
+
+/**
+ * Cash Payment Management APIs
+ */
+
+// Lấy danh sách cash payments cần xác nhận
+export const getPendingCashPayments = async () => {
+    try {
+        const response = await api.get('/api/cash-payments/pending');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể lấy danh sách thanh toán tiền mặt');
+    }
+};
+
+// Xác nhận đã nhận tiền mặt
+export const confirmCashReceived = async (paymentId, confirmationData) => {
+    try {
+        const response = await api.post(`/api/cash-payments/${paymentId}/confirm`, confirmationData);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể xác nhận nhận tiền mặt');
+    }
+};
+
+// Lấy danh sách platform fees chưa thanh toán
+export const getPendingPlatformFees = async () => {
+    try {
+        const response = await api.get('/api/cash-payments/platform-fees/pending');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể lấy danh sách phí platform');
+    }
+};
+
+// Lấy tổng số tiền platform fee chưa thanh toán
+export const getTotalPendingPlatformFees = async () => {
+    try {
+        const response = await api.get('/api/cash-payments/platform-fees/pending/total');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể lấy tổng phí platform');
+    }
+};
+
+// Thanh toán platform fee
+export const payPlatformFee = async (confirmationId) => {
+    try {
+        const response = await api.post(`/api/cash-payments/confirmations/${confirmationId}/pay-platform-fee`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể thanh toán phí platform');
+    }
+};
+
+// Admin: Lấy danh sách platform fees quá hạn
+export const getOverduePlatformFees = async () => {
+    try {
+        const response = await api.get('/api/cash-payments/platform-fees/overdue');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể lấy danh sách phí quá hạn');
     }
 };

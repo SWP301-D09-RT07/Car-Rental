@@ -1,4 +1,6 @@
-﻿Create database use CarRentalDB
+﻿create database CarRentalDB
+
+use CarRentalDB
 -- 1. Tạo bảng CountryCode
 CREATE TABLE CountryCode (
     country_code VARCHAR(4) PRIMARY KEY CHECK (country_code LIKE '+[0-9]%'),
@@ -583,7 +585,6 @@ CREATE TABLE registration_requests (
     updated_at DATETIME DEFAULT GETDATE()
 );
 GO
-
 -- Create a trigger to update the updated_at column
 CREATE TRIGGER trigger_registration_requests_updated_at
 ON registration_requests
@@ -596,19 +597,68 @@ BEGIN
     INNER JOIN inserted i ON r.id = i.id;
 END;
 
-IF OBJECT_ID('user_sessions', 'U') IS NULL
-BEGIN
-    CREATE TABLE user_sessions (
-        id BIGINT IDENTITY(1,1) PRIMARY KEY,
-        user_id INT NOT NULL,
-        token NVARCHAR(512) NOT NULL,
-        created_at DATETIME2 DEFAULT SYSDATETIME(),
-        expired_at DATETIME2 NULL,
-        is_active BIT DEFAULT 1,
-        CONSTRAINT FK_user_sessions_user FOREIGN KEY (user_id) REFERENCES [User](user_id) ON DELETE CASCADE
-    );
-END
+CREATE TABLE user_sessions (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL,
+    token NVARCHAR(512) NOT NULL,
+    created_at DATETIME2 DEFAULT SYSDATETIME(),
+    expired_at DATETIME2 NULL,
+    is_active BIT DEFAULT 1,
+    CONSTRAINT FK_user_sessions_user FOREIGN KEY (user_id) REFERENCES [User](user_id) ON DELETE CASCADE
+);
 
+CREATE TABLE cash_payment_confirmations (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    payment_id INT NOT NULL,
+    supplier_id INT NOT NULL,
+    amount_received DECIMAL(15,2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'VND',
+    received_at DATETIME2 DEFAULT GETDATE(),
+    confirmation_type VARCHAR(20) DEFAULT 'pickup',
+    supplier_confirmation_code VARCHAR(50),
+    is_confirmed BIT DEFAULT 0,
+    notes VARCHAR(500),
+    platform_fee DECIMAL(15,2) NOT NULL,
+    platform_fee_status VARCHAR(20) DEFAULT 'pending',
+    platform_fee_due_date DATETIME2,
+    platform_fee_paid_at DATETIME2 NULL,
+    is_deleted BIT DEFAULT 0,
+    created_at DATETIME2 DEFAULT GETDATE(),
+    updated_at DATETIME2 DEFAULT GETDATE(),
+    
+    CONSTRAINT FK_cash_payment_confirmations_payment_id 
+        FOREIGN KEY (payment_id) REFERENCES payment(payment_id) ON DELETE CASCADE,
+    CONSTRAINT FK_cash_payment_confirmations_supplier_id 
+        FOREIGN KEY (supplier_id) REFERENCES [User](user_id) ON DELETE CASCADE
+);
+
+-- Create indexes
+CREATE INDEX idx_cash_payment_confirmations_payment_id ON cash_payment_confirmations(payment_id);
+CREATE INDEX idx_cash_payment_confirmations_supplier_id ON cash_payment_confirmations(supplier_id);
+CREATE INDEX idx_cash_payment_confirmations_platform_fee_status ON cash_payment_confirmations(platform_fee_status);
+CREATE INDEX idx_cash_payment_confirmations_platform_fee_due_date ON cash_payment_confirmations(platform_fee_due_date);
+CREATE INDEX idx_cash_payment_confirmations_is_confirmed ON cash_payment_confirmations(is_confirmed);
+CREATE INDEX idx_cash_payment_confirmations_is_deleted ON cash_payment_confirmations(is_deleted);
+GO 
+-- Create trigger for updated_at column
+CREATE TRIGGER tr_cash_payment_confirmations_updated_at
+ON cash_payment_confirmations
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE cash_payment_confirmations 
+    SET updated_at = GETDATE()
+    FROM cash_payment_confirmations cpc
+    INNER JOIN inserted i ON cpc.id = i.id;
+END;
+
+-- Add extended property for table description (SQL Server equivalent of COMMENT)
+EXEC sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Tracks cash payment confirmations and platform fee management for suppliers',
+    @level0type = N'SCHEMA', @level0name = N'dbo',
+    @level1type = N'TABLE', @level1name = N'cash_payment_confirmations';
 
 -- INSERT dữ liệu
 -- 1. Bảng Role
@@ -793,7 +843,6 @@ VALUES
     (2, N'Sales Tax', 'percentage', 5.00, N'Thuế bán hàng Hoa Kỳ'),
     (3, N'Consumption Tax', 'percentage', 8.00, N'Thuế tiêu thụ Nhật Bản');
 GO
-
 
 --8. Bảng User
 INSERT INTO [User] (
@@ -1918,7 +1967,7 @@ VALUES
     (24, N'/images/MG_ZS_15L_2024_6.jpg', N'Hình phụ MG ZS 1.5L 2024', 0),
     (24, N'/images/MG_ZS_15L_2024_3.jpg', N'Hình phụ MG ZS 1.5L 2024', 0),
     -- MG RX5 2023 (car_id = 25)
-    (25, N'/images/MG_RX5_2023_17.jpg', N'Hình chính MG RX5 2023', 1),
+    (25, N'/images/MG_RX5_2023_7.jpg', N'Hình chính MG RX5 2023', 1),
     (25, N'/images/MG_RX5_2023_8.jpg', N'Hình phụ MG RX5 2023', 0),
     (25, N'/images/MG_RX5_2023_10.jpg', N'Hình phụ MG RX5 2023', 0),
     (25, N'/images/MG_RX5_2023_6.jpg', N'Hình phụ MG RX5 2023', 0),
@@ -2059,7 +2108,7 @@ VALUES
     -- Hyundai Grand i10 2022 (car_id = 52)
     (52, N'/images/HUYNDAI_GRAND_i10_2.png', N'Hình chính Hyundai Grand i10 2022', 1),
     -- KIA Carnival 2023 (car_id = 53)
-    (53, N'/images/KIA_CARNIVAL_1.PNG', N'Hình chính KIA Carnival 2023', 1),
+    (53, N'/images/KIA_CARNIVAL_1.png', N'Hình chính KIA Carnival 2023', 1),
     -- KIA Carnival 2022 (car_id = 54)
     (54, N'/images/KIA_CARNIVAL_2.png', N'Hình chính KIA Carnival 2022', 1),
     (54, N'/images/KIA_CARNIVAL_5.png', N'Hình phụ KIA Carnival 2022', 0),
@@ -2076,10 +2125,10 @@ VALUES
     (56, N'/images/Mitsubishi_Xpander_Cross_2023_6.png', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
     (56, N'/images/Mitsubishi_Xpander_Cross_2023_4.png', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
     -- Suzuki Ertiga 2022 (car_id = 57)
-    (57, N'/images/Suzuki_Ertiga_2022_1.png', N'Hình chính Suzuki Ertiga 2022', 1),
-	(57, N'/images/Suzuki_Ertiga_2022_11.png', N'Hình chính Suzuki Ertiga 2022', 0),
-	(57, N'/images/Suzuki_Ertiga_2022_12.png', N'Hình chính Suzuki Ertiga 2022', 0),
-	(57, N'/images/Suzuki_Ertiga_2022_13.png', N'Hình chính Suzuki Ertiga 2022', 0),
+    (57, N'/images/Suzuki_Ertiga_2022_1.jpg', N'Hình chính Suzuki Ertiga 2022', 1),
+	(57, N'/images/Suzuki_Ertiga_2022_11.jpg', N'Hình chính Suzuki Ertiga 2022', 0),
+	(57, N'/images/Suzuki_Ertiga_2022_12.jpg', N'Hình chính Suzuki Ertiga 2022', 0),
+	(57, N'/images/Suzuki_Ertiga_2022_13.jpg', N'Hình chính Suzuki Ertiga 2022', 0),
     -- Toyota Corolla Cross 2022 (car_id = 58)
     (58, N'/images/TOYOTA_CROSS_1.png', N'Hình chính Toyota Corolla Cross 2022', 1),
     -- VinFast Lux A 2.0 2021 (car_id = 59)
@@ -2092,10 +2141,10 @@ VALUES
 	(60, N'/images/VinFast_VF8_2022_3.webp', N'Hình phụ VinFast VF8 2022', 0),
 	(60, N'/images/VinFast_VF8_2022_4.webp', N'Hình phụ VinFast VF8 2022', 0),
     -- Honda BR-V G 2024 (car_id = 61)
-    (61, N'/images/Honda_BRV_G_2024_7.jpeg', N'Hình chính Honda BR-V G 2024', 1),
+    (61, N'/images/Honda_BRV_G_2024_7.jpg', N'Hình chính Honda BR-V G 2024', 1),
     (61, N'/images/Honda_BRV_G_2024_4.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
 	(61, N'/images/Honda_BRV_G_2024_2.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
-	(61, N'/images/Honda_BRV_G_2024_15.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
+	(61, N'/images/Honda_BRV_G_2024_15.jpg', N'Hình phụ Honda BR-V G 2024', 0),
     (61, N'/images/Honda_BRV_G_2024_12.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
     -- Toyota Corolla Cross 2022 (car_id = 62)
     (62, N'/images/TOYOTA_CROSS_2.jpeg', N'Hình chính Toyota Corolla Cross 2022', 1),
@@ -2111,7 +2160,7 @@ VALUES
     -- KIA Cerato 2021 (car_id = 67)
     (67, N'/images/KIA_CERATO_2.jpg', N'Hình chính KIA Cerato 2021', 1),
     -- KIA Carnival 2022 (car_id = 68)
-    (68, N'/images/KIA_CARNIVAL_1.jpg', N'Hình chính KIA Carnival 2022', 1),
+    (68, N'/images/KIA_CARNIVAL_1.png', N'Hình chính KIA Carnival 2022', 1),
     -- Hyundai Grand i10 2022 (car_id = 69)
     (69, N'/images/HUYNDAI_GRAND_i10_2.png', N'Hình chính Hyundai Grand i10 2022', 1),
     (69, N'/images/HUYNDAI_GRAND_i10_1.png', N'Hình phụ Hyundai Grand i10 2022', 0),
@@ -2125,3 +2174,32 @@ VALUES
     (71, N'/images/FORD_EVEREST_1.jpg', N'Hình chính Ford Everest', 1);
 GO
 
+INSERT INTO registration_requests (
+    full_name,
+    id_number,
+    address,
+    phone_number,
+    email,
+    password,
+    car_documents,
+    business_license,
+    driver_license,
+    status,
+    created_at,
+    updated_at
+) VALUES (
+    N'Nguyễn Văn D',
+    '012345670',
+    N'123 Đường ABC, Quận 1, TP.HCM',
+    '+84901234580',
+    'nguyenvand@example.com',
+    'Test@word183',
+    'uploads/test_car_doc.pdf',
+    'uploads/test_business_license.pdf',
+    'uploads/test_driver_license.pdf',
+    'pending',
+    GETDATE(),
+    GETDATE()
+);
+
+  UPDATE registration_requests SET status = 'approved' WHERE id = 1;

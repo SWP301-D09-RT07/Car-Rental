@@ -17,7 +17,4 @@ export default defineConfig({
       localsConvention: 'camelCase',
     },
   },
-  define: {
-    global: {},
-  },
 });

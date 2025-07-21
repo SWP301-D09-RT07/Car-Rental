@@ -36,6 +36,7 @@ import { useAuth } from "@/hooks/useAuth"
 import { getItem } from '@/utils/auth'
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
 import Footer from '@/components/layout/Footer/Footer.jsx';
+import { formatVND } from '@/utils/format';
 
 // Enhanced Progress Steps Component
 const ProgressSteps = ({ currentStep = 1 }) => {
@@ -58,29 +59,26 @@ const ProgressSteps = ({ currentStep = 1 }) => {
             <div key={step.id} className="flex items-center">
               <div className="flex flex-col items-center">
                 <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 transform ${
-                    isCompleted
+                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 transform ${isCompleted
                       ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg scale-110"
                       : isActive
                         ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-xl scale-125 animate-pulse"
                         : "bg-gray-200 text-gray-400 hover:bg-gray-300"
-                  }`}
+                    }`}
                 >
                   {isCompleted ? <FaCheckCircle className="text-lg" /> : <Icon className="text-lg" />}
                 </div>
                 <div
-                  className={`mt-3 text-sm font-semibold transition-colors duration-300 ${
-                    isActive ? "text-blue-600" : isCompleted ? "text-green-600" : "text-gray-400"
-                  }`}
+                  className={`mt-3 text-sm font-semibold transition-colors duration-300 ${isActive ? "text-blue-600" : isCompleted ? "text-green-600" : "text-gray-400"
+                    }`}
                 >
                   {step.name}
                 </div>
               </div>
               {index < steps.length - 1 && (
                 <div
-                  className={`w-16 h-1 mx-4 rounded-full transition-all duration-500 ${
-                    isCompleted ? "bg-gradient-to-r from-green-500 to-emerald-500" : "bg-gray-200"
-                  }`}
+                  className={`w-16 h-1 mx-4 rounded-full transition-all duration-500 ${isCompleted ? "bg-gradient-to-r from-green-500 to-emerald-500" : "bg-gray-200"
+                    }`}
                 ></div>
               )}
             </div>
@@ -138,11 +136,10 @@ const FormInput = ({ label, icon: Icon, required, error, className = "", ...prop
         {label} {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       <div
-        className={`relative flex items-center border-2 rounded-2xl p-4 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white ${
-          error
+        className={`relative flex items-center border-2 rounded-2xl p-4 transition-all duration-300 bg-white/80 backdrop-blur-sm hover:bg-white ${error
             ? "border-red-300 focus-within:border-red-500 focus-within:ring-4 focus-within:ring-red-100"
             : "border-gray-200 focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100"
-        }`}
+          }`}
       >
         {Icon && <Icon className="text-gray-400 mr-4 flex-shrink-0 text-lg" />}
         <input
@@ -171,17 +168,15 @@ const ServiceToggle = ({ icon: Icon, title, description, price, checked, onChang
 
   return (
     <div
-      className={`p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-lg ${
-        checked ? `${colorClasses[color]} shadow-lg` : "border-gray-200 bg-white hover:border-gray-300"
-      }`}
+      className={`p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-lg ${checked ? `${colorClasses[color]} shadow-lg` : "border-gray-200 bg-white hover:border-gray-300"
+        }`}
       onClick={() => onChange(!checked)}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <div
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center mr-4 ${
-              checked ? `bg-${color}-100 text-${color}-600` : "bg-gray-100 text-gray-600"
-            }`}
+            className={`w-14 h-14 rounded-2xl flex items-center justify-center mr-4 ${checked ? `bg-${color}-100 text-${color}-600` : "bg-gray-100 text-gray-600"
+              }`}
           >
             <Icon className="text-2xl" />
           </div>
@@ -222,16 +217,16 @@ const PageHeader = ({ currentStep = 2, backLink = "/search", backText = "Quay l�
 
         <ProgressSteps currentStep={currentStep} />
 
-    {/* Logo */}
-      <Link to="/" className="flex items-center group">
+        {/* Logo */}
+        <Link to="/" className="flex items-center group">
           <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-3 rounded-2xl mr-3 group-hover:scale-110 transition-all duration-300 shadow-xl group-hover:shadow-2xl">
-              <FaCarSide className="text-xl text-white" />
+            <FaCarSide className="text-xl text-white" />
           </div>
           <div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  DriveLuxe
-              </span>
-              <p className="text-xs text-gray-500 -mt-1">Premium Car Rental</p>
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              DriveLuxe
+            </span>
+            <p className="text-xs text-gray-500 -mt-1">Premium Car Rental</p>
           </div>
         </Link>
       </div>
@@ -277,14 +272,14 @@ const CarInfoCard = ({ car, bookingData, rentalDays }) => {
           {/* Price below image */}
           <div className="mt-4 w-full flex flex-col items-start">
             <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-bold text-2xl mb-2 shadow-lg">
-              {((car.dailyRate || car.daily_rate) / 1000).toFixed(0)}K/ngày
+              {formatVND(car.dailyRate || car.daily_rate)}
             </div>
             {/* Rental duration below price */}
             <div className="flex items-center text-gray-700 mt-2">
               <FaClock className="text-blue-600 mr-2 text-xl" />
               <span className="font-bold text-lg">Thời gian thuê: {rentalDays} ngày</span>
             </div>
-            
+
           </div>
         </div>
         {/* Right: Car details and trip details */}
@@ -384,31 +379,31 @@ const OrderSummary = ({
       <div className="space-y-4">
         <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
           <span className="text-gray-700 font-medium">Giá thuê ({rentalDays} ngày)</span>
-          <span className="font-bold text-lg">{priceBreakdown.basePrice.toLocaleString("vi-VN")}đ</span>
+          <span className="font-bold text-lg">{formatVND(priceBreakdown.basePrice)}</span>
         </div>
 
         {priceBreakdown.extraFee > 0 && (
           <div className="flex justify-between items-center p-4 bg-blue-50 rounded-xl">
             <span className="text-gray-700 font-medium">Phí dịch vụ bổ sung</span>
-            <span className="font-bold text-blue-600 text-lg">{priceBreakdown.extraFee.toLocaleString("vi-VN")}đ</span>
+            <span className="font-bold text-blue-600 text-lg">{formatVND(priceBreakdown.extraFee)}</span>
           </div>
         )}
 
         <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
           <span className="text-gray-700 font-medium">Phí dịch vụ (10%)</span>
-          <span className="font-bold text-lg">{priceBreakdown.serviceFee.toLocaleString("vi-VN")}đ</span>
+          <span className="font-bold text-lg">{formatVND(priceBreakdown.serviceFee)}</span>
         </div>
 
         <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
           <span className="text-gray-700 font-medium">Thuế VAT (10%)</span>
-          <span className="font-bold text-lg">{priceBreakdown.tax.toLocaleString("vi-VN")}đ</span>
+          <span className="font-bold text-lg">{formatVND(priceBreakdown.tax)}</span>
         </div>
 
         {priceBreakdown.discount > 0 && (
           <div className="flex justify-between items-center p-4 bg-green-50 rounded-xl">
             <span className="text-green-700 font-medium">Giảm giá</span>
             <span className="font-bold text-green-600 text-lg">
-              -{priceBreakdown.discount.toLocaleString("vi-VN")}đ
+              -{formatVND(priceBreakdown.discount)}
             </span>
           </div>
         )}
@@ -444,12 +439,12 @@ const OrderSummary = ({
       <div className="flex justify-between items-center mb-4 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl">
         <span className="font-bold text-gray-900 text-xl">Tổng cộng</span>
         <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          {priceBreakdown.total.toLocaleString("vi-VN")}đ
+          {formatVND(priceBreakdown.total)}
         </span>
       </div>
       <div className="text-center p-4 bg-yellow-50 rounded-xl border border-yellow-200">
         <div className="text-sm text-gray-600 mb-1">Cần thanh toán ngay</div>
-        <div className="text-xl font-bold text-yellow-700">{priceBreakdown.deposit.toLocaleString("vi-VN")}đ (30%)</div>
+        <div className="text-xl font-bold text-yellow-700">{formatVND(priceBreakdown.deposit)} (30%)</div>
         <div className="text-xs text-gray-500 mt-1">Số tiền còn lại thanh toán khi nhận xe</div>
       </div>
     </div>
@@ -499,11 +494,10 @@ const OrderSummary = ({
     <button
       onClick={handleConfirm}
       disabled={!agreeTerms || isLoading || Object.keys(contactErrors).length > 0}
-      className={`w-full py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform ${
-        !agreeTerms || isLoading || Object.keys(contactErrors).length > 0
+      className={`w-full py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform ${!agreeTerms || isLoading || Object.keys(contactErrors).length > 0
           ? "bg-gray-300 text-gray-500 cursor-not-allowed"
           : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white hover:scale-105 shadow-xl hover:shadow-2xl"
-      }`}
+        }`}
     >
       {isLoading ? (
         <div className="flex items-center justify-center">
@@ -1004,7 +998,7 @@ const BookingConfirmationPage = () => {
                   icon={FaUser}
                   title="Thuê tài xế"
                   description="Tài xế chuyên nghiệp, kinh nghiệm lái xe an toàn"
-                  price="300,000 VND/ngày"
+                  price={formatVND(300000) + "/ngày"}
                   checked={withDriver}
                   onChange={setWithDriver}
                   color="blue"
@@ -1014,7 +1008,7 @@ const BookingConfirmationPage = () => {
                   icon={FaMapMarkerAlt}
                   title="Giao xe tận nơi"
                   description="Giao xe đến địa chỉ của bạn, tiết kiệm thời gian"
-                  price="100,000 VND"
+                  price={formatVND(100000)}
                   checked={deliveryRequested}
                   onChange={setDeliveryRequested}
                   color="green"
@@ -1056,7 +1050,7 @@ const BookingConfirmationPage = () => {
                     </li>
                     <li className="flex items-center">
                       <FaCheck className="text-green-500 mr-3 flex-shrink-0" />
-                      <span className="font-medium">Đặt cọc 5 triệu đồng hoặc xe máy có giá trị tương đương</span>
+                      <span className="font-medium">Đặt cọc {formatVND(5000000)} hoặc xe máy có giá trị tương đương</span>
                     </li>
                   </ul>
                 </div>
@@ -1085,7 +1079,7 @@ const BookingConfirmationPage = () => {
                         </li>
                         <li className="flex items-center">
                           <FaCheck className="text-green-500 mr-3 flex-shrink-0" />
-                          <span className="font-medium">Vệ sinh xe trước khi trả, quá giờ tính phí 100.000đ/giờ</span>
+                          <span className="font-medium">Vệ sinh xe trước khi trả, quá giờ tính phí {formatVND(100000)}/giờ</span>
                         </li>
                       </ul>
                     </div>
