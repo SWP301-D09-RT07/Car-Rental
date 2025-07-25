@@ -64,4 +64,8 @@ public class ChatMessage {
     @Column(name = "is_deleted")
     private Boolean isDeleted;
 
+    // Danh sách ảnh cho tin nhắn
+    @OneToMany(mappedBy = "message", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<ChatMessageImage> images = new java.util.ArrayList<>();
+
 }

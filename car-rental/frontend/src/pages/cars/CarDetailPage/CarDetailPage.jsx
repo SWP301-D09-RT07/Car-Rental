@@ -1,8 +1,10 @@
+
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import React, { Suspense } from "react"
 import { useParams, Link, useNavigate } from "react-router-dom"
-import { getCarById, getRatingsByCarId, post, searchCars, getUserById, getSimilarCarsAdvanced, getRatingSummaryByCarId  } from "@/services/api.js"
+import { getCarById, getRatingsByCarId, post, searchCars, getUserById, getSimilarCarsAdvanced, getRatingSummaryByCarId, getProfile } from "@/services/api.js"
 import {
   FaCarSide,
   FaUser,
@@ -63,6 +65,7 @@ import { toast } from "react-toastify"
 import { useAuth } from "@/hooks/useAuth.js"
 import Header from "@/components/layout/Header/Header"
 import Footer from "@/components/layout/Footer/Footer"
+import { FaArrowUp } from "react-icons/fa"
 import BookingModal from "@/components/features/cars/BookingModal.jsx"
 import CarCard from "@/components/features/cars/CarCard/CarCard.jsx"
 import { Swiper, SwiperSlide } from "swiper/react"
@@ -70,10 +73,12 @@ import { Pagination, Autoplay, Navigation } from "swiper/modules"
 import "swiper/css"
 import "swiper/css/pagination"
 import "swiper/css/navigation"
-import TestimonialCarousel from '../../../components/Rating/TestimonialCarousel'
+import TestimonialCarousel from '../../../components/features/Rating/TestimonialCarousel'
 import { getItem } from '@/utils/auth';
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
-
+import { formatVND } from '@/utils/format';
+import CustomerChatModal from '@/components/Chat/CustomerChatModal';
+import FavoriteButton from '@/components/ui/FavoriteButton/FavoriteButton.jsx';
 
 // Enhanced Error Message Component
 const ErrorMessage = ({ message, onRetry, className = "" }) => {
@@ -155,9 +160,21 @@ const FeatureIcon = ({ feature }) => {
 }
 
 const CarDetailPage = () => {
+  // Scroll to Top button state and logic
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollToTop(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const { carId } = useParams()
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
 
   // State management
   const [car, setCar] = useState(null)
@@ -181,6 +198,55 @@ const CarDetailPage = () => {
   const [isAutoPlay, setIsAutoPlay] = useState(false)
   const [supplier, setSupplier] = useState(null)
   const [loadingSupplier, setLoadingSupplier] = useState(false)
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Lấy supplierId và supplierName từ car (ưu tiên userId, fallback sang id, kiểm tra null an toàn)
+  const supplierId = supplier?.id
+    || supplier?.userId
+    || (car && (
+      car.supplier?.id
+      || car.supplier?.userId
+      || car.supplierId
+      || car.ownerId
+    ))
+    || '';
+
+  const supplierName = supplier?.userDetail?.fullName
+    || supplier?.username
+    || supplier?.email
+    || (car && (
+      car.supplier?.userDetail?.fullName
+      || car.supplier?.username
+      || car.supplier?.email
+    ))
+    || '';
+
+// Handler mở/tắt modal chat
+  const handleOpenChatModal = () => setShowChatModal(true);
+  const handleCloseChatModal = () => setShowChatModal(false);
+
+
+  // Compose currentUser and selectedUser for chat
+  const chatCurrentUser = user && isAuthenticated ? {
+    id: user.userId || user.id,
+    username: user.username || user.email,
+    role: user.role || 'customer',
+  } : null;
+  const chatSupplierUser = supplierId ? {
+    id: supplierId,
+    username: supplierName,
+    role: 'supplier',
+  } : null;
+  const isSupplierSelf = chatCurrentUser && chatSupplierUser && chatCurrentUser.id === chatSupplierUser.id;
+
+  // Debug log
+  useEffect(() => {
+    console.log('[CarDetailPage] car:', car);
+    console.log('[CarDetailPage] supplierId:', supplierId, 'supplierName:', supplierName);
+  }, [car, supplierId, supplierName]);
+
+// ...existing code...
   const similarSwiperRef = useRef(null);
   const [carRatings, setCarRatings] = useState([])
   const [ratingSummary, setRatingSummary] = useState([])
@@ -235,6 +301,20 @@ const CarDetailPage = () => {
     }
     fetchData()
   }, [carId, isAuthenticated])
+
+  // Fetch current user info
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const profile = await getProfile();
+        setCurrentUser(profile);
+      } catch (e) {
+        setCurrentUser(null);
+      }
+    };
+    if (isAuthenticated) fetchProfile();
+    else setCurrentUser(null);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (carRatings.length > 0) {
@@ -589,28 +669,7 @@ const CarDetailPage = () => {
     )
   }
 
-  // Enhanced Favorite Button Component
-  const FavoriteButton = ({ carId }) => {
-    const [isFavorite, setIsFavorite] = useState(false)
-
-    const toggleFavorite = () => {
-      setIsFavorite(!isFavorite)
-      toast.success(isFavorite ? "Đã xóa khỏi danh sách yêu thích" : "Đã thêm vào danh sách yêu thích")
-    }
-
-    return (
-      <button
-        onClick={toggleFavorite}
-        className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-lg hover:scale-110 ${
-          isFavorite
-            ? "bg-gradient-to-r from-red-400 to-pink-400 text-white shadow-red-200"
-            : "bg-white/90 backdrop-blur-sm text-gray-600 hover:bg-red-50 hover:text-red-500 border border-gray-200"
-        }`}
-      >
-        <FaHeart className="text-xl" />
-      </button>
-    )
-  }
+  // (Removed inline FavoriteButton, use shared component)
 
   // Loading state
   if (loading) {
@@ -679,7 +738,7 @@ const CarDetailPage = () => {
   }
 
   // Calculate rental details
-  const mainImage = car.images?.[activeImageIndex] || car.images?.[0]
+  const mainImage = car?.images?.[activeImageIndex] || car?.images?.[0];
 
   return (
     <div className="bg-gradient-to-br from-gray-50 via-white to-blue-50 min-h-screen">
@@ -728,9 +787,9 @@ const CarDetailPage = () => {
                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-3xl p-8 mb-8 border border-blue-100 shadow-lg">
                   <div className="flex items-baseline gap-6 mb-4">
                     <div className="text-5xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                      {(car.dailyRate / 1000).toFixed(0)}K
+                      {formatVND(car.dailyRate)}
                     </div>
-                    <div className="text-gray-500 text-xl line-through">{car.dailyRate?.toLocaleString()}đ</div>
+                    <div className="text-gray-500 text-xl line-through">{formatVND(car.dailyRate * 1.15)}đ</div>
                     <div className="bg-gradient-to-r from-green-400 to-emerald-400 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg">
                       <FaGem className="inline mr-2" />
                       Tiết kiệm 15%
@@ -778,7 +837,9 @@ const CarDetailPage = () => {
               {/* Enhanced Action Buttons */}
               <div className="flex items-center gap-4 lg:flex-col lg:items-end">
                 <div className="flex gap-4">
-                  <FavoriteButton carId={carId} />
+                  <div className="w-14 h-14">
+                    <FavoriteButton carId={car?.carId || car?.id} supplierId={car?.supplierId || car?.supplier?.id} />
+                  </div>
                   <button
                     onClick={handleShare}
                     className="w-14 h-14 rounded-2xl bg-white/90 backdrop-blur-sm text-gray-600 hover:bg-blue-50 hover:text-blue-500 transition-all duration-300 shadow-lg hover:scale-110 border border-gray-200"
@@ -1049,9 +1110,9 @@ const CarDetailPage = () => {
                     <div className="relative z-10">
                       <div className="text-sm text-gray-600 mb-2 font-medium">Dưới 24 giờ</div>
                       <div className="text-3xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                        {(car.dailyRate / 1000).toFixed(0)}K
+                         {formatVND(car.dailyRate)}
                       </div>
-                      <div className="text-xs text-gray-500">{car.dailyRate?.toLocaleString()}đ / ngày</div>
+                      <div className="text-xs text-gray-500">{formatVND(car.dailyRate)} / ngày</div>
                       <div className="mt-3 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
                         Giá chuẩn
                       </div>
@@ -1068,9 +1129,9 @@ const CarDetailPage = () => {
                     <div className="relative z-10">
                       <div className="text-sm text-gray-600 mb-2 font-medium">3-6 ngày</div>
                       <div className="text-3xl font-black bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent mb-2">
-                        {((car.dailyRate * 0.95) / 1000).toFixed(0)}K
+                         {formatVND(car.dailyRate * 0.95)}
                       </div>
-                      <div className="text-xs text-gray-500">{(car.dailyRate * 0.95).toLocaleString()}đ / ngày</div>
+                      <div className="text-xs text-gray-500">{formatVND(car.dailyRate * 0.95)} / ngày</div>
                       <div className="mt-3 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">
                         Tiết kiệm 5%
                       </div>
@@ -1087,9 +1148,9 @@ const CarDetailPage = () => {
                     <div className="relative z-10">
                       <div className="text-sm text-gray-600 mb-2 font-medium">7+ ngày</div>
                       <div className="text-3xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-                        {((car.dailyRate * 0.9) / 1000).toFixed(0)}K
+                       {formatVND(car.dailyRate * 0.9)}
                       </div>
-                      <div className="text-xs text-gray-500">{(car.dailyRate * 0.9).toLocaleString()}đ / ngày</div>
+                      <div className="text-xs text-gray-500">{formatVND(car.dailyRate * 0.9)} / ngày</div>
                       <div className="mt-3 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">
                         Tiết kiệm 10%
                       </div>
@@ -1467,14 +1528,24 @@ const CarDetailPage = () => {
                     </div>
                   </div>
                   <div className="md:self-center">
-                    <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-2xl font-bold transition-all duration-300 flex items-center shadow-xl hover:shadow-2xl transform hover:scale-105">
-                      <FaComments className="mr-3 text-xl" />
-                      Chat với chủ xe
-                    </button>
+                    {!isSupplierSelf && chatCurrentUser && chatSupplierUser && (
+                      <button
+                        onClick={handleOpenChatModal}
+                        disabled={!isAuthenticated}
+                        className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white px-8 py-4 rounded-2xl font-bold transition-all duration-300 flex items-center shadow-xl hover:shadow-2xl transform hover:scale-105 disabled:transform-none disabled:shadow-md"
+                      >
+                        <FaComments className="mr-3 text-xl" />
+                        {!isAuthenticated ? 'Đăng nhập để chat' : 'Chat với chủ xe'}
+                      </button>
+                    )}
                   </div>
+
+  {/* Modal chat sẽ được render ở cuối trang để luôn ở giữa màn hình */}
                 </div>
               </div>
             ) : loadingSupplier ? (
+// ...existing code...
+
               <div className="bg-white/95 backdrop-blur-xl rounded-3xl p-8 shadow-2xl mb-12 border border-gray-100 flex flex-col items-center justify-center text-center">
                 <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
                   <FaUser className="text-gray-400 text-5xl" />
@@ -1528,7 +1599,7 @@ const CarDetailPage = () => {
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="text-center bg-white/70 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
                     <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                      {(car.dailyRate / 1000).toFixed(0)}K
+                      {formatVND(car.dailyRate)}
                     </div>
                     <div className="text-sm text-gray-500">/ ngày</div>
                   </div>
@@ -1624,7 +1695,12 @@ const CarDetailPage = () => {
                   </div>
                 </button>
 
-                <button className="w-full border-2 border-blue-600 text-blue-600 py-3 rounded-2xl font-semibold hover:bg-blue-50 transition-all duration-300 flex items-center justify-center shadow-xl hover:shadow-2xl text-base group relative overflow-hidden">
+                {/* Nút chat với chủ xe */}
+                <button
+                  type="button"
+                  className="w-full border-2 border-blue-600 text-blue-600 py-3 rounded-2xl font-semibold hover:bg-blue-50 transition-all duration-300 flex items-center justify-center shadow-xl hover:shadow-2xl text-base group relative overflow-hidden"
+                  onClick={handleOpenChatModal}
+                >
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <FaComments className="mr-2 text-lg relative z-10" />
                   <span className="relative z-10">Liên hệ chủ xe</span>
@@ -1769,7 +1845,57 @@ const CarDetailPage = () => {
         car={car}
         onSubmitBooking={handleSubmitBooking}
       />
-
+      {/* Chat Modal
+      {showChatModal && (supplier || car.supplier) && (
+        <CarChatBox
+          carId={carId}
+          supplierId={
+            supplier?.id ||
+            supplier?.userId ||
+            car.supplier?.id ||
+            car.supplier?.userId ||
+            car.supplierId ||
+            car.ownerId ||
+            ''
+          }
+          supplierName={
+            supplier?.userDetail?.fullName ||
+            supplier?.username ||
+            supplier?.email ||
+            car.supplier?.userDetail?.fullName ||
+            car.supplier?.username ||
+            car.supplier?.email ||
+            ''
+          }
+        />
+      )} */}
+      {/* Modal chat customer luôn ở cuối trang */}
+      {showChatModal && currentUser && chatSupplierUser && (
+        <CustomerChatModal
+          open={showChatModal}
+          onClose={handleCloseChatModal}
+          customer={{
+            id: currentUser.id || currentUser.userId,
+            username: currentUser.username || currentUser.email,
+            role: currentUser.roleName || currentUser.role || 'customer',
+            ...currentUser
+          }}
+          supplier={chatSupplierUser}
+        />
+      )}
+      {showScrollToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-10 right-4 z-[100] group bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white w-16 h-16 rounded-full border-4 border-white shadow-2xl hover:shadow-emerald-400 flex items-center justify-center transition-all duration-300 transform hover:scale-125"
+          style={{ boxShadow: '0 8px 32px 0 rgba(80,0,200,0.25), 0 1.5px 8px 0 rgba(0,0,0,0.10)' }}
+          aria-label="Lên đầu trang"
+        >
+          <FaArrowUp className="text-2xl drop-shadow-lg" />
+          <div className="absolute right-20 top-1/2 transform -translate-y-1/2 bg-gray-900/90 text-white px-4 py-2 rounded-xl text-base font-semibold opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap shadow-xl border border-white">
+            Lên đầu trang
+          </div>
+        </button>
+      )}
       <Footer />
     </div>
   )

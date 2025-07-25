@@ -26,6 +26,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private static final List<String> PUBLIC_ENDPOINTS = Arrays.asList(
+            // WebSocket endpoints (SockJS handshake, info, etc.)
+            "/ws-chat", "/ws-chat/", "/ws-chat/info", "/ws-chat/info/", "/ws-chat/**",
             "/login/oauth2/code/",
             "/oauth2/authorization/",
             "/api/auth/login",

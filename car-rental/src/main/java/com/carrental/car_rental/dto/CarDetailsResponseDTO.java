@@ -22,6 +22,7 @@ public class CarDetailsResponseDTO {
     private String color;
     private Short numOfSeats;
     private Integer regionId;
+    private String regionName;
     private String features;
     private Integer fuelTypeId;
     private String fuelTypeName;

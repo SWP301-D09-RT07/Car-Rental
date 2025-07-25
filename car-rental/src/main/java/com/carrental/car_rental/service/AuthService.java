@@ -23,6 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.carrental.car_rental.service.UserSessionService;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.carrental.car_rental.entity.PhoneOtp;
+import com.carrental.car_rental.repository.PhoneOtpRepository;
+import com.carrental.car_rental.service.SmsService;
 
 import java.time.Instant;
 import java.sql.Timestamp;
@@ -49,6 +52,8 @@ public class AuthService {
     private final UserMapper userMapper;
     private final UserDetailMapper userDetailMapper;
     private final UserSessionService userSessionService;
+    private final PhoneOtpRepository phoneOtpRepository;
+    private final SmsService smsService;
 
     @Autowired
     public AuthService(@Lazy AuthenticationManager authenticationManager,
@@ -62,7 +67,9 @@ public class AuthService {
                        JwtTokenProvider jwtTokenProvider,
                        UserMapper userMapper,
                        UserDetailMapper userDetailMapper,
-                       UserSessionService userSessionService) {
+                       UserSessionService userSessionService,
+                       PhoneOtpRepository phoneOtpRepository,
+                       SmsService smsService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.userDetailRepository = userDetailRepository;
@@ -75,6 +82,8 @@ public class AuthService {
         this.userMapper = userMapper;
         this.userDetailMapper = userDetailMapper;
         this.userSessionService = userSessionService;
+        this.phoneOtpRepository = phoneOtpRepository;
+        this.smsService = smsService;
     }
 
     public AuthResponse login(AuthRequest authRequest) {
@@ -277,5 +286,33 @@ public class AuthService {
     public void logout(User user) {
         userSessionService.invalidateSessionByUser(user);
         // ... các thao tác khác nếu cần ...
+    }
+
+    public void sendPhoneOtp(String phone) {
+    String otp = String.format("%06d", (int)(Math.random() * 1000000));
+    logger.info("[OTP-DEBUG] Nhận request gửi OTP | Số điện thoại: {} | OTP: {} | Thời gian: {}", phone, otp, java.time.LocalDateTime.now());
+
+    PhoneOtp phoneOtp = new PhoneOtp();
+    phoneOtp.setPhone(phone);
+    phoneOtp.setOtp(otp);
+    phoneOtp.setCreatedAt(Instant.now());
+    phoneOtp.setVerified(false);
+    phoneOtpRepository.save(phoneOtp);
+    smsService.sendOtp(phone, otp);
+    }
+
+    public boolean verifyPhoneOtp(String phone, String otp) {
+        Optional<PhoneOtp> latestOtp = phoneOtpRepository.findTopByPhoneOrderByCreatedAtDesc(phone);
+        if (latestOtp.isPresent()) {
+            PhoneOtp phoneOtp = latestOtp.get();
+            if (!phoneOtp.isVerified()
+                && phoneOtp.getOtp().equals(otp)
+                && phoneOtp.getCreatedAt().isAfter(Instant.now().minusSeconds(300))) {
+                phoneOtp.setVerified(true);
+                phoneOtpRepository.save(phoneOtp);
+                return true;
+            }
+        }
+        return false;
     }
 }

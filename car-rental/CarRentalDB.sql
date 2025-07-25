@@ -38,7 +38,7 @@ GO
 -- 4. Tạo bảng Status
 CREATE TABLE Status (
     status_id INT IDENTITY(1,1) PRIMARY KEY,
-    status_name NVARCHAR(20) NOT NULL UNIQUE,
+    status_name NVARCHAR(50) NOT NULL UNIQUE,
     description NVARCHAR(200),
     is_deleted BIT DEFAULT 0
 );
@@ -405,7 +405,7 @@ CREATE TABLE Payment (
     CONSTRAINT UQ_Booking_Payment_Type UNIQUE (booking_id, payment_type)
 );
 GO
--- Thêm các fields cho cash payment confirmation vào bảng Payment
+
 ALTER TABLE Payment 
 ADD customer_cash_confirmed BIT DEFAULT 0,
     customer_cash_confirmed_at DATETIME NULL,
@@ -415,13 +415,6 @@ ADD customer_cash_confirmed BIT DEFAULT 0,
 -- Tạo index để tối ưu performance
 CREATE INDEX idx_payments_cash_confirmation ON Payment(customer_cash_confirmed, supplier_cash_confirmed);
 CREATE INDEX idx_payments_booking_method_type ON Payment(booking_id, payment_method, payment_type);
-
--- Update existing records với giá trị mặc định
-UPDATE Payment 
-SET customer_cash_confirmed = 0, 
-    supplier_cash_confirmed = 0 
-WHERE customer_cash_confirmed IS NULL 
-   OR supplier_cash_confirmed IS NULL;
 
 -- Thêm comment mô tả cho các fields mới (tùy chọn)
 EXEC sp_addextendedproperty 
@@ -548,7 +541,7 @@ CREATE TABLE ChatMessage (
     receiver_id INT NOT NULL,
     booking_id INT,
     message_content NVARCHAR(1000) NOT NULL,
-    sent_at DATETIME NOT NULL DEFAULT GETDATE(),
+    sent_at DATETIME2 NOT NULL DEFAULT GETDATE(),
     is_read BIT DEFAULT 0,
     is_translated BIT DEFAULT 0,
     original_language VARCHAR(2),
@@ -560,6 +553,8 @@ CREATE TABLE ChatMessage (
 );
 CREATE INDEX idx_chatmessage_booking_id ON ChatMessage(booking_id);
 CREATE INDEX idx_chatmessage_sent_at ON ChatMessage(sent_at);
+CREATE INDEX idx_chatmessage_sender_receiver ON ChatMessage(sender_id, receiver_id);
+CREATE INDEX idx_chatmessage_is_read ON ChatMessage(is_read) WHERE is_read = 0;
 GO
 EXEC sys.sp_addextendedproperty 
     @name=N'MS_Description', 
@@ -650,6 +645,24 @@ CREATE TABLE user_sessions (
     CONSTRAINT FK_user_sessions_user FOREIGN KEY (user_id) REFERENCES [User](user_id) ON DELETE CASCADE
 );
 
+
+-- Drop existing table if it exists (with all its constraints and triggers)
+IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'[dbo].[cash_payment_confirmations]') AND type in (N'U'))
+BEGIN
+    -- Drop trigger first
+    IF EXISTS (SELECT * FROM sys.triggers WHERE name = 'tr_cash_payment_confirmations_updated_at')
+    BEGIN
+        DROP TRIGGER tr_cash_payment_confirmations_updated_at;
+        PRINT 'Dropped existing trigger tr_cash_payment_confirmations_updated_at';
+    END
+    
+    -- Drop table
+    DROP TABLE cash_payment_confirmations;
+    PRINT 'Dropped existing cash_payment_confirmations table';
+END
+GO
+
+-- Create the complete cash_payment_confirmations table
 CREATE TABLE cash_payment_confirmations (
     id INT IDENTITY(1,1) PRIMARY KEY,
     payment_id INT NOT NULL,
@@ -665,15 +678,22 @@ CREATE TABLE cash_payment_confirmations (
     platform_fee_status VARCHAR(20) DEFAULT 'pending',
     platform_fee_due_date DATETIME2,
     platform_fee_paid_at DATETIME2 NULL,
+    platform_fee_payment_id INT NULL,
+    overdue_penalty_rate DECIMAL(5,2) DEFAULT 0.05,
+    penalty_amount DECIMAL(15,2) DEFAULT 0,
+    total_amount_due DECIMAL(15,2) NULL,
+    overdue_since DATETIME NULL,
+    escalation_level INT DEFAULT 0,
     is_deleted BIT DEFAULT 0,
     created_at DATETIME2 DEFAULT GETDATE(),
     updated_at DATETIME2 DEFAULT GETDATE(),
     
     CONSTRAINT FK_cash_payment_confirmations_payment_id 
-        FOREIGN KEY (payment_id) REFERENCES payment(payment_id) ON DELETE CASCADE,
+        FOREIGN KEY (payment_id) REFERENCES Payment(payment_id) ON DELETE CASCADE,
     CONSTRAINT FK_cash_payment_confirmations_supplier_id 
         FOREIGN KEY (supplier_id) REFERENCES [User](user_id) ON DELETE CASCADE
 );
+GO
 
 -- Create indexes
 CREATE INDEX idx_cash_payment_confirmations_payment_id ON cash_payment_confirmations(payment_id);
@@ -682,7 +702,8 @@ CREATE INDEX idx_cash_payment_confirmations_platform_fee_status ON cash_payment_
 CREATE INDEX idx_cash_payment_confirmations_platform_fee_due_date ON cash_payment_confirmations(platform_fee_due_date);
 CREATE INDEX idx_cash_payment_confirmations_is_confirmed ON cash_payment_confirmations(is_confirmed);
 CREATE INDEX idx_cash_payment_confirmations_is_deleted ON cash_payment_confirmations(is_deleted);
-GO 
+GO
+
 -- Create trigger for updated_at column
 CREATE TRIGGER tr_cash_payment_confirmations_updated_at
 ON cash_payment_confirmations
@@ -695,6 +716,7 @@ BEGIN
     FROM cash_payment_confirmations cpc
     INNER JOIN inserted i ON cpc.id = i.id;
 END;
+GO
 
 -- Add extended property for table description (SQL Server equivalent of COMMENT)
 EXEC sp_addextendedproperty 
@@ -702,6 +724,19 @@ EXEC sp_addextendedproperty
     @value = N'Tracks cash payment confirmations and platform fee management for suppliers',
     @level0type = N'SCHEMA', @level0name = N'dbo',
     @level1type = N'TABLE', @level1name = N'cash_payment_confirmations';
+GO
+
+-- Show the table structure
+SELECT 
+    COLUMN_NAME,
+    DATA_TYPE,
+    IS_NULLABLE,
+    COLUMN_DEFAULT
+FROM INFORMATION_SCHEMA.COLUMNS 
+WHERE TABLE_NAME = 'cash_payment_confirmations'
+ORDER BY ORDINAL_POSITION;
+
+PRINT 'Cash Payment Confirmations table created successfully with all required columns';
 
 -- Tạo bảng BankAccount để lưu thông tin tài khoản ngân hàng của user
 CREATE TABLE BankAccount (
@@ -719,7 +754,7 @@ CREATE TABLE BankAccount (
     created_at DATETIME DEFAULT GETDATE(),
     updated_at DATETIME DEFAULT GETDATE(),
     is_deleted BIT DEFAULT 0,
-    
+ 
     FOREIGN KEY (user_id) REFERENCES [User](user_id) ON DELETE CASCADE,
     CONSTRAINT UQ_User_Primary_Bank_Account UNIQUE (user_id, is_primary),
     CONSTRAINT UQ_Bank_Account_Number UNIQUE (account_number, bank_name)
@@ -772,6 +807,7 @@ CREATE TABLE CarConditionReport (
     report_type VARCHAR(20) NOT NULL CHECK (report_type IN ('pickup', 'return')), -- pickup: nhận xe, return: trả xe
     report_date DATETIME NOT NULL DEFAULT GETDATE(),
     status_id INT NOT NULL DEFAULT 1, -- 1 là id của 'pending'
+
     -- Thông tin tình trạng xe
     fuel_level DECIMAL(5,2) CHECK (fuel_level BETWEEN 0 AND 100), -- Mức nhiên liệu (%)
     mileage INT, -- Số km đã đi
@@ -859,6 +895,13 @@ ON CarConditionReport(booking_id, report_type)
 WHERE is_deleted = 0;
 GO
 
+CREATE TABLE PhoneOtp (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    phone NVARCHAR(32) NOT NULL,
+    otp NVARCHAR(16) NOT NULL,
+    created_at DATETIME2 NOT NULL,
+    verified BIT NOT NULL
+);
 
 -- INSERT dữ liệu
 -- 1. Bảng Role
@@ -988,6 +1031,7 @@ VALUES
     (N'Paris', 'EUR', '+33', 0);           -- France
 GO
 
+
 -- 3. Bảng Status
 INSERT INTO Status (status_name, description)
 VALUES 
@@ -1016,10 +1060,56 @@ VALUES
 	(N'payout', N'Đã chuyển tiền'),
 	(N'ready_for_pickup', N'chờ nhận xe'),
 	(N'delivered', N'đã giao xe'),
-    (N'disputed', N'Đang tranh chấp'),
+	(N'disputed', N'Đang tranh chấp'),
     (N'resolved', N'Đã xử lý tranh chấp');
 GO
+INSERT INTO Status (status_name, description)
+VALUES 
+    -- Platform Fee Payment Status
+    (N'processing', N'Đang xử lý thanh toán'),
+    (N'overdue', N'Quá hạn'),
+    
+    -- Cash Payment Confirmation Status  
+    (N'cash_confirmed', N'Đã xác nhận tiền mặt'),
+    (N'cash_pending', N'Chờ xác nhận tiền mặt'),
+    
+    -- Booking Extended Status
+    (N'returned', N'Đã trả xe'),
+    (N'pickup_confirmed', N'Đã xác nhận nhận xe'),
+    (N'return_confirmed', N'Đã xác nhận trả xe'),
+    
+    -- Payment Extended Status
+    (N'partial_paid', N'Thanh toán một phần'),
+    (N'full_paid', N'Thanh toán đầy đủ'),
+    (N'refund_pending', N'Chờ hoàn tiền'),
+    (N'refund_processing', N'Đang xử lý hoàn tiền'),
+    
+    -- Car Condition Report Status
+    (N'damage_reported', N'Đã báo cáo hư hỏng'),
+    (N'damage_confirmed', N'Xác nhận hư hỏng'),
+    (N'repair_needed', N'Cần sửa chữa'),
+    (N'repair_in_progress', N'Đang sửa chữa'),
+    (N'repair_completed', N'Hoàn thành sửa chữa'),
+    
+    -- System Status
+    (N'scheduled', N'Đã lên lịch'),
+    (N'suspended', N'Tạm ngưng'),
+    (N'archived', N'Đã lưu trữ'),
+    
+    -- User/Supplier Status
+    (N'verified', N'Đã xác minh'),
+    (N'unverified', N'Chưa xác minh'),
+    (N'under_review', N'Đang xem xét'),
+	(N'penalty_applied', N'Đã áp dụng phạt'),
+    (N'escalated', N'Đã leo thang xử lý'),
+    (N'suspended_due_to_overdue', N'Tạm ngưng do quá hạn');
+GO
 
+-- Update existing status descriptions for consistency
+UPDATE Status SET description = N'Đang chờ xử lý' WHERE status_name = 'pending';
+UPDATE Status SET description = N'Đang thực hiện' WHERE status_name = 'in_progress';
+UPDATE Status SET description = N'Đã từ chối' WHERE status_name = 'rejected';
+GO
 -- 4. Bảng Language (SỬA: Thêm ngôn ngữ mới)
 INSERT INTO Language (language_code, language_name)
 VALUES 
@@ -2405,3 +2495,118 @@ INSERT INTO registration_requests (
 );
 
   UPDATE registration_requests SET status = 'approved' WHERE id = 1;
+
+-- Tháng 3 trước: 1 booking cho mỗi xe
+INSERT INTO Booking (customer_id, car_id, region_id, start_date, end_date, pickup_location, dropoff_location, status_id, seat_number, deposit_amount, created_at)
+VALUES
+(101, 5, 1, DATEADD(MONTH, -3, GETDATE()), DATEADD(MONTH, -3, GETDATE()), N'Hà Nội', N'Hải Phòng', 4, 5, 500000, DATEADD(MONTH, -3, GETDATE())),
+(201, 16, 1, DATEADD(MONTH, -3, GETDATE()), DATEADD(MONTH, -3, GETDATE()), N'Hà Nội', N'Hải Dương', 4, 5, 500000, DATEADD(MONTH, -3, GETDATE()));
+
+-- Tháng 2 trước: 2 booking cho mỗi xe
+INSERT INTO Booking (customer_id, car_id, region_id, start_date, end_date, pickup_location, dropoff_location, status_id, seat_number, deposit_amount, created_at)
+VALUES
+(102, 5, 1, DATEADD(MONTH, -2, GETDATE()), DATEADD(MONTH, -2, GETDATE()), N'Hà Nội', N'Hải Phòng', 4, 5, 500000, DATEADD(MONTH, -2, GETDATE())),
+(103, 5, 1, DATEADD(MONTH, -2, GETDATE()) + 1, DATEADD(MONTH, -2, GETDATE()) + 1, N'Hà Nội', N'Hải Phòng', 4, 5, 500000, DATEADD(MONTH, -2, GETDATE()) + 1),
+(202, 16, 1, DATEADD(MONTH, -2, GETDATE()), DATEADD(MONTH, -2, GETDATE()), N'Hà Nội', N'Hải Dương', 4, 5, 500000, DATEADD(MONTH, -2, GETDATE())),
+(203, 16, 1, DATEADD(MONTH, -2, GETDATE()) + 1, DATEADD(MONTH, -2, GETDATE()) + 1, N'Hà Nội', N'Hải Dương', 4, 5, 500000, DATEADD(MONTH, -2, GETDATE()) + 1);
+
+-- Tháng trước: 3 booking cho mỗi xe
+INSERT INTO Booking (customer_id, car_id, region_id, start_date, end_date, pickup_location, dropoff_location, status_id, seat_number, deposit_amount, created_at)
+VALUES
+(104, 5, 1, DATEADD(MONTH, -1, GETDATE()), DATEADD(MONTH, -1, GETDATE()), N'Hà Nội', N'Hải Phòng', 4, 5, 500000, DATEADD(MONTH, -1, GETDATE())),
+(105, 5, 1, DATEADD(MONTH, -1, GETDATE()) + 1, DATEADD(MONTH, -1, GETDATE()) + 1, N'Hà Nội', N'Hải Phòng', 4, 5, 500000, DATEADD(MONTH, -1, GETDATE()) + 1),
+(106, 5, 1, DATEADD(MONTH, -1, GETDATE()) + 2, DATEADD(MONTH, -1, GETDATE()) + 2, N'Hà Nội', N'Hải Phòng', 4, 5, 500000, DATEADD(MONTH, -1, GETDATE()) + 2),
+(204, 16, 1, DATEADD(MONTH, -1, GETDATE()), DATEADD(MONTH, -1, GETDATE()), N'Hà Nội', N'Hải Dương', 4, 5, 500000, DATEADD(MONTH, -1, GETDATE())),
+(205, 16, 1, DATEADD(MONTH, -1, GETDATE()) + 1, DATEADD(MONTH, -1, GETDATE()) + 1, N'Hà Nội', N'Hải Dương', 4, 5, 500000, DATEADD(MONTH, -1, GETDATE()) + 1),
+(206, 16, 1, DATEADD(MONTH, -1, GETDATE()) + 2, DATEADD(MONTH, -1, GETDATE()) + 2, N'Hà Nội', N'Hải Dương', 4, 5, 500000, DATEADD(MONTH, -1, GETDATE()) + 2);
+
+-- Tháng này: 4 booking cho mỗi xe
+INSERT INTO Booking (customer_id, car_id, region_id, start_date, end_date, pickup_location, dropoff_location, status_id, seat_number, deposit_amount, created_at)
+VALUES
+(107, 5, 1, GETDATE(), GETDATE(), N'Hà Nội', N'Hải Phòng', 4, 5, 500000, GETDATE()),
+(108, 5, 1, GETDATE() + 1, GETDATE() + 1, N'Hà Nội', N'Hải Phòng', 4, 5, 500000, GETDATE() + 1),
+(109, 5, 1, GETDATE() + 2, GETDATE() + 2, N'Hà Nội', N'Hải Phòng', 4, 5, 500000, GETDATE() + 2),
+(110, 5, 1, GETDATE() + 3, GETDATE() + 3, N'Hà Nội', N'Hải Phòng', 4, 5, 500000, GETDATE() + 3),
+(207, 16, 1, GETDATE(), GETDATE(), N'Hà Nội', N'Hải Dương', 4, 5, 500000, GETDATE()),
+(208, 16, 1, GETDATE() + 1, GETDATE() + 1, N'Hà Nội', N'Hải Dương', 4, 5, 500000, GETDATE() + 1),
+(209, 16, 1, GETDATE() + 2, GETDATE() + 2, N'Hà Nội', N'Hải Dương', 4, 5, 500000, GETDATE() + 2),
+(210, 16, 1, GETDATE() + 3, GETDATE() + 3, N'Hà Nội', N'Hải Dương', 4, 5, 500000, GETDATE() + 3);
+
+-- BookingFinancials cho car_id = 5
+INSERT INTO BookingFinancials (booking_id, total_fare, applied_discount, late_fee_amount, late_days, is_deleted)
+VALUES
+(1, 1500000, 0, 0, 0, 0),
+(2, 1550000, 0, 0, 0, 0),
+(3, 1600000, 0, 0, 0, 0),
+(4, 1650000, 0, 0, 0, 0),
+(5, 1700000, 0, 0, 0, 0),
+(6, 1750000, 0, 0, 0, 0),
+(7, 1800000, 0, 0, 0, 0),
+(8, 1850000, 0, 0, 0, 0),
+(9, 1900000, 0, 0, 0, 0),
+(10, 1950000, 0, 0, 0, 0);
+
+-- BookingFinancials cho car_id = 16
+INSERT INTO BookingFinancials (booking_id, total_fare, applied_discount, late_fee_amount, late_days, is_deleted)
+VALUES
+(11, 2000000, 0, 0, 0, 0),
+(12, 2050000, 0, 0, 0, 0),
+(13, 2100000, 0, 0, 0, 0),
+(14, 2150000, 0, 0, 0, 0),
+(15, 2200000, 0, 0, 0, 0),
+(16, 2250000, 0, 0, 0, 0),
+(17, 2300000, 0, 0, 0, 0),
+(18, 2350000, 0, 0, 0, 0),
+(19, 2400000, 0, 0, 0, 0),
+(20, 2450000, 0, 0, 0, 0);
+
+-- Ví dụ cho booking_id = 1 (car_id=5)
+INSERT INTO Payment (booking_id, amount, region_id, payment_method, payment_status_id, payment_type, payment_date)
+VALUES
+(1, 500000, 1, 'cash', 15, 'deposit', DATEADD(MINUTE, 1, (SELECT created_at FROM Booking WHERE booking_id=1))),
+(1, 1000000, 1, 'momo', 15, 'full_payment', DATEADD(MINUTE, 2, (SELECT created_at FROM Booking WHERE booking_id=1))),
+(1, 100000, 1, 'vnpay', 15, 'refund', DATEADD(MINUTE, 3, (SELECT created_at FROM Booking WHERE booking_id=1))),
+(1, 1400000, 1, 'cash', 15, 'payout', DATEADD(MINUTE, 4, (SELECT created_at FROM Booking WHERE booking_id=1)));
+
+-- Lặp lại cho tất cả booking_id còn lại (2-20), chỉ cần thay số tiền, phương thức, payment_date cho đa dạng.
+
+DECLARE @i INT = 0, @month INT, @booking_id INT, @car_id INT, @customer_id INT;
+SET @car_id = 16; -- hoặc 16
+SET @customer_id = 70; -- tăng dần cho mỗi booking
+
+WHILE @i < 6
+BEGIN
+    SET @month = -6 + @i;
+    INSERT INTO Booking (
+        customer_id, car_id, region_id, start_date, end_date, 
+        pickup_location, dropoff_location, status_id, seat_number, 
+        deposit_amount, created_at,
+        supplier_delivery_confirm, customer_receive_confirm, 
+        customer_return_confirm, supplier_return_confirm
+    )
+    VALUES (
+        @customer_id + @i, @car_id, 1, 
+        DATEADD(MONTH, @month, GETDATE()), 
+        DATEADD(MONTH, @month, GETDATE()) + 1, 
+        N'Hà Nội', N'Hải Phòng', 4, 5, 500000, 
+        DATEADD(MONTH, @month, GETDATE()),
+        1, 1, 1, 1  -- 4 cột confirm đều = 1
+    );
+
+    SET @booking_id = SCOPE_IDENTITY();
+
+    INSERT INTO BookingFinancials (booking_id, total_fare, applied_discount, late_fee_amount, late_days, is_deleted)
+    VALUES (@booking_id, 1500000 + @i * 50000, 0, 0, 0, 0);
+
+    INSERT INTO Payment (booking_id, amount, region_id, payment_method, payment_status_id, payment_type, payment_date)
+    VALUES
+    (@booking_id, 500000, 1, 'cash', 15, 'deposit', DATEADD(MINUTE, 1, (SELECT created_at FROM Booking WHERE booking_id=@booking_id))),
+    (@booking_id, 1000000, 1, 'momo', 15, 'full_payment', DATEADD(MINUTE, 2, (SELECT created_at FROM Booking WHERE booking_id=@booking_id))),
+    (@booking_id, 100000, 1, 'vnpay', 15, 'refund', DATEADD(MINUTE, 3, (SELECT created_at FROM Booking WHERE booking_id=@booking_id))),
+    (@booking_id, 1400000, 1, 'cash', 15, 'payout', DATEADD(MINUTE, 4, (SELECT created_at FROM Booking WHERE booking_id=@booking_id)));
+
+    SET @i = @i + 1;
+END
+-- Bỏ điều kiện CHECK CHK_Start_Date
+ALTER TABLE Booking DROP CONSTRAINT CHK_Start_Date;
+select * from Booking

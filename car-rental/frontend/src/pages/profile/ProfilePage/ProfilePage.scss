@@ -673,9 +673,14 @@
             gap: 8px;
 
             .country-select {
-              flex: 0 0 120px;
+              flex: 0 0 200px;
+              min-width: 180px;
+              max-width: 260px;
               border-top-right-radius: 0;
               border-bottom-right-radius: 0;
+              white-space: nowrap;
+              text-overflow: ellipsis;
+              overflow: hidden;
             }
 
             input {

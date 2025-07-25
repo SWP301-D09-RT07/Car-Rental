@@ -4,6 +4,7 @@ import com.carrental.car_rental.dto.ChatMessageDTO;
 import com.carrental.car_rental.service.ChatMessageService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.carrental.car_rental.dto.CustomerInfoDTO;
 import java.util.List;
 
 @RestController
@@ -30,6 +31,13 @@ public class ChatMessageController {
         return ResponseEntity.ok(service.findByBookingId(bookingId));
     }
 
+    @GetMapping("/between-users")
+    public ResponseEntity<List<ChatMessageDTO>> getChatMessagesBetweenUsers(
+            @RequestParam Integer senderId, 
+            @RequestParam Integer receiverId) {
+        return ResponseEntity.ok(service.findBySenderIdAndReceiverId(senderId, receiverId));
+    }
+
     @PostMapping
     public ResponseEntity<ChatMessageDTO> createChatMessage(@RequestBody ChatMessageDTO dto) {
         return ResponseEntity.status(201).body(service.save(dto));
@@ -44,5 +52,11 @@ public class ChatMessageController {
     public ResponseEntity<Void> deleteChatMessage(@PathVariable Integer id) {
         service.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // API: Lấy danh sách customer đã từng nhắn với supplier
+    @GetMapping("/customers-of-supplier/{supplierId}")
+    public ResponseEntity<List<CustomerInfoDTO>> getCustomersOfSupplier(@PathVariable Integer supplierId) {
+        return ResponseEntity.ok(service.findCustomersBySupplierId(supplierId));
     }
 }

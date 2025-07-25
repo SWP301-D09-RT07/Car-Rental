@@ -1,6 +1,7 @@
 package com.carrental.car_rental.controller;
 
 import com.carrental.car_rental.dto.CashPaymentConfirmationDTO;
+import com.carrental.car_rental.dto.PlatformFeePaymentDTO;
 import com.carrental.car_rental.entity.Booking;
 import com.carrental.car_rental.entity.Payment;
 import com.carrental.car_rental.entity.User;
@@ -13,9 +14,12 @@ import com.carrental.car_rental.repository.BookingRepository;
 import com.carrental.car_rental.repository.CashPaymentConfirmationRepository;
 import com.carrental.car_rental.mapper.CashPaymentConfirmationMapper;
 import com.carrental.car_rental.service.CashPaymentManagementService;
+import com.carrental.car_rental.config.VNPayConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -25,9 +29,16 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.Enumeration;
+import java.net.URI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.math.RoundingMode;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.Enumeration;
+import org.springframework.beans.factory.annotation.Value;
 
 @RestController
 @RequestMapping("/api/cash-payments")
@@ -41,7 +52,10 @@ public class CashPaymentController {
     private final BookingRepository bookingRepository;
     private final CashPaymentConfirmationRepository cashPaymentConfirmationRepository;
     private final CashPaymentConfirmationMapper cashPaymentConfirmationMapper;
+    private final VNPayConfig vnPayConfig;
 
+    @Value("${frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     private static final Logger logger = LoggerFactory.getLogger(CashPaymentController.class);
 
@@ -58,8 +72,104 @@ public class CashPaymentController {
     }
 
     /**
-     * Supplier thanh toán platform fee
+     * Khởi tạo thanh toán platform fee - tạo Payment record và return thông tin để redirect
      */
+    @PostMapping("/confirmations/{confirmationId}/initiate-platform-fee-payment")
+    public ResponseEntity<PlatformFeePaymentDTO> initiatePlatformFeePayment(
+            @PathVariable Integer confirmationId,
+            @RequestBody Map<String, String> request,
+            HttpServletRequest httpRequest) {
+        
+        String paymentMethod = request.get("paymentMethod");
+        String returnUrl = request.get("returnUrl");
+        String cancelUrl = request.get("cancelUrl");
+        
+        PlatformFeePaymentDTO paymentInfo = cashPaymentService.initiatePlatformFeePayment(
+            confirmationId, paymentMethod, returnUrl, cancelUrl, httpRequest);
+        
+        return ResponseEntity.ok(paymentInfo);
+    }
+
+    /**
+     * Callback khi platform fee payment thành công
+     */
+    @PostMapping("/platform-fee-payment/{paymentId}/complete")
+    public ResponseEntity<Map<String, String>> completePlatformFeePayment(
+            @PathVariable Integer paymentId,
+            @RequestBody Map<String, String> request) {
+        
+        String transactionId = request.get("transactionId");
+        cashPaymentService.completePlatformFeePayment(paymentId, transactionId);
+        
+        return ResponseEntity.ok(Map.of("message", "Platform fee payment completed successfully"));
+    }
+
+    /**
+     * VNPay callback cho platform fee payment
+     */
+    @GetMapping("/platform-fee-payment/vnpay-callback")
+    public ResponseEntity<Void> handlePlatformFeeVnpayCallback(HttpServletRequest request) {
+        logger.info("Received VNPay callback for platform fee payment");
+        
+        try {
+            Map<String, String> vnpayParams = new HashMap<>();
+            for (Enumeration<String> params = request.getParameterNames(); params.hasMoreElements();) {
+                String paramName = params.nextElement();
+                String paramValue = request.getParameter(paramName);
+                vnpayParams.put(paramName, paramValue);
+            }
+            
+            logger.info("VNPay platform fee callback parameters: {}", vnpayParams);
+            
+            // Validate callback parameters
+            if (!vnPayConfig.validatePlatformFeeCallback(vnpayParams)) {
+                logger.error("Invalid VNPay platform fee callback parameters");
+                return ResponseEntity.badRequest().build();
+            }
+            
+            String txnRef = vnpayParams.get("vnp_TxnRef");
+            String responseCode = vnpayParams.get("vnp_ResponseCode");
+            String transactionNo = vnpayParams.get("vnp_TransactionNo");
+            
+            logger.info("Platform fee callback - TxnRef: {}, ResponseCode: {}, TransactionNo: {}", 
+                       txnRef, responseCode, transactionNo);
+            
+            // Process the callback
+            String result = cashPaymentService.handlePlatformFeeVnpayCallback(txnRef, responseCode, transactionNo);
+            
+            // Redirect to success/failure page
+            logger.info("Platform fee callback redirect decision - ResponseCode: {}", responseCode);
+            
+            String frontendUrl = "http://localhost:5173";
+            UriComponentsBuilder redirectUriBuilder;
+            
+            if ("00".equals(responseCode)) {
+                logger.info("Redirecting to success page for platform fee payment");
+                redirectUriBuilder = UriComponentsBuilder.fromUriString(frontendUrl)
+                        .path("/payment/platform-fee/success")
+                        .queryParam("paymentId", txnRef);
+            } else {
+                logger.info("Redirecting to cancel page for platform fee payment with error code: {}", responseCode);
+                redirectUriBuilder = UriComponentsBuilder.fromUriString(frontendUrl)
+                        .path("/payment/platform-fee/cancel")
+                        .queryParam("error", responseCode)
+                        .queryParam("txnRef", txnRef)
+                        .queryParam("transactionNo", transactionNo);
+            }
+            
+            URI redirectUri = redirectUriBuilder.build().toUri();
+            return ResponseEntity.status(HttpStatus.FOUND).location(redirectUri).build();
+            
+        } catch (Exception e) {
+            logger.error("Error handling VNPay platform fee callback: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Supplier thanh toán platform fee (DEPRECATED - use initiatePlatformFeePayment instead)
+     */
+    @Deprecated
     @PostMapping("/confirmations/{confirmationId}/pay-platform-fee")
     public ResponseEntity<Map<String, String>> payPlatformFee(@PathVariable Integer confirmationId) {
         cashPaymentService.payPlatformFee(confirmationId);
@@ -113,6 +223,114 @@ public class CashPaymentController {
 
         List<CashPaymentConfirmationDTO> overdueFees = cashPaymentService.getOverduePlatformFees();
         return ResponseEntity.ok(overdueFees);
+    }
+
+    /**
+     * Supplier: Lấy danh sách platform fees quá hạn của supplier
+     */
+    @GetMapping("/platform-fees/overdue/supplier")
+    public ResponseEntity<List<CashPaymentConfirmationDTO>> getSupplierOverduePlatformFees() {
+        User currentSupplier = getCurrentSupplier();
+        List<CashPaymentConfirmationDTO> overdueFees = cashPaymentService.getOverduePlatformFees(currentSupplier);
+        return ResponseEntity.ok(overdueFees);
+    }
+
+    /**
+     * Supplier: Đếm số platform fees chưa thanh toán
+     */
+    @GetMapping("/platform-fees/pending/count")
+    public ResponseEntity<Map<String, Object>> getPendingPlatformFeesCount() {
+        User currentSupplier = getCurrentSupplier();
+        Long count = cashPaymentService.countPendingPlatformFees(currentSupplier);
+        return ResponseEntity.ok(Map.of(
+            "count", count,
+            "supplier", currentSupplier.getUsername()
+        ));
+    }
+
+    /**
+     * Admin: Lấy danh sách platform fees đang processing
+     */
+    @GetMapping("/platform-fees/processing")
+    public ResponseEntity<List<CashPaymentConfirmationDTO>> getProcessingPlatformFees() {
+        User currentUser = getCurrentUser();
+        if (!"admin".equals(currentUser.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admin can access processing platform fees");
+        }
+
+        List<CashPaymentConfirmationDTO> processingFees = cashPaymentService.getProcessingPlatformFees();
+        return ResponseEntity.ok(processingFees);
+    }
+
+    /**
+     * Admin: Chạy job đánh dấu platform fees quá hạn
+     */
+    @PostMapping("/platform-fees/mark-overdue")
+    public ResponseEntity<Map<String, String>> markOverduePlatformFees() {
+        User currentUser = getCurrentUser();
+        if (!"admin".equals(currentUser.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admin can mark overdue platform fees");
+        }
+
+        cashPaymentService.markOverduePlatformFees();
+        return ResponseEntity.ok(Map.of("message", "Overdue platform fees marked successfully"));
+    }
+
+    /**
+     * Supplier: Lấy danh sách platform fees có penalty
+     */
+    @GetMapping("/platform-fees/with-penalty")
+    public ResponseEntity<List<CashPaymentConfirmationDTO>> getPlatformFeesWithPenalty() {
+        User currentSupplier = getCurrentSupplier();
+        List<CashPaymentConfirmationDTO> feesWithPenalty = cashPaymentService.getPlatformFeesWithPenalty(currentSupplier);
+        return ResponseEntity.ok(feesWithPenalty);
+    }
+
+    /**
+     * Supplier: Lấy tổng số tiền penalty
+     */
+    @GetMapping("/platform-fees/penalty/total")
+    public ResponseEntity<Map<String, Object>> getTotalPenaltyAmount() {
+        User currentSupplier = getCurrentSupplier();
+        BigDecimal totalPenalty = cashPaymentService.getTotalPenaltyAmount(currentSupplier);
+        
+        return ResponseEntity.ok(Map.of(
+            "totalPenalty", totalPenalty,
+            "currency", "VND",
+            "supplier", currentSupplier.getUsername(),
+            "message", totalPenalty.compareTo(BigDecimal.ZERO) > 0 ? 
+                      "Bạn có phí phạt do thanh toán platform fee quá hạn" : 
+                      "Không có phí phạt"
+        ));
+    }
+
+    /**
+     * Admin: Force tính penalty cho một confirmation cụ thể (for testing)
+     */
+    @PostMapping("/platform-fees/confirmations/{confirmationId}/calculate-penalty")
+    public ResponseEntity<Map<String, Object>> calculatePenaltyForConfirmation(@PathVariable Integer confirmationId) {
+        User currentUser = getCurrentUser();
+        if (!"admin".equals(currentUser.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admin can force calculate penalties");
+        }
+
+        try {
+            CashPaymentConfirmation confirmation = cashPaymentConfirmationRepository.findById(confirmationId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Confirmation not found"));
+            
+            cashPaymentService.calculateAndApplyPenalty(confirmation, Instant.now());
+            
+            return ResponseEntity.ok(Map.of(
+                "message", "Penalty calculated successfully",
+                "confirmationId", confirmationId,
+                "penaltyAmount", confirmation.getPenaltyAmount(),
+                "totalAmountDue", confirmation.getTotalAmountDue(),
+                "escalationLevel", confirmation.getEscalationLevel()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
+        }
     }
 
     /**

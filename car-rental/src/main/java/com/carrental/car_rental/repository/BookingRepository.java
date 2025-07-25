@@ -183,4 +183,48 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
            "LEFT JOIN FETCH b.status " +
            "WHERE b.id = :bookingId")
     Optional<Booking> findByIdWithAllRelationsAndImages(@Param("bookingId") Integer bookingId);
+
+    @Query("SELECT b FROM Booking b " +
+            "LEFT JOIN FETCH b.car c " +
+            "LEFT JOIN FETCH c.brand " +
+            "LEFT JOIN FETCH c.fuelType " +
+            "LEFT JOIN FETCH c.region " +
+            "LEFT JOIN FETCH c.supplier s " +
+            "LEFT JOIN FETCH s.role " +
+            "LEFT JOIN FETCH s.status " +
+            "LEFT JOIN FETCH s.userDetail " +
+            "LEFT JOIN FETCH c.status " +
+            "LEFT JOIN FETCH c.images " +
+            "LEFT JOIN FETCH b.customer cu " +
+            "LEFT JOIN FETCH cu.userDetail " +
+            "LEFT JOIN FETCH cu.status " +
+            "LEFT JOIN FETCH cu.role " +
+            "LEFT JOIN FETCH b.status " +
+            "LEFT JOIN FETCH b.region r " +
+            "LEFT JOIN FETCH b.driver d " +
+            "WHERE b.customer.id = :customerId AND b.isDeleted = false " +
+            "ORDER BY b.createdAt DESC")
+    List<Booking> findByCustomerIdWithAllRelations(@Param("customerId") Integer customerId);
+
+    @Query("SELECT b FROM Booking b " +
+       "LEFT JOIN FETCH b.car c " +
+       "LEFT JOIN FETCH c.brand " +
+       "LEFT JOIN FETCH c.fuelType " +
+       "LEFT JOIN FETCH c.region " +
+       "LEFT JOIN FETCH c.supplier s " +
+       "LEFT JOIN FETCH s.role " +
+       "LEFT JOIN FETCH s.status " +
+       "LEFT JOIN FETCH s.userDetail " +
+       "LEFT JOIN FETCH c.status " +
+       "LEFT JOIN FETCH c.images " +
+       "LEFT JOIN FETCH b.customer cu " +
+       "LEFT JOIN FETCH cu.userDetail " +
+       "LEFT JOIN FETCH cu.status " +
+       "LEFT JOIN FETCH cu.role " +
+       "LEFT JOIN FETCH b.status " +
+       "LEFT JOIN FETCH b.region r " +
+       "LEFT JOIN FETCH b.driver d " +
+       "WHERE EXISTS (SELECT p FROM Payment p WHERE p.booking = b AND p.transactionId = :transactionId) " +
+       "AND b.isDeleted = false")
+Optional<Booking> findByTransactionIdWithAllRelations(@Param("transactionId") String transactionId);
 }

@@ -24,6 +24,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import com.carrental.car_rental.repository.StatusRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -158,7 +158,38 @@ public class CarService {
                 })
                 .collect(Collectors.toList());
     }
-
+    
+    @Transactional(readOnly = true)
+    public List<CarDTO> searchAvailableCars(String pickupLocation, CountryCode country, 
+                                          LocalDateTime pickupDateTime, LocalDateTime dropoffDateTime, 
+                                          int page, int size) {
+        logger.info("Tìm kiếm xe available với pickupLocation: {}, country: {}, pickupDateTime: {}, dropoffDateTime: {}, trang {}, kích thước {}",
+                pickupLocation, country, pickupDateTime, dropoffDateTime, page, size);
+        
+        // Convert LocalDateTime sang Instant
+        Instant startDate = pickupDateTime.atZone(ZoneId.systemDefault()).toInstant();
+        Instant endDate = dropoffDateTime.atZone(ZoneId.systemDefault()).toInstant();
+        
+        // Tạo CarSearchRequestDTO
+        CarSearchRequestDTO request = new CarSearchRequestDTO();
+        request.setStartDate(startDate);
+        request.setEndDate(endDate);
+        
+        // Lọc region theo country
+        if (pickupLocation != null && country != null) {
+            List<Region> regions = regionRepository.findByCountryCodeAndIsDeletedFalse(country);
+            Region matchedRegion = regions.stream()
+                .filter(region -> region.getRegionName().equalsIgnoreCase(pickupLocation))
+                .findFirst().orElse(null);
+            if (matchedRegion == null) {
+                return List.of(); // Không có region phù hợp
+            }
+            request.setRegionId(matchedRegion.getId());
+        }
+        
+        // Gọi method existing
+        return searchAvailableCars(request, page, size);
+    }
     @Transactional(readOnly = true)
     public CarDetailsResponseDTO getCarDetailsWithReviews(Integer carId) {
         logger.info("Lấy chi tiết xe với carId: {}", carId);
@@ -661,6 +692,137 @@ public class CarService {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to filter cars", e);
         }
     }
+
+    // Thêm method mới sau dòng 580 (sau method filterCars)
+@Transactional(readOnly = true)
+public Page<CarDTO> getAvailableCarsWithFilters(
+        Instant startDate, 
+        Instant endDate,
+        String brand,
+        String countryCode,
+        Integer regionId,
+        Short numOfSeats,
+        String priceRange,
+        Short year,
+        String fuelType,
+        int page,
+        int size,
+        String sortBy) {
+    
+    try {
+        logger.info("Lấy xe available với filters từ {} đến {}", startDate, endDate);
+        
+        // Tạo pageable
+        Pageable pageable = PageRequest.of(page, size);
+        if (sortBy != null && !sortBy.isEmpty()) {
+            switch (sortBy) {
+                case "price-low" -> pageable = PageRequest.of(page, size, Sort.by("dailyRate").ascending());
+                case "price-high" -> pageable = PageRequest.of(page, size, Sort.by("dailyRate").descending());
+                case "name" -> pageable = PageRequest.of(page, size, Sort.by("model").ascending());
+                default -> pageable = PageRequest.of(page, size, Sort.by("carId").descending());
+            }
+        }
+        
+        // Tạo specification kết hợp availability + filters
+        Specification<Car> spec = (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+            
+            // === AVAILABILITY CHECK ===
+            // Subquery để tìm xe đã được đặt trong khoảng thời gian
+            jakarta.persistence.criteria.Subquery<Integer> bookedCarSubquery = query.subquery(Integer.class);
+            jakarta.persistence.criteria.Root<Booking> bookingRoot = bookedCarSubquery.from(Booking.class);
+            bookedCarSubquery.select(bookingRoot.get("car").get("id"));
+            
+            List<jakarta.persistence.criteria.Predicate> bookingPredicates = new ArrayList<>();
+            bookingPredicates.add(cb.equal(bookingRoot.get("isDeleted"), false));
+            bookingPredicates.add(cb.in(bookingRoot.get("status").get("statusName")).value("confirmed").value("ongoing").value("completed"));
+            
+            // Date overlap condition
+            jakarta.persistence.criteria.Predicate dateOverlap = cb.or(
+                // Booking starts before endDate AND ends after startDate
+                cb.and(
+                    cb.lessThanOrEqualTo(bookingRoot.get("startDate"), endDate),
+                    cb.greaterThan(bookingRoot.get("endDate"), startDate)
+                )
+            );
+            bookingPredicates.add(dateOverlap);
+            
+            bookedCarSubquery.where(cb.and(bookingPredicates.toArray(new jakarta.persistence.criteria.Predicate[0])));
+            
+            // Xe KHÔNG nằm trong danh sách đã được đặt
+            predicates.add(cb.not(cb.in(root.get("id")).value(bookedCarSubquery)));
+            
+            // === OTHER FILTERS ===
+            // Chỉ xe available và không bị xóa
+            predicates.add(cb.equal(root.get("isDeleted"), false));
+            predicates.add(cb.equal(root.get("status").get("statusName"), "available"));
+            
+            // Brand filter
+            if (brand != null && !brand.isEmpty()) {
+                predicates.add(cb.equal(root.get("brand").get("brandName"), brand));
+            }
+            
+            // Country/Region filter
+            if (countryCode != null && !countryCode.isEmpty()) {
+                if (regionId != null) {
+                    predicates.add(cb.equal(root.get("region").get("id"), regionId));
+                } else {
+                    predicates.add(cb.equal(root.get("region").get("countryCode").get("countryCode"), countryCode));
+                }
+            }
+            
+            // Seats filter
+            if (numOfSeats != null) {
+                predicates.add(cb.equal(root.get("numOfSeats"), numOfSeats));
+            }
+            
+            // Price range filter
+            if (priceRange != null && !priceRange.isEmpty()) {
+                String[] range = priceRange.split("-");
+                if (range.length == 2) {
+                    BigDecimal minPrice = new BigDecimal(range[0].trim());
+                    BigDecimal maxPrice = new BigDecimal(range[1].trim());
+                    predicates.add(cb.between(root.get("dailyRate"), minPrice, maxPrice));
+                }
+            }
+            
+            // Year filter
+            if (year != null) {
+                predicates.add(cb.equal(root.get("year"), year));
+            }
+            
+            // Fuel type filter
+            if (fuelType != null && !fuelType.isEmpty()) {
+                predicates.add(cb.equal(root.get("fuelType").get("fuelTypeName"), fuelType));
+            }
+            
+            // Fetch joins để tránh N+1 queries (chỉ cho select query)
+            if (query.getResultType() != Long.class) {
+                root.fetch("brand", jakarta.persistence.criteria.JoinType.LEFT);
+                root.fetch("region", jakarta.persistence.criteria.JoinType.LEFT);
+                root.fetch("fuelType", jakarta.persistence.criteria.JoinType.LEFT);
+                root.fetch("status", jakarta.persistence.criteria.JoinType.LEFT);
+            }
+            
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+        
+        // Execute query
+        Page<Car> cars = repository.findAll(spec, pageable);
+        
+        // Convert to DTOs
+        return cars.map(car -> {
+            CarDTO dto = mapper.toDTO(car);
+            dto.setImages(getImagesForCar(car.getId()));
+            setAverageRating(dto);
+            return dto;
+        });
+        
+    } catch (Exception e) {
+        logger.error("Lỗi khi lấy xe available với filters: ", e);
+        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi khi lấy xe available", e);
+    }
+}
 
     @Transactional(readOnly = true)
     public Page<CarDTO> findCars(String searchQuery, int page, int size) {

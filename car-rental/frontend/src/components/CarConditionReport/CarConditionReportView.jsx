@@ -396,23 +396,6 @@ const CarConditionReportView = ({
                                                     )}
                                                 </button>
                                                 
-                                                <button
-                                                    className="btn dispute-btn"
-                                                    onClick={() => handleDisputeReport(report.reportId)}
-                                                    disabled={confirming === report.reportId || disputing === report.reportId}
-                                                >
-                                                    {disputing === report.reportId ? (
-                                                        <>
-                                                            <i className="fas fa-spinner fa-spin"></i>
-                                                            Đang gửi tranh chấp...
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <i className="fas fa-exclamation-triangle"></i>
-                                                            Tranh chấp
-                                                        </>
-                                                    )}
-                                                </button>
                                             </div>
                                         )}
 

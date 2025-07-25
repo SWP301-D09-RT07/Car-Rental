@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { useLocation, useNavigate, Link } from "react-router-dom"
-import { post, getBookingById, getBookingByTransactionId, getPriceBreakdown } from "@/services/api.js"
+import { post, getBookingById, getBookingByTransactionId, getPriceBreakdown, initiatePlatformFeePayment } from "@/services/api.js"
 import { useAuth } from "@/hooks/useAuth.js"
-import InitialPaymentSummary from "@/components/payments/InitialPaymentSummary.jsx"
-import PickupPaymentSummary from "@/components/payments/PickupPaymentSummary.jsx"
-import RetryPaymentSummary from '@/components/payments/RetryPaymentSummary'
+import InitialPaymentSummary from "@/components/features/payments/InitialPaymentSummary.jsx"
+import PickupPaymentSummary from "@/components/features/payments/PickupPaymentSummary.jsx"
+import RetryPaymentSummary from '@/components/features/payments/RetryPaymentSummary'
+import PlatformFeePaymentSummary from '@/components/features/payments/PlatformFeePaymentSummary'
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
 import {
   FaCreditCard,
@@ -368,7 +369,7 @@ const PaymentPage = () => {
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Lấy dữ liệu từ location.state với validation (bổ sung nhận từ RetryPaymentHandler)
+  // Lấy dữ liệu từ location.state với validation (bổ sung nhận từ RetryPaymentHandler và PlatformFeePayment)
   const {
     withDriver,
     deliveryRequested,
@@ -382,6 +383,10 @@ const PaymentPage = () => {
     fromHistory,
     paymentType: statePaymentType,
     pickupPayment = false,
+    // Platform Fee Payment specific data
+    platformFeePayment = false,
+    platformFeeInfo,
+    amountToPay: stateAmountToPay,
   } = location.state || {}
 
   // State management
@@ -420,7 +425,11 @@ const PaymentPage = () => {
 
   // ✅ SỬA: Tính số tiền cần thanh toán ngay dựa trên loại thanh toán
   let amountToPay = 0;
-  if (pickupPayment) {
+  if (platformFeePayment) {
+    // Platform Fee Payment: sử dụng số tiền từ state hoặc platformFeeInfo
+    amountToPay = stateAmountToPay || (platformFeeInfo ? platformFeeInfo.platformFee : 0);
+    console.log("🔍 [DEBUG] PaymentPage - Platform Fee Payment:", { platformFeeInfo, amountToPay });
+  } else if (pickupPayment) {
     // Thanh toán khi nhận xe: chỉ thanh toán phần còn lại + thế chấp
     amountToPay = remaining + Number(collateralAmount || 0);
     console.log("🔍 [DEBUG] PaymentPage - Thanh toán khi nhận xe:", { total, deposit, remaining, collateralAmount, amountToPay });
@@ -519,12 +528,14 @@ const PaymentPage = () => {
       return
     }
 
-    if (!bookingInfo && !bookingId) {
+    // Skip booking validation for platform fee payment
+    if (!platformFeePayment && !bookingInfo && !bookingId) {
       setError("Không tìm thấy thông tin đặt xe. Vui lòng quay lại trang đặt xe.")
       return
     }
 
-    if (!priceBreakdown) {
+    // Skip price breakdown validation for platform fee payment
+    if (!platformFeePayment && !priceBreakdown) {
       setError("Không tìm thấy thông tin giá. Vui lòng quay lại trang đặt xe.")
       return
     }
@@ -534,22 +545,31 @@ const PaymentPage = () => {
       return
     }
 
-    if (
-      !customerInfo.fullName ||
-      !customerInfo.email ||
-      !customerInfo.phone ||
-      !customerInfo.pickupAddress ||
-      !customerInfo.dropoffAddress 
-      // customerInfo.pickupAddress === "Unknown" ||
-      // customerInfo.dropoffAddress === "Unknown"
-    ) {
-      console.error("[VALIDATE] Địa chỉ nhận/trả xe không hợp lệ", { customerInfo });
-      setError("Vui lòng nhập địa chỉ nhận và trả xe hợp lệ");
-      return;
+    // Relaxed validation for platform fee payment
+    if (platformFeePayment) {
+      if (!customerInfo.fullName || customerInfo.fullName.trim() === '') {
+        setError("Thông tin tên không đầy đủ.")
+        return
+      }
+    } else {
+      // Standard validation for regular payments
+      if (
+        !customerInfo.fullName ||
+        !customerInfo.email ||
+        !customerInfo.phone ||
+        !customerInfo.pickupAddress ||
+        !customerInfo.dropoffAddress 
+      ) {
+        // customerInfo.pickupAddress === "Unknown" ||
+        // customerInfo.dropoffAddress === "Unknown"
+        console.error("[VALIDATE] Địa chỉ nhận/trả xe không hợp lệ", { customerInfo });
+        setError("Vui lòng nhập địa chỉ nhận và trả xe hợp lệ");
+        return;
+      }
     }
 
     setError(null)
-  }, [bookingId, bookingInfo, priceBreakdown, customerInfo, isAuthenticated, navigate])
+  }, [bookingId, bookingInfo, priceBreakdown, customerInfo, isAuthenticated, navigate, platformFeePayment])
 
   // Nếu vào từ lịch sử đặt, tự động lấy lại thông tin booking/payment
   useEffect(() => {
@@ -624,7 +644,31 @@ const PaymentPage = () => {
       priceBreakdown,
       amountToPay,
       paymentMethod,
+      platformFeePayment,
     });
+
+    // Special validation for platform fee payment
+    if (platformFeePayment) {
+      if (!paymentMethod) {
+        console.error("[VALIDATE] Chưa chọn phương thức thanh toán", { paymentMethod });
+        return "Vui lòng chọn phương thức thanh toán"
+      }
+      if (amountToPay <= 0) {
+        console.error("[VALIDATE] Số tiền thanh toán không hợp lệ", { amountToPay });
+        return "Số tiền thanh toán không hợp lệ"
+      }
+      if (!customerInfo || !customerInfo.fullName || customerInfo.fullName.trim() === '') {
+        console.error("[VALIDATE] Thông tin khách hàng không đầy đủ", { customerInfo });
+        return "Thông tin khách hàng không đầy đủ"
+      }
+      if (!platformFeeInfo || !platformFeeInfo.confirmationId) {
+        console.error("[VALIDATE] Thiếu thông tin platform fee", { platformFeeInfo });
+        return "Thiếu thông tin platform fee"
+      }
+      return null
+    }
+
+    // Regular validation for normal payments
     if (!bookingInfo && !bookingId) {
       console.error("[VALIDATE] Không tìm thấy thông tin đặt xe", { bookingInfo, bookingId });
       return "Không tìm thấy thông tin đặt xe"
@@ -665,40 +709,60 @@ const PaymentPage = () => {
       priceBreakdown,
       amountToPay,
       paymentMethod,
+      platformFeePayment,
+      platformFeeInfo,
     });
     try {
       setIsProcessing(true)
       setError(null)
 
-      // ✅ SỬA: Logic quyết định endpoint và paymentType
-      let paymentType = undefined;
-      let endpoint = "";
-      let paymentData = {};
-
-      if (bookingInfo && bookingId) {
-        // Trường hợp đã có booking (từ ProfilePage) - sử dụng /api/payments
-        console.log("🔍 [DEBUG] Booking info details:", {
-          bookingId,
-          hasDeposit: bookingInfo?.hasDeposit,
-          hasFullPayment: bookingInfo?.hasFullPayment,
-          paymentStatus: bookingInfo?.paymentStatus,
-          paymentType: bookingInfo?.paymentType,
-          pickupPayment
-        });
+      // Platform Fee Payment logic
+      if (platformFeePayment && platformFeeInfo) {
+        console.log("🔍 [DEBUG] Processing platform fee payment:", platformFeeInfo);
         
-        if (pickupPayment) {
-          // Kiểm tra trạng thái payment trước khi quyết định paymentType
-          if (bookingInfo.hasDeposit && bookingInfo.paymentStatus === 'paid' && !bookingInfo.hasFullPayment) {
-            paymentType = 'full_payment';
-            console.log("🔍 [DEBUG] Thanh toán full_payment - đã có deposit, chưa có full payment");
-          } else if (bookingInfo.hasFullPayment) {
-            // Nếu đã có full payment, không cho phép thanh toán nữa
-            console.log("🔍 [DEBUG] Booking đã có full payment, không thể thanh toán thêm", {
-              hasDeposit: bookingInfo?.hasDeposit,
-              hasFullPayment: bookingInfo?.hasFullPayment,
-              paymentStatus: bookingInfo?.paymentStatus
-            });
-            setError("Đơn đặt xe này đã được thanh toán đầy đủ. Không thể thanh toán thêm.");
+        // Use the new platform fee payment API
+        const paymentInfo = await initiatePlatformFeePayment(
+          platformFeeInfo.confirmationId, 
+          paymentMethod
+        );
+        
+        if (paymentInfo && paymentInfo.paymentUrl) {
+          // Redirect to payment gateway
+          window.location.href = paymentInfo.paymentUrl;
+          return;
+        } else {
+          throw new Error('Không thể tạo URL thanh toán');
+        }
+      } else {
+        // Regular payment logic
+        let paymentType = undefined;
+        let endpoint = "";
+        let paymentData = {};
+        
+        if (bookingInfo && bookingId) {
+          // Trường hợp đã có booking (từ ProfilePage) - sử dụng /api/payments
+          console.log("🔍 [DEBUG] Booking info details:", {
+            bookingId,
+            hasDeposit: bookingInfo?.hasDeposit,
+            hasFullPayment: bookingInfo?.hasFullPayment,
+            paymentStatus: bookingInfo?.paymentStatus,
+            paymentType: bookingInfo?.paymentType,
+            pickupPayment
+          });
+          
+          if (pickupPayment) {
+            // Kiểm tra trạng thái payment trước khi quyết định paymentType
+            if (bookingInfo.hasDeposit && bookingInfo.paymentStatus === 'paid' && !bookingInfo.hasFullPayment) {
+              paymentType = 'full_payment';
+              console.log("🔍 [DEBUG] Thanh toán full_payment - đã có deposit, chưa có full payment");
+            } else if (bookingInfo.hasFullPayment) {
+              // Nếu đã có full payment, không cho phép thanh toán nữa
+              console.log("🔍 [DEBUG] Booking đã có full payment, không thể thanh toán thêm", {
+                hasDeposit: bookingInfo?.hasDeposit,
+                hasFullPayment: bookingInfo?.hasFullPayment,
+                paymentStatus: bookingInfo?.paymentStatus
+              });
+              setError("Đơn đặt xe này đã được thanh toán đầy đủ. Không thể thanh toán thêm.");
             return;
           } else {
             paymentType = 'deposit';
@@ -798,6 +862,7 @@ const PaymentPage = () => {
           })
         }, 2000)
       }
+      } // End of regular payment logic
     } catch (err) {
       console.error("Payment error:", err)
       setPaymentStatus("failed")
@@ -842,7 +907,38 @@ const PaymentPage = () => {
   }
 
   // Error state
-  if ((!bookingInfo && !bookingId) || !priceBreakdown || !customerInfo) {
+  if (platformFeePayment) {
+    // Simplified validation for platform fee payment
+    if (!customerInfo || !platformFeeInfo) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+          <PageHeader />
+          <div className="container mx-auto px-4 py-16 text-center">
+            <div className="max-w-lg mx-auto">
+              <div className="mb-8">
+                <div className="bg-red-100 p-8 rounded-full inline-block shadow-lg">
+                  <FaExclamationTriangle className="text-5xl text-red-500" />
+                </div>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-800 mb-4">Thiếu thông tin thanh toán</h2>
+              <p className="text-gray-600 mb-8 text-lg">
+                Thiếu thông tin platform fee. Vui lòng quay lại trang quản lý để tiếp tục.
+              </p>
+              <div className="space-x-4">
+                <Link to="/supplier/orders" className="text-blue-600 hover:underline font-semibold">
+                  Quay lại quản lý đơn hàng
+                </Link>
+                <Link to="/" className="text-blue-600 hover:underline font-semibold">
+                  Về trang chủ
+                </Link>
+              </div>
+            </div>
+          </div>
+          <PageFooter />
+        </div>
+      )
+    }
+  } else if ((!bookingInfo && !bookingId) || !priceBreakdown || !customerInfo) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <PageHeader />
@@ -913,9 +1009,14 @@ const PaymentPage = () => {
       {/* Main Title and Subtitle */}
       <div className="text-center mb-12 pt-8">
         <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
-          Thanh toán
+          {platformFeePayment ? 'Thanh toán phí platform' : 'Thanh toán'}
         </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">Hoàn tất thanh toán để xác nhận đặt xe của bạn</p>
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          {platformFeePayment 
+            ? 'Hoàn tất thanh toán phí platform cho giao dịch tiền mặt' 
+            : 'Hoàn tất thanh toán để xác nhận đặt xe của bạn'
+          }
+        </p>
       </div>
 
       <main className="container mx-auto px-4 py-12">
@@ -1004,16 +1105,18 @@ const PaymentPage = () => {
                         logoImg="/images/momo-logo.png"
                       />
 
-                      <PaymentMethodCard
-                        method="cash"
-                        selected={paymentMethod === "cash"}
-                        onSelect={handlePaymentMethodChange}
-                        icon={FaHandHoldingUsd}
-                        title="Tiền mặt"
-                        description="Thanh toán trực tiếp khi nhận xe - Phương thức truyền thống"
-                        badge="Truyền thống"
-                        color="orange"
-                      />
+                      {!platformFeePayment && (
+                        <PaymentMethodCard
+                          method="cash"
+                          selected={paymentMethod === "cash"}
+                          onSelect={handlePaymentMethodChange}
+                          icon={FaHandHoldingUsd}
+                          title="Tiền mặt"
+                          description="Thanh toán trực tiếp khi nhận xe - Phương thức truyền thống"
+                          badge="Truyền thống"
+                          color="orange"
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -1037,7 +1140,16 @@ const PaymentPage = () => {
 
           {/* Right Column - Order Summary */}
           <div className="xl:col-span-1">
-            {fromHistory ? (
+            {platformFeePayment ? (
+              <PlatformFeePaymentSummary
+                platformFeeInfo={platformFeeInfo}
+                amountToPay={amountToPay}
+                paymentMethod={paymentMethod}
+                isProcessing={isProcessing}
+                handlePayment={handlePayment}
+                disablePaymentButton={!paymentMethod || isProcessing || amountToPay <= 0}
+              />
+            ) : fromHistory ? (
               <RetryPaymentSummary
                 priceBreakdown={priceBreakdown}
                 collateralAmount={collateralAmount}

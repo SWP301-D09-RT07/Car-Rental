@@ -37,6 +37,7 @@ import {
   FaDownload,
   FaEnvelope,
   FaHome,
+  FaArrowUp,
 } from "react-icons/fa";
 import Header from "@/components/layout/Header/Header";
 import Footer from "@/components/layout/Footer/Footer";
@@ -391,6 +392,18 @@ const faqItems = [
 ];
 
 const OwnerRegistrationPage = () => {
+  // Scroll to Top button state and logic
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollToTop(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const navigate = useNavigate();
   const location = useLocation();
   const [formData, setFormData] = useState({
@@ -1548,18 +1561,29 @@ const OwnerRegistrationPage = () => {
             </div>
           </div>
         </motion.section>
-
-        {/* Floating Action Button */}
-        <div className="fixed bottom-8 right-8 z-50">
-          <Button
-            size="lg"
-            className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-110"
-            aria-label="Mở live chat"
-          >
-            <FaRegCommentDots className="w-6 h-6" />
-          </Button>
-        </div>
       </div>
+
+      {/* Scroll to Top Button */}
+      {(() => {
+        const [showScroll, setShowScroll] = React.useState(false);
+        React.useEffect(() => {
+          const handleScroll = () => {
+            setShowScroll(window.scrollY > 200);
+          };
+          window.addEventListener('scroll', handleScroll);
+          return () => window.removeEventListener('scroll', handleScroll);
+        }, []);
+        return showScroll ? (
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fixed bottom-24 right-8 z-[100] w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-2xl hover:from-blue-700 hover:to-purple-700 hover:scale-110 transition-all flex items-center justify-center border-4 border-white animate-bounce"
+            style={{ fontSize: 28 }}
+            aria-label="Lên đầu trang"
+          >
+            <FaArrowUp />
+          </button>
+        ) : null;
+      })()}
       <Footer />
     </div>
   );

@@ -16,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import com.carrental.car_rental.mapper.RatingMapper;
+import com.carrental.car_rental.service.EmailService;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -51,6 +52,7 @@ public class BookingService {
     private final PaymentRepository paymentRepository;
     private final RatingRepository ratingRepository;
     private final CarConditionReportRepository carConditionReportRepository;
+    private final EmailService emailService;
 
     private final UserMapper userMapper;
     private final RatingMapper ratingMapper;
@@ -77,7 +79,8 @@ public class BookingService {
             RatingRepository ratingRepository, 
             UserMapper userMapper, 
             RatingMapper ratingMapper,
-            CarConditionReportRepository carConditionReportRepository) {
+            CarConditionReportRepository carConditionReportRepository,
+            EmailService emailService) {
         this.bookingRepository = bookingRepository;
         this.carRepository = carRepository;
         this.insuranceRepository = insuranceRepository;
@@ -94,52 +97,66 @@ public class BookingService {
         this.userMapper = userMapper;
         this.ratingMapper = ratingMapper;
         this.carConditionReportRepository = carConditionReportRepository;
+        this.emailService = emailService;
     }
 
     @Transactional(readOnly = true)
     public BookingDTO findById(Integer id) {
-        try {
-            logger.info("Fetching booking with id: {}", id);
-            Optional<Booking> bookingOpt = bookingRepository.findByIdWithAllRelations(id);
-            if (bookingOpt.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found");
-            }
-            Booking booking = bookingOpt.get();
-            // mapping sang DTO ở đây, khi session vẫn còn mở
-            BookingDTO dto = bookingMapper.toDTO(booking);
-            // Trong các chỗ mapping Booking -> BookingDTO (ví dụ trong findById, findByUserId, ...):
-            // Sau khi tạo dto từ bookingMapper.toDTO(booking):
-            dto.setRegionName(
-                booking.getRegion() != null ? booking.getRegion().getRegionName() :
-                (booking.getCar() != null && booking.getCar().getRegion() != null ? booking.getCar().getRegion().getRegionName() : null)
-            );
-            enrichWithPaymentInfo(dto, id);
-            return dto;
-        } catch (Exception e) {
-            logger.error("Error fetching booking with id: {}", id, e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error fetching booking: " + e.getMessage());
+        logger.info("🔍 Fetching booking with id: {}", id);
+        Optional<Booking> bookingOpt = bookingRepository.findByIdWithAllRelations(id);
+        if (bookingOpt.isEmpty()) {
+            throw new RuntimeException("Không tìm thấy booking với ID: " + id);
         }
-    }
-
-    @Transactional(readOnly = true)
-    public BookingDTO findByTransactionId(String transactionId) {
-        logger.info("Fetching booking by transactionId: {}", transactionId);
-        Payment payment = paymentRepository.findByTransactionIdAndIsDeletedFalse(transactionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment with transactionId " + transactionId + " not found."));
-        
-        Booking booking = payment.getBooking();
-        if (booking == null || booking.getIsDeleted()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking associated with payment " + transactionId + " not found or has been deleted.");
-        }
-        
+        Booking booking = bookingOpt.get();
         BookingDTO dto = bookingMapper.toDTO(booking);
-        // Trong các chỗ mapping Booking -> BookingDTO (ví dụ trong findById, findByUserId, ...):
-        // Sau khi tạo dto từ bookingMapper.toDTO(booking):
+        // Enrich regionName
         dto.setRegionName(
             booking.getRegion() != null ? booking.getRegion().getRegionName() :
             (booking.getCar() != null && booking.getCar().getRegion() != null ? booking.getCar().getRegion().getRegionName() : null)
         );
-        enrichWithPaymentInfo(dto, booking.getId());
+        // Enrich price breakdown & totalAmount
+        try {
+            PriceBreakdownDTO breakdown = financialsService.calculatePriceBreakdown(dto);
+            dto.setPriceBreakdown(breakdown);
+            if (breakdown != null && breakdown.getTotal() != null) {
+                dto.setTotalAmount(breakdown.getTotal());
+            }
+        } catch (Exception e) {
+            dto.setTotalAmount(java.math.BigDecimal.ZERO);
+        }
+        // Enrich payment info
+        loadPaymentInfo(dto, dto.getBookingId());
+        enrichWithCarReportInfo(dto, dto.getBookingId());
+        return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public BookingDTO findByTransactionId(String transactionId) {
+        logger.info("🔍 Fetching booking by transactionId: {}", transactionId);
+        Optional<Booking> bookingOpt = bookingRepository.findByTransactionIdWithAllRelations(transactionId);
+        if (bookingOpt.isEmpty()) {
+            throw new RuntimeException("Không tìm thấy booking với transactionId: " + transactionId);
+        }
+        Booking booking = bookingOpt.get();
+        BookingDTO dto = bookingMapper.toDTO(booking);
+        // Enrich regionName
+        dto.setRegionName(
+            booking.getRegion() != null ? booking.getRegion().getRegionName() :
+            (booking.getCar() != null && booking.getCar().getRegion() != null ? booking.getCar().getRegion().getRegionName() : null)
+        );
+        // Enrich price breakdown & totalAmount
+        try {
+            PriceBreakdownDTO breakdown = financialsService.calculatePriceBreakdown(dto);
+            dto.setPriceBreakdown(breakdown);
+            if (breakdown != null && breakdown.getTotal() != null) {
+                dto.setTotalAmount(breakdown.getTotal());
+            }
+        } catch (Exception e) {
+            dto.setTotalAmount(java.math.BigDecimal.ZERO);
+        }
+        // Enrich payment info
+        loadPaymentInfo(dto, dto.getBookingId());
+        enrichWithCarReportInfo(dto, dto.getBookingId());
         return dto;
     }
 
@@ -485,66 +502,34 @@ public class BookingService {
 
 @Transactional(readOnly = true)
 public BookingDTO findByIdWithDetails(Integer bookingId) {
-    logger.info("🔍 Fetching booking with id: {}", bookingId);
-    try {
-        Optional<Booking> bookingOpt = bookingRepository.findByIdWithAllRelations(bookingId);
-        if (bookingOpt.isEmpty()) {
-            throw new RuntimeException("Không tìm thấy booking với ID: " + bookingId);
-        }
-        Booking booking = bookingOpt.get();
-        BookingDTO dto = bookingMapper.toDTO(booking);
-        // Trong các chỗ mapping Booking -> BookingDTO (ví dụ trong findById, findByUserId, ...):
-        // Sau khi tạo dto từ bookingMapper.toDTO(booking):
-        dto.setRegionName(
-            booking.getRegion() != null ? booking.getRegion().getRegionName() :
-            (booking.getCar() != null && booking.getCar().getRegion() != null ? booking.getCar().getRegion().getRegionName() : null)
-        );
-        // Set tổng tiền từ BookingFinancialsService
-        try {
-            BookingFinancialsDTO financials = financialsService.getOrCreateFinancials(dto);
-            if (financials != null && financials.getTotalFare() != null) {
-                dto.setTotalAmount(financials.getTotalFare());
-            }
-        } catch (Exception e) {
-            dto.setTotalAmount(java.math.BigDecimal.ZERO);
-        }
-        if (booking.getCar() != null) {
-            dto.setCarModel(booking.getCar().getModel());
-            dto.setCarLicensePlate(booking.getCar().getLicensePlate());
-            dto.setSeatNumber(booking.getCar().getNumOfSeats());
-            logger.info("🚗 Car info loaded: model={}, plate={}, seats={}", 
-                dto.getCarModel(), dto.getCarLicensePlate(), dto.getSeatNumber());
-        } else {
-            logger.warn("⚠️ No car info found for booking {}", bookingId);
-        }
-        // ✅ Load payment info sử dụng helper method
-        loadPaymentInfo(dto, bookingId);
-        // ✅ THÊM: Load detailed payment information - ĐƠN GIẢN
-        List<PaymentDTO> paymentDetails = getBookingPaymentDetails(bookingId);
-        dto.setPaymentDetails(paymentDetails);
-        logger.info("✅ Loaded {} payment records for booking {}", paymentDetails.size(), bookingId);
-        // Check hasRated
-        boolean hasRated = ratingRepository.existsByBookingId(bookingId);
-        dto.setHasRated(hasRated);
-        logger.info("✅ Successfully fetched booking details: {}, hasRated: {}, paymentStatus: {}", 
-            dto.getBookingId(), hasRated, dto.getPaymentStatus());
-        // ✅ Luôn enrich với payment info
-        enrichWithPaymentInfo(dto, bookingId);
-        
-        // ✅ Enrich với car condition report info
-        enrichWithCarReportInfo(dto, bookingId);
-        
-        return dto;
-    } catch (Exception e) {
-        logger.error("❌ Error fetching booking with id: {}", bookingId, e);
-        throw new RuntimeException("Không thể tải chi tiết đặt xe");
+    logger.info("🔍 Fetching booking with id: {} (with details)", bookingId);
+    Optional<Booking> bookingOpt = bookingRepository.findByIdWithAllRelations(bookingId);
+    if (bookingOpt.isEmpty()) {
+        throw new RuntimeException("Không tìm thấy booking với ID: " + bookingId);
     }
+    Booking booking = bookingOpt.get();
+    BookingDTO dto = bookingMapper.toDTO(booking);
+    dto.setRegionName(
+        booking.getRegion() != null ? booking.getRegion().getRegionName() :
+        (booking.getCar() != null && booking.getCar().getRegion() != null ? booking.getCar().getRegion().getRegionName() : null)
+    );
+    try {
+        PriceBreakdownDTO breakdown = financialsService.calculatePriceBreakdown(dto);
+        dto.setPriceBreakdown(breakdown);
+        if (breakdown != null && breakdown.getTotal() != null) {
+            dto.setTotalAmount(breakdown.getTotal());
+        }
+    } catch (Exception e) {
+        dto.setTotalAmount(java.math.BigDecimal.ZERO);
+    }
+    loadPaymentInfo(dto, dto.getBookingId());
+    enrichWithCarReportInfo(dto, dto.getBookingId());
+    return dto;
 }
 
     @Transactional
     public BookingDTO cancelBooking(Integer bookingId) {
         logger.info("Cancelling booking with id: {}", bookingId);
-        
         try {
             // Tìm booking
             Booking booking = bookingRepository.findById(bookingId)
@@ -560,11 +545,27 @@ public BookingDTO findByIdWithDetails(Integer bookingId) {
             Status cancelledStatus = statusRepository.findById(CANCELLED_STATUS_ID)
                     .orElseThrow(() -> new RuntimeException("Lỗi hệ thống: Không tìm thấy trạng thái cancelled"));
             
-            // Cập nhật trạng thái
+            // Cập nhật trạng thái và isDeleted
             booking.setStatus(cancelledStatus);
+            booking.setIsDeleted(true); // <-- Thêm dòng này
+            booking.setUpdatedAt(Instant.now());
             
             // Lưu booking
             Booking savedBooking = bookingRepository.save(booking);
+            
+            // Gửi email thông báo hủy booking cho khách hàng
+            try {
+                String email = booking.getCustomer().getEmail();
+                String subject = "Đơn đặt xe #" + booking.getId() + " đã bị hủy";
+                String content = "Chào " + booking.getCustomer().getUsername() + ",\n\n"
+                    + "Đơn đặt xe #" + booking.getId() + " của bạn đã được hủy thành công.\n"
+                    + "Nếu bạn đã thanh toán, tiền sẽ được hoàn lại trong vòng 3-5 ngày làm việc.\n"
+                    + "Nếu cần hỗ trợ, vui lòng liên hệ RentCar.";
+                emailService.sendEmail(email, subject, content);
+                logger.info("Sent cancel email to {}", email);
+            } catch (Exception e) {
+                logger.warn("Không gửi được email thông báo hủy booking: {}", booking.getId());
+            }
             
             logger.info("Successfully cancelled booking: {}", bookingId);
             return bookingMapper.toDTO(savedBooking);
@@ -668,75 +669,30 @@ public BookingDTO confirmReturn(Integer bookingId, Boolean isSupplier) {
 }
    
  public List<BookingDTO> getUserBookingHistory(Integer userId) {
-    logger.info("🔍 Getting booking history for userId: {}", userId);
-    
-    try {
-        // ✅ Sử dụng repository method có sẵn
-        List<Booking> bookings = bookingRepository.findByCustomerIdWithDetails(userId);
-        logger.info("📋 Found {} raw bookings for user {}", bookings.size(), userId);
-        
-        List<BookingDTO> result = bookings.stream().map(booking -> {
-            BookingDTO dto = bookingMapper.toDTO(booking);
-            // Trong các chỗ mapping Booking -> BookingDTO (ví dụ trong findById, findByUserId, ...):
-            // Sau khi tạo dto từ bookingMapper.toDTO(booking):
-            dto.setRegionName(
-                booking.getRegion() != null ? booking.getRegion().getRegionName() :
-                (booking.getCar() != null && booking.getCar().getRegion() != null ? booking.getCar().getRegion().getRegionName() : null)
-            );
-            // ✅ THÊM: Load thông tin xe cho booking history
-            if (booking.getCar() != null) {
-                dto.setCarModel(booking.getCar().getModel());
-                dto.setCarLicensePlate(booking.getCar().getLicensePlate());
-                dto.setSeatNumber(booking.getCar().getNumOfSeats());
-                
-                logger.debug("🚗 Loaded car info: {} - {}", dto.getCarModel(), dto.getCarLicensePlate());
+    logger.info("🔍 Fetching booking history for user: {}", userId);
+    List<Booking> bookings = bookingRepository.findByCustomerIdWithAllRelations(userId);
+    List<BookingDTO> result = bookings.stream().map(booking -> {
+        BookingDTO dto = bookingMapper.toDTO(booking);
+        dto.setRegionName(
+            booking.getRegion() != null ? booking.getRegion().getRegionName() :
+            (booking.getCar() != null && booking.getCar().getRegion() != null ? booking.getCar().getRegion().getRegionName() : null)
+        );
+        try {
+            PriceBreakdownDTO breakdown = financialsService.calculatePriceBreakdown(dto);
+            dto.setPriceBreakdown(breakdown);
+            if (breakdown != null && breakdown.getTotal() != null) {
+                dto.setTotalAmount(breakdown.getTotal());
             }
-            
-            // ✅ THÊM: Load driver info nếu có
-            if (booking.getDriver() != null && booking.getDriver().getId() != null) {
-                dto.setDriverName(booking.getDriver().getDriverName());
-            }
-
-            // ✅ Load payment info cho từng booking
-            loadPaymentInfo(dto, booking.getId());
-            // ✅ SỬA: Luôn set paymentDetails cho từng booking (fix cash paymentDetails missing)
-            dto.setPaymentDetails(getBookingPaymentDetails(booking.getId()));
-            
-            // ✅ Load hasRated flag
-            boolean hasRated = ratingRepository.existsByBookingId(booking.getId());
-            dto.setHasRated(hasRated);
-            
-            // Set tổng tiền từ BookingFinancialsService
-            try {
-                BookingFinancialsDTO financials = financialsService.getOrCreateFinancials(dto);
-                if (financials != null && financials.getTotalFare() != null) {
-                    dto.setTotalAmount(financials.getTotalFare());
-                }
-            } catch (Exception e) {
-                dto.setTotalAmount(java.math.BigDecimal.ZERO);
-            }
-            
-            // ✅ THÊM: Load ratings cho từng booking
-            List<RatingDTO> ratings = ratingRepository.findByBookingIdAndCustomerIdAndIsDeletedFalse(booking.getId(), userId)
-                .stream().map(ratingMapper::toDTO).collect(Collectors.toList());
-            dto.setRatings(ratings != null ? ratings : new ArrayList<>());
-
-            // ✅ Luôn enrich với payment info
-            enrichWithPaymentInfo(dto, booking.getId());
-            
-            // ✅ THÊM: Load car condition report info
-            enrichWithCarReportInfo(dto, booking.getId());
-
-            return dto;
-        }).collect(Collectors.toList());
-        
-        logger.info("✅ Returning {} booking DTOs with payment info", result.size());
-        return result;
-        
-    } catch (Exception e) {
-        logger.error("❌ Error in getUserBookingHistory for user {}: {}", userId, e.getMessage(), e);
-        throw new RuntimeException("Cannot fetch booking history: " + e.getMessage());
-    }
+        } catch (Exception e) {
+            dto.setTotalAmount(java.math.BigDecimal.ZERO);
+        }
+        loadPaymentInfo(dto, dto.getBookingId());
+        enrichWithCarReportInfo(dto, dto.getBookingId());
+        return dto;
+    }).collect(Collectors.toList());
+    setHasRatedFlags(result);
+    logger.info("✅ Returning {} booking DTOs with payment info", result.size());
+    return result;
 }
 
 // ✅ Helper method để load payment info (DRY principle)
@@ -1070,7 +1026,7 @@ public List<PaymentDTO> getBookingPaymentDetails(Integer bookingId) {
                 String content = "Chào " + booking.getCustomer().getUsername() + ",\n\n" +
                         "Đơn đặt xe #" + booking.getId() + " đã bị xóa khỏi hệ thống do không thanh toán thành công trong vòng 24h.\n" +
                         "Nếu bạn cần hỗ trợ, vui lòng liên hệ RentCar.";
-                // Gửi email (giả lập, bạn có thể dùng service thực tế)
+                        emailService.sendEmail(email, subject, content);      
                 logger.info("[Scheduled] Sending email to {}: {}", email, subject);
             } catch (Exception e) {
                 logger.warn("[Scheduled] Không gửi được email thông báo xóa booking: {}", booking.getId());

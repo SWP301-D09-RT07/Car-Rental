@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { getCarById, post, getProfile } from "@/services/api"
 import {
@@ -31,10 +31,12 @@ import {
   FaHeart,
   FaThumbsUp,
 } from "react-icons/fa"
+import { FaArrowUp } from "react-icons/fa"
 import { toast } from "react-toastify"
 import { useAuth } from "@/hooks/useAuth"
 import { getItem } from '@/utils/auth'
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
+import PhoneOtpVerification from '@/components/Common/PhoneOtpVerification';
 import Footer from '@/components/layout/Footer/Footer.jsx';
 
 // Enhanced Progress Steps Component
@@ -535,6 +537,24 @@ const BookingConfirmationPage = () => {
   const [agreeTerms, setAgreeTerms] = useState(false)
   const [error, setError] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
+  // OTP modal state
+  const [showOtpModal, setShowOtpModal] = useState(false)
+
+  // Scroll to Top button state and logic
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollToTop(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const [pendingOtpPhone, setPendingOtpPhone] = useState("")
+  const [otpVerified, setOtpVerified] = useState(false)
+  const lastConfirmedPhone = useRef("")
   const [isApplyingPromo, setIsApplyingPromo] = useState(false)
   const [showTermsDetails, setShowTermsDetails] = useState(false)
   const [contactInfo, setContactInfo] = useState({
@@ -800,10 +820,18 @@ const BookingConfirmationPage = () => {
       toast.error("Vui lòng đồng ý với điều khoản")
       return
     }
-
+    // Chỉ hiện OTP nếu chưa xác thực hoặc đã đổi số điện thoại
+    if (!otpVerified || contactInfo.phone !== lastConfirmedPhone.current) {
+      // Nếu đã xác thực nhưng đổi số thì reset trạng thái xác thực
+      if (otpVerified && contactInfo.phone !== lastConfirmedPhone.current) {
+        setOtpVerified(false);
+      }
+      setPendingOtpPhone(contactInfo.phone);
+      setShowOtpModal(true);
+      return;
+    }
     try {
       setIsLoading(true)
-      // Save form data for next time
       saveFormData({
         fullName: contactInfo.fullName,
         phone: contactInfo.phone,
@@ -813,7 +841,6 @@ const BookingConfirmationPage = () => {
         withDriver: withDriver,
         deliveryRequested: deliveryRequested,
       })
-
       const bookingInfo = {
         carId: bookingData.carId,
         pickupLocation: contactInfo.pickupAddress,
@@ -824,13 +851,10 @@ const BookingConfirmationPage = () => {
         deliveryRequested: deliveryRequested,
         seatNumber: car?.numOfSeats,
       }
-
       localStorage.setItem("lastBookingInfo", JSON.stringify(bookingInfo))
       localStorage.setItem("lastPriceBreakdown", JSON.stringify(priceBreakdown))
       localStorage.setItem("lastCustomerInfo", JSON.stringify(contactInfo))
-
       toast.success("Thông tin đã được lưu! Chuyển đến trang thanh toán.")
-
       const navigationData = {
         bookingInfo: bookingInfo,
         priceBreakdown,
@@ -840,11 +864,9 @@ const BookingConfirmationPage = () => {
         deliveryRequested,
         customerInfo: { ...contactInfo },
       }
-
       navigate("/payment", { state: navigationData })
     } catch (err) {
       console.error("Lỗi trong handleConfirm:", err)
-
       if (err.response?.status === 400) {
         const message = err.response?.data?.message || "Dữ liệu không hợp lệ"
         toast.error(message)
@@ -855,11 +877,19 @@ const BookingConfirmationPage = () => {
         navigate("/login")
         return
       }
-
       toast.error(err.message || "Không thể xử lý yêu cầu. Vui lòng thử lại.")
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Khi xác thực OTP thành công
+  const handleOtpVerified = () => {
+    setOtpVerified(true)
+    setShowOtpModal(false)
+    lastConfirmedPhone.current = pendingOtpPhone
+    // Gọi lại handleConfirm để tiếp tục flow chuyển trang
+    setTimeout(() => handleConfirm(), 0)
   }
 
   const handleContactInfoChange = (e) => {
@@ -1138,6 +1168,41 @@ const BookingConfirmationPage = () => {
       </main>
 
       <Footer />
+
+      {/* OTP Modal giống login/profile */}
+      {showOtpModal && pendingOtpPhone && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Xác thực số điện thoại</h3>
+            <PhoneOtpVerification phone={pendingOtpPhone} onVerified={handleOtpVerified} />
+            <button className="close-btn" onClick={() => setShowOtpModal(false)}>Đóng</button>
+          </div>
+          <style>{`
+            .modal-overlay {
+              position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+              background: rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; justify-content: center;
+            }
+            .modal {
+              background: #fff; border-radius: 12px; padding: 32px; min-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+              display: flex; flex-direction: column; align-items: center;
+            }
+            .close-btn {
+              margin-top: 16px; background: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+            }
+          `}</style>
+        </div>
+      )}
+      {/* Scroll to Top Button */}
+      {showScrollToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 z-[100] w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-2xl hover:from-blue-700 hover:to-purple-700 hover:scale-110 transition-all flex items-center justify-center border-4 border-white animate-bounce"
+          style={{ fontSize: 28 }}
+          aria-label="Lên đầu trang"
+        >
+          <FaArrowUp />
+        </button>
+      )}
     </div>
   )
 }

@@ -16,22 +16,24 @@ import {
     getPriceBreakdown,
     getBookingById,
     updateRating,
+    getCountryCodes,
     getRatingsByBookingId
 } from '@/services/api';
 import BookingModal from '@/components/features/cars/BookingModal';
 import {
     FaStar,
     FaStarHalf,
-    FaRegStar, // Thêm imports này
+    FaRegStar, 
 } from "react-icons/fa"
 
 import { toast } from 'react-toastify';
 import './ProfilePage.scss';
 import RetryPaymentHandler from '@/components/features/payments/RetryPaymentHandler';
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
-import BankAccountManager from '@/components/BankAccount/BankAccountManager'; // ✅ Đúng path mới
+import BankAccountManager from '@/components/BankAccount/BankAccountManager'; 
 import CarConditionReportModal from '@/components/CarConditionReport/CarConditionReportModal';
 import CustomerCarConditionReportView from '@/components/CarConditionReport/CustomerCarConditionReportView';
+import PhoneOtpVerification from '@/components/Common/PhoneOtpVerification';
 
 const StarRating = ({
     rating = 0,
@@ -118,6 +120,7 @@ const ProfilePage = () => {
     const [favorites, setFavorites] = useState([]);
     const [favoritesLoading, setFavoritesLoading] = useState(false);
     const [isChangingPassword, setIsChangingPassword] = useState(false);
+
     // Form states
     const [editMode, setEditMode] = useState(false);
     const [formData, setFormData] = useState({
@@ -132,6 +135,10 @@ const ProfilePage = () => {
             taxcode: ''
         }
     });
+    // OTP modal state
+    const [showOtpModal, setShowOtpModal] = useState(false);
+    const [pendingPhone, setPendingPhone] = useState(null);
+    const [otpVerified, setOtpVerified] = useState(false);
 
     
     // Password change states
@@ -165,6 +172,12 @@ const ProfilePage = () => {
     console.log('🔍 ProfilePage render - authUser:', authUser, 'user:', user, 'loading:', loading);
 
 
+        const [countryCodes, setCountryCodes] = useState([]);
+        useEffect(() => {
+            getCountryCodes()
+                .then((data) => setCountryCodes(data))
+                .catch(() => setCountryCodes([{ countryCode: '+84', countryName: 'Việt Nam' }]));
+        }, []);
     // ✅ SỬA: Helper để check cash deposit pending
 const hasCashDepositPending = (booking) => {
     return booking.paymentDetails?.some(p => 
@@ -384,9 +397,13 @@ const waitingForPickup = (booking) => {
     };
 
     // Handle form changes
+
+    // Khi thay đổi phone, chỉ lưu giá trị vào pendingPhone, không show OTP modal ở đây
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        if (name.startsWith('userDetail.')) {
+        if (name === 'phone') {
+            setPendingPhone(value);
+        } else if (name.startsWith('userDetail.')) {
             const field = name.split('.')[1];
             setFormData(prev => ({
                 ...prev,
@@ -404,12 +421,17 @@ const waitingForPickup = (booking) => {
     };
 
     // Handle profile update
+
+    // Khi nhấn cập nhật, nếu số điện thoại thay đổi thì show OTP modal, xác thực xong mới update
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
+        if (pendingPhone !== undefined && pendingPhone !== null && pendingPhone !== formData.phone) {
+            setShowOtpModal(true);
+            return;
+        }
         try {
             setUpdating(true);
             console.log('🔄 Updating profile with data:', formData);
-            
             const response = await updateProfile(formData);
             if (response.success) {
                 toast.success('Cập nhật thông tin thành công!');
@@ -1851,39 +1873,38 @@ const handleCancelBooking = async (bookingId) => {
                             <div className="user-avatar">
                                 <img 
                                     src={user.userDetail?.avatar || `data:image/svg+xml,${encodeURIComponent(`
-        <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
-            <rect width="120" height="120" fill="#667eea"/>
-            <text x="50%" y="50%" text-anchor="middle" dy="0.35em" font-family="Arial, sans-serif" font-size="48" fill="white">
-                ${user.username?.charAt(0).toUpperCase() || 'U'}
-            </text>
-        </svg>
-    `)}`} 
-    alt="Avatar"
-    onError={(e) => {
-        // Fallback to a simple colored div with initial
-        e.target.style.display = 'none';
-        e.target.parentElement.innerHTML = `
-            <div style="
-                width: 120px; 
-                height: 120px; 
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                border-radius: 50%; 
-                display: flex; 
-                align-items: center; 
-                justify-content: center; 
-                color: white; 
-                font-size: 48px; 
-                font-weight: bold;
-            ">
-                ${user.username?.charAt(0).toUpperCase() || 'U'}
-            </div>
-        `;
-    }}
-                                />
-                                <div className="avatar-upload" title="Đổi ảnh đại diện">
-                                    <i className="fas fa-camera"></i>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+                                        <rect width="120" height="120" fill="#667eea"/>
+                                        <text x="50%" y="50%" text-anchor="middle" dy="0.35em" font-family="Arial, sans-serif" font-size="48" fill="white">
+                                            ${user.username?.charAt(0).toUpperCase() || 'U'}
+                                        </text>
+                                    </svg>
+                                    `)}`} 
+                                    alt="Avatar"
+                                    onError={(e) => {
+                                        // Fallback to a simple colored div with initial
+                                        e.target.style.display = 'none';
+                                        e.target.parentElement.innerHTML = `
+                                            <div style="
+                                                width: 120px; 
+                                                height: 120px; 
+                                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                                border-radius: 50%; 
+                                                display: flex; 
+                                                align-items: center; 
+                                                justify-content: center; 
+                                                color: white; 
+                                                font-size: 48px; 
+                                                font-weight: bold;
+                                            ">
+                                                ${user.username?.charAt(0).toUpperCase() || 'U'}
+                                            </div>
+                                        `;
+                                    }} />
+                                    <div className="avatar-upload" title="Đổi ảnh đại diện">
+                                        <i className="fas fa-camera"></i>
+                                    </div>
                                 </div>
-                            </div>
                             
                             <div className="verification-badge">
                                 <div className="verification-circle">
@@ -2074,26 +2095,35 @@ const handleCancelBooking = async (bookingId) => {
                                                 <div className="form-group">
                                                     <label data-required="true">Số điện thoại</label>
                                                     <div className="phone-input-group">
-                                                        <select 
+                                                        <select
                                                             className="country-select"
                                                             name="countryCode"
                                                             value={formData.countryCode}
                                                             onChange={handleInputChange}
                                                         >
-                                                            <option value="+84">+84 (VN)</option>
-                                                            <option value="+1">+1 (US)</option>
-                                                            <option value="+86">+86 (CN)</option>
+                                                            {countryCodes && countryCodes.length > 0 ? (
+                                                                countryCodes.map((c) => (
+                                                                    <option key={c.countryCode} value={c.countryCode}>
+                                                                        {c.countryCode} ({c.countryName})
+                                                                    </option>
+                                                                ))
+                                                            ) : (
+                                                                <option value="+84">+84 (VN)</option>
+                                                            )}
                                                         </select>
                                                         <input
                                                             type="tel"
                                                             name="phone"
-                                                            value={formData.phone}
+                                                            value={pendingPhone !== null && pendingPhone !== undefined ? pendingPhone : formData.phone}
                                                             onChange={handleInputChange}
                                                             placeholder="Nhập số điện thoại"
                                                             required
-                                                        />
+                                                        /> 
                                                     </div>
-                                                </div>
+                                                    {pendingPhone && pendingPhone !== formData.phone && (
+                                                        <div className="text-xs text-blue-600 ml-2">Số mới, cần xác thực OTP khi cập nhật</div>
+                                                    )}
+                                                </div>                                                
                                                 
                                                 <div className="form-group">
                                                     <label>Ngôn ngữ ưa thích</label>
@@ -2749,6 +2779,98 @@ const handleCancelBooking = async (bookingId) => {
                     bookingId={reportModalData.booking.bookingId}
                 />
             )}
+            {/* OTP Modal - chỉ 1 modal trung tâm như login */}
+                                                {showOtpModal && pendingPhone && pendingPhone !== formData.phone && (
+                                                    <div className="modal-overlay">
+                                                        <div className="modal">
+                                                            <h3>Xác thực số điện thoại</h3>
+                                                            <PhoneOtpVerification phone={
+                                                                // Đảm bảo số điện thoại gửi đi luôn có mã quốc gia
+                                                                pendingPhone.startsWith('+')
+                                                                  ? pendingPhone
+                                                                  : (formData.countryCode || '+84') + (pendingPhone.startsWith('0') ? pendingPhone.slice(1) : pendingPhone)
+                                                            } onVerified={async () => {
+                                                                setOtpVerified(true);
+                                                                // Khi lưu vào DB cũng lưu đúng định dạng mã quốc gia
+                                                                const fullPhone = pendingPhone.startsWith('+')
+                                                                  ? pendingPhone
+                                                                  : (formData.countryCode || '+84') + (pendingPhone.startsWith('0') ? pendingPhone.slice(1) : pendingPhone);
+                                                                setFormData(prev => ({ ...prev, phone: fullPhone }));
+                                                                setShowOtpModal(false);
+                                                                try {
+                                                                    setUpdating(true);
+                                                                    const response = await updateProfile({ ...formData, phone: fullPhone });
+                                                                    if (response.success) {
+                                                                        toast.success('Cập nhật thông tin thành công!');
+                                                                        setEditMode(false);
+                                                                        await fetchProfile();
+                                                                    } else {
+                                                                        toast.error(response.error || 'Có lỗi xảy ra');
+                                                                    }
+                                                                } catch (error) {
+                                                                    toast.error(error.message || 'Không thể cập nhật thông tin');
+                                                                } finally {
+                                                                    setUpdating(false);
+                                                                }
+                                                            }} />
+                                                            <button className="close-btn" onClick={() => setShowOtpModal(false)}>Đóng</button>
+                                                        </div>
+                                                        <style>{`
+                                                            .modal-overlay {
+                                                              position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                                                              background: rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; justify-content: center;
+                                                            }
+                                                            .modal {
+                                                              background: #fff; border-radius: 12px; padding: 32px; min-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+                                                              display: flex; flex-direction: column; align-items: center;
+                                                            }
+                                                            .close-btn {
+                                                              margin-top: 16px; background: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                                                            }
+                                                        `}</style>
+                                                    </div>
+                                                )}{/* OTP Modal - chỉ 1 modal trung tâm như login */}
+                                                {showOtpModal && pendingPhone && pendingPhone !== formData.phone && (
+                                                    <div className="modal-overlay">
+                                                        <div className="modal">
+                                                            <h3>Xác thực số điện thoại</h3>
+                                                            <PhoneOtpVerification phone={pendingPhone} onVerified={async () => {
+                                                                setOtpVerified(true);
+                                                                setFormData(prev => ({ ...prev, phone: pendingPhone }));
+                                                                setShowOtpModal(false);
+                                                                try {
+                                                                    setUpdating(true);
+                                                                    const response = await updateProfile({ ...formData, phone: pendingPhone });
+                                                                    if (response.success) {
+                                                                        toast.success('Cập nhật thông tin thành công!');
+                                                                        setEditMode(false);
+                                                                        await fetchProfile();
+                                                                    } else {
+                                                                        toast.error(response.error || 'Có lỗi xảy ra');
+                                                                    }
+                                                                } catch (error) {
+                                                                    toast.error(error.message || 'Không thể cập nhật thông tin');
+                                                                } finally {
+                                                                    setUpdating(false);
+                                                                }
+                                                            }} />
+                                                            <button className="close-btn" onClick={() => setShowOtpModal(false)}>Đóng</button>
+                                                        </div>
+                                                        <style>{`
+                                                            .modal-overlay {
+                                                              position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                                                              background: rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; justify-content: center;
+                                                            }
+                                                            .modal {
+                                                              background: #fff; border-radius: 12px; padding: 32px; min-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+                                                              display: flex; flex-direction: column; align-items: center;
+                                                            }
+                                                            .close-btn {
+                                                              margin-top: 16px; background: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                                                            }
+                                                        `}</style>
+                                                    </div>
+                                                )}           
         </div>
     );
 

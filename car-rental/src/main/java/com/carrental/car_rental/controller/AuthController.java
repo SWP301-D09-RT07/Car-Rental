@@ -123,6 +123,26 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/send-otp")
+    public ResponseEntity<?> sendOtp(@RequestBody Map<String, String> req) {
+        String phone = req.get("phone");
+        authService.sendPhoneOtp(phone);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Đã gửi OTP"));
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> req) {
+        String phone = req.get("phone");
+        String otp = req.get("otp");
+        boolean valid = authService.verifyPhoneOtp(phone, otp);
+        if (valid) {
+            return ResponseEntity.ok(Map.of("success", true, "message", "Xác thực thành công"));
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("success", false, "message", "OTP không hợp lệ hoặc đã hết hạn"));
+        }
+    }
+
     @GetMapping("/login")
     public ResponseEntity<?> handleInvalidLogin() {
         logger.warn("Yêu cầu GET đến /api/auth/login không được hỗ trợ");

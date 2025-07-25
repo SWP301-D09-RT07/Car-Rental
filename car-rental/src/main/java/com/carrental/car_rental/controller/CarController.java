@@ -11,10 +11,14 @@ import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -74,35 +78,47 @@ public class CarController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<CarDTO>> searchCars(
-            @RequestParam(required = false) String pickupLocation,
-            @RequestParam(required = false) String country,
-            @RequestParam(required = false) String pickupDate,
-            @RequestParam(required = false) String dropoffDate,
-            @RequestParam(required = false) String pickupTime,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        logger.info("Yêu cầu tìm kiếm xe với pickupLocation: {}, country: {}, pickupDate: {}, dropoffDate: {}, pickupTime: {}, trang {}, kích thước {}",
-                pickupLocation, country, pickupDate, dropoffDate, pickupTime, page, size);
-        try {
-            // Convert String country code to CountryCode object
-            CountryCode countryCode = null;
-            if (country != null && !country.trim().isEmpty()) {
-                countryCode = countryCodeRepository.findById(country).orElse(null);
-                if (countryCode == null) {
-                    logger.warn("Không tìm thấy country code: {}", country);
-                    return ResponseEntity.ok(List.of()); // Return empty list if country code not found
-                }
+public ResponseEntity<List<CarDTO>> searchCars(
+        @RequestParam(required = false) String pickupLocation,
+        @RequestParam(required = false) String country,
+        @RequestParam(required = false) String pickupDate,
+        @RequestParam(required = false) String dropoffDate,
+        @RequestParam(required = false) String pickupTime,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime pickupDateTime,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dropoffDateTime,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size) {
+    
+    logger.info("Yêu cầu tìm kiếm xe với pickupLocation: {}, pickupDateTime: {}, dropoffDateTime: {}", 
+               pickupLocation, pickupDateTime, dropoffDateTime);
+    
+    try {
+        CountryCode countryCode = null;
+        if (country != null && !country.trim().isEmpty()) {
+            countryCode = countryCodeRepository.findById(country).orElse(null);
+            if (countryCode == null) {
+                logger.warn("Không tìm thấy country code: {}", country);
+                return ResponseEntity.ok(List.of());
             }
-            
-            List<CarDTO> cars = service.searchCars(pickupLocation, countryCode, pickupDate, dropoffDate, pickupTime, page, size);
-            return ResponseEntity.ok(cars);
-        } catch (Exception e) {
-            logger.error("Lỗi khi tìm kiếm xe: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
+        
+        List<CarDTO> cars;
+        
+        // Ưu tiên sử dụng pickupDateTime/dropoffDateTime nếu có
+        if (pickupDateTime != null && dropoffDateTime != null) {
+            // SỬA: Sử dụng method overload mới với đúng parameters
+            cars = service.searchAvailableCars(pickupLocation, countryCode, pickupDateTime, dropoffDateTime, page, size);
+        } else {
+            // Fallback về logic cũ
+            cars = service.searchCars(pickupLocation, countryCode, pickupDate, dropoffDate, pickupTime, page, size);
+        }
+        
+        return ResponseEntity.ok(cars);
+    } catch (Exception e) {
+        logger.error("Lỗi khi tìm kiếm xe: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
     }
-
+}
     @GetMapping("/{id}")
     public ResponseEntity<CarDetailsResponseDTO> getCar(@PathVariable @Min(1) Integer id) {
         logger.info("Yêu cầu lấy chi tiết xe với ID: {}", id);
@@ -350,30 +366,45 @@ public class CarController {
         }
     }
 
-    @GetMapping("/filter")
-    public ResponseEntity<Page<CarDTO>> filterCars(
-        @RequestParam(required = false) String brand,
-        @RequestParam(required = false) String countryCode,
-        @RequestParam(required = false) Integer regionId,
-        @RequestParam(required = false) Short numOfSeats,
-        @RequestParam(required = false) String priceRange,
-        @RequestParam(required = false) Short year,
-        @RequestParam(required = false) String fuelType,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "9") int size,
-        @RequestParam(required = false) String sortBy
-    ) {
-        logger.info("Yêu cầu lọc xe với các tham số: brand={}, countryCode={}, regionId={}, numOfSeats={}, priceRange={}, year={}, fuelType={}, page={}, size={}, sortBy={}",
-                brand, countryCode, regionId, numOfSeats, priceRange, year, fuelType, page, size, sortBy);
-        try {
-            Page<CarDTO> cars = service.filterCars(brand, countryCode, regionId, numOfSeats, priceRange, year, fuelType, page, size, sortBy);
-            return ResponseEntity.ok(cars);
-        } catch (Exception e) {
-            logger.error("Lỗi khi lọc xe: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+    // Cập nhật endpoint /filter để hỗ trợ date filtering
+@GetMapping("/filter")
+public ResponseEntity<Page<CarDTO>> filterCars(
+    @RequestParam(required = false) String brand,
+    @RequestParam(required = false) String countryCode,
+    @RequestParam(required = false) Integer regionId,
+    @RequestParam(required = false) Short numOfSeats,
+    @RequestParam(required = false) String priceRange,
+    @RequestParam(required = false) Short year,
+    @RequestParam(required = false) String fuelType,
+    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime pickupDateTime,
+    @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dropoffDateTime,
+    @RequestParam(defaultValue = "0") int page,
+    @RequestParam(defaultValue = "9") int size,
+    @RequestParam(required = false) String sortBy
+) {
+    logger.info("Yêu cầu lọc xe với date filters: pickupDateTime={}, dropoffDateTime={}", pickupDateTime, dropoffDateTime);
+    try {
+        Page<CarDTO> cars;
+        
+        // Nếu có date filter, sử dụng availability logic
+        if (pickupDateTime != null && dropoffDateTime != null) {
+            Instant startDate = pickupDateTime.atZone(ZoneId.systemDefault()).toInstant();
+            Instant endDate = dropoffDateTime.atZone(ZoneId.systemDefault()).toInstant();
+            
+            cars = service.getAvailableCarsWithFilters(
+                startDate, endDate, brand, countryCode, regionId, 
+                numOfSeats, priceRange, year, fuelType, page, size, sortBy);
+        } else {
+            // Không có date filter, sử dụng logic cũ
+            cars = service.filterCars(brand, countryCode, regionId, numOfSeats, priceRange, year, fuelType, page, size, sortBy);
         }
+        
+        return ResponseEntity.ok(cars);
+    } catch (Exception e) {
+        logger.error("Lỗi khi lọc xe: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
     }
-
+}
     @GetMapping("/search/keyword")
     public ResponseEntity<Page<CarDTO>> searchCarsByKeyword(
             @RequestParam(required = false) String searchQuery,
@@ -388,6 +419,49 @@ public class CarController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
+
+    // Thêm endpoint mới sau dòng 285 (sau endpoint /search/keyword)
+@GetMapping("/available")
+public ResponseEntity<Page<CarDTO>> getAvailableCars(
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime pickupDateTime,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dropoffDateTime,
+        @RequestParam(required = false) String brand,
+        @RequestParam(required = false) String countryCode,
+        @RequestParam(required = false) Integer regionId,
+        @RequestParam(required = false) Short numOfSeats,
+        @RequestParam(required = false) String priceRange,
+        @RequestParam(required = false) Short year,
+        @RequestParam(required = false) String fuelType,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "9") int size,
+        @RequestParam(required = false) String sortBy) {
+    
+    logger.info("Yêu cầu lấy xe available với pickupDateTime: {}, dropoffDateTime: {}, page: {}, size: {}", 
+               pickupDateTime, dropoffDateTime, page, size);
+    
+    try {
+        // Nếu không có thời gian, sử dụng mặc định
+        if (pickupDateTime == null) {
+            pickupDateTime = LocalDateTime.now();
+        }
+        if (dropoffDateTime == null) {
+            dropoffDateTime = pickupDateTime.plusDays(1);
+        }
+        
+        // Convert LocalDateTime sang Instant để tương thích với existing code
+        Instant startDate = pickupDateTime.atZone(ZoneId.systemDefault()).toInstant();
+        Instant endDate = dropoffDateTime.atZone(ZoneId.systemDefault()).toInstant();
+        
+        Page<CarDTO> availableCars = service.getAvailableCarsWithFilters(
+            startDate, endDate, brand, countryCode, regionId, 
+            numOfSeats, priceRange, year, fuelType, page, size, sortBy);
+        
+        return ResponseEntity.ok(availableCars);
+    } catch (Exception e) {
+        logger.error("Lỗi khi lấy xe available: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+    }
+}
 
     @GetMapping("/{carId}/booked-dates")
     public ResponseEntity<BookedDatesResponseDTO> getBookedDates(@PathVariable Integer carId) {

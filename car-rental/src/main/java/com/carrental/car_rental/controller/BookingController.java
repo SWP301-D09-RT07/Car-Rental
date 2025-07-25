@@ -197,7 +197,7 @@ public class BookingController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteBooking(@PathVariable Integer id, Authentication authentication) {
         logger.warn("Request to hard delete booking with ID: {}", id);
-        Booking booking = bookingRepository.findById(id).orElse(null);
+        Booking booking = bookingRepository.findByIdWithAllRelations(id).orElse(null);
         if (booking == null) {
             return ResponseEntity.notFound().build();
         }

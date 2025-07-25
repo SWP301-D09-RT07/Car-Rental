@@ -1110,4 +1110,54 @@ public class PaymentService {
             }
         }
     }
+    
+    /**
+     * Public method to generate VNPay payment URL for platform fee payments
+     */
+    public String generateVnpayPaymentUrl(jakarta.servlet.http.HttpServletRequest request, 
+                                         String paymentId, long amount, Integer bookingId) {
+        try {
+            return createVnpayPaymentUrl(request, paymentId, amount, bookingId);
+        } catch (Exception e) {
+            logger.error("Error generating VNPay payment URL: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Cannot generate VNPay payment URL");
+        }
+    }
+    
+    /**
+     * Generate VNPay payment URL specifically for platform fee payments
+     * @param request HttpServletRequest
+     * @param paymentId Payment ID
+     * @param amount Amount in VND
+     * @param confirmationId Cash payment confirmation ID
+     * @param returnUrl Custom return URL
+     * @param cancelUrl Custom cancel URL
+     * @return VNPay payment URL
+     */
+    public String generatePlatformFeeVnpayUrl(jakarta.servlet.http.HttpServletRequest request,
+                                             String paymentId, long amount, Integer confirmationId,
+                                             String returnUrl, String cancelUrl) {
+        logger.info("Generating VNPay URL for platform fee payment - PaymentId: {}, Amount: {}, ConfirmationId: {}", 
+                   paymentId, amount, confirmationId);
+        
+        try {
+            return vnPayConfig.createPlatformFeePaymentUrl(request, paymentId, amount, confirmationId, returnUrl, cancelUrl);
+        } catch (Exception e) {
+            logger.error("Error generating VNPay platform fee payment URL: {}", e.getMessage(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, 
+                "Cannot generate VNPay platform fee payment URL: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Public method to generate MoMo payment URL for platform fee payments
+     */
+    public String generateMomoPaymentUrl(Payment payment, String orderId) {
+        try {
+            return createMomoPaymentUrlWithOrderId(payment, orderId);
+        } catch (Exception e) {
+            logger.error("Error generating MoMo payment URL: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Cannot generate MoMo payment URL");
+        }
+    }
 }

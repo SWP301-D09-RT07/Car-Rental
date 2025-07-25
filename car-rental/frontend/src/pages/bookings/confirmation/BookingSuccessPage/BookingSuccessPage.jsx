@@ -591,60 +591,32 @@ const BookingSuccessPage = () => {
 
   // Parse payment information từ booking data với enhanced fallback logic
   const getPaymentInfo = () => {
-    let actualPaymentMethod = paymentMethod || detectedPaymentMethod;
-    let actualTotalAmount = 0;
-    let actualPaidAmount = 0;
+    // Ưu tiên lấy tổng tiền từ priceBreakdown
+    const total = priceBreakdown?.total || totalAmount || 0;
 
-    // Ưu tiên lấy tổng tiền đúng cho online (vnpay/momo)
-    if (actualPaymentMethod === 'vnpay' || actualPaymentMethod === 'momo') {
-      if (priceBreakdown && priceBreakdown.total && priceBreakdown.total > 0) {
-        actualTotalAmount = Number(priceBreakdown.total);
-      } else if (totalAmount && totalAmount > 0) {
-        actualTotalAmount = Number(totalAmount);
-      } else if (stateTotalAmount && stateTotalAmount > 0) {
-        actualTotalAmount = Number(stateTotalAmount);
-      } else if (paymentAmount && paymentAmount > 0) {
-        actualTotalAmount = Number(paymentAmount);
-      } else if (bookingData?.amount && bookingData.amount > 0) {
-        actualTotalAmount = Number(bookingData.amount);
-      }
-      actualPaidAmount = actualTotalAmount;
-    } else if (actualPaymentMethod === 'cash') {
-      if (priceBreakdown && priceBreakdown.total && priceBreakdown.total > 0) {
-        actualTotalAmount = Number(priceBreakdown.total);
-      } else if (totalAmount && totalAmount > 0) {
-        actualTotalAmount = Number(totalAmount);
-      } else if (stateTotalAmount && stateTotalAmount > 0) {
-        actualTotalAmount = Number(stateTotalAmount);
-      } else if (paymentAmount && paymentAmount > 0) {
-        actualTotalAmount = Number(paymentAmount);
-      } else if (bookingData?.amount && bookingData.amount > 0) {
-        actualTotalAmount = Number(bookingData.amount);
-      }
-      actualPaidAmount = 0;
-    } else {
-      // fallback: treat as online if unknown
-      if (priceBreakdown && priceBreakdown.total && priceBreakdown.total > 0) {
-        actualTotalAmount = Number(priceBreakdown.total);
-      } else if (totalAmount && totalAmount > 0) {
-        actualTotalAmount = Number(totalAmount);
-      } else if (stateTotalAmount && stateTotalAmount > 0) {
-        actualTotalAmount = Number(stateTotalAmount);
-      } else if (paymentAmount && paymentAmount > 0) {
-        actualTotalAmount = Number(paymentAmount);
-      } else if (bookingData?.amount && bookingData.amount > 0) {
-        actualTotalAmount = Number(bookingData.amount);
-      }
-      actualPaidAmount = actualTotalAmount;
+    // Tính tổng đã thanh toán từ paymentDetails (chỉ lấy payment đã paid)
+    let paid = 0;
+    if (Array.isArray(paymentDetails) && paymentDetails.length > 0) {
+      paid = paymentDetails
+        .filter(p => p.statusName === 'paid')
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    } else if (paymentAmount) {
+      paid = Number(paymentAmount);
     }
 
-    const remainingAmount = Math.max(0, actualTotalAmount - actualPaidAmount);
+    // Nếu là thanh toán online (VNPay/MoMo) và paid = 0, fallback paid = total
+    let method = paymentMethod || detectedPaymentMethod;
+    if ((method === 'vnpay' || method === 'momo') && paid === 0) {
+      paid = total;
+    }
+
+    const remaining = Math.max(0, total - paid);
 
     return {
-      paidAmount: actualPaidAmount,
-      totalAmount: actualTotalAmount,
-      remainingAmount,
-      paymentMethod: actualPaymentMethod
+      paidAmount: paid,
+      totalAmount: total,
+      remainingAmount: remaining,
+      paymentMethod: method
     };
   };
 

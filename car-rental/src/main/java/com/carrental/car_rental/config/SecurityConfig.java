@@ -56,24 +56,25 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/login/oauth2/code/**", "/oauth2/authorization/**").permitAll()
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-email", "/oauth2/**").permitAll()
-                        .requestMatchers("/api/registration-requests", "/api/registration-requests/**", "/uploads/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/cars/**").permitAll()
-                        .requestMatchers("/api/cars/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/auth/**", "/api/languages/**", "/api/country-codes/**",
-                                "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**",
-                                "/api/cars/*/features", "/api/service-types/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/ratings", "/api/ratings/summary", "/api/ratings/**").permitAll()
-                        .requestMatchers("/api/payments/callback", "/api/payments/test", "/api/payments/test-cash", "/api/payments/momo-callback").permitAll()
-                        .requestMatchers("/api/cash-payments/debug/**").permitAll() // DEBUG endpoint public
-                        .requestMatchers(HttpMethod.GET,"/api/bookings/**").authenticated()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/customer/**").hasRole("customer")
-                        .requestMatchers("/api/users/**").authenticated()
-                        .anyRequest().authenticated()
-                )
+        .authorizeHttpRequests(authz -> authz
+            .requestMatchers("/login/oauth2/code/**", "/oauth2/authorization/**").permitAll()
+            .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/check-email", "/oauth2/**").permitAll()
+            .requestMatchers("/api/registration-requests", "/api/registration-requests/**", "/uploads/**").permitAll()
+            .requestMatchers("/ws-chat/**", "/ws-chat").permitAll() // Allow WebSocket endpoint
+            .requestMatchers(HttpMethod.GET, "/api/cars/**").permitAll()
+            .requestMatchers("/api/cars/admin/**").hasRole("ADMIN")
+            .requestMatchers("/api/auth/**", "/api/languages/**", "/api/country-codes/**",
+                "/api/car-brands/**", "/api/fuel-types/**", "/api/regions/**",
+                "/api/cars/*/features", "/api/service-types/**").permitAll()
+            .requestMatchers(HttpMethod.GET, "/api/ratings", "/api/ratings/summary", "/api/ratings/**").permitAll()
+            .requestMatchers("/api/payments/callback", "/api/payments/test", "/api/payments/test-cash", "/api/payments/momo-callback").permitAll()
+            .requestMatchers(HttpMethod.GET,"/api/bookings/**").authenticated()
+            .requestMatchers("/api/chat-messages/**").authenticated()
+            .requestMatchers("/api/admin/**").hasRole("ADMIN")
+            .requestMatchers("/api/customer/**").hasRole("customer")
+            .requestMatchers("/api/users/**").authenticated()
+            .anyRequest().authenticated()
+        )
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                         .successHandler(oAuth2SuccessHandler)

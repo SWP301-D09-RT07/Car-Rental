@@ -10,7 +10,9 @@
     "framer-motion": "^12.23.3",
     "react-hook-form": "^7.56.3",
     "react-hot-toast": "^2.5.2",
-    "react-router-dom": "^7.6.0"
+    "react-router-dom": "^7.6.0",
+    "sockjs-client": "^1.6.1",
+    "stompjs": "^2.3.3"
   },
   "devDependencies": {
     "@hookform/resolvers": "^5.0.1",

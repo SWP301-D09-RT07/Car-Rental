@@ -16,6 +16,7 @@ import java.time.Instant;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@org.hibernate.annotations.DynamicUpdate
 public class CashPaymentConfirmation {
     
     @Id
@@ -56,14 +57,33 @@ public class CashPaymentConfirmation {
     @Column(name = "platform_fee", precision = 15, scale = 2)
     private BigDecimal platformFee;
 
-    @Column(name = "platform_fee_status", length = 20)
-    private String platformFeeStatus = "pending"; // "pending", "paid", "overdue"
+    @Column(name = "platform_fee_status", length = 30)
+    private String platformFeeStatus = "pending"; // "pending", "processing", "paid", "overdue", "penalty_applied", "escalated"
+
+    @Column(name = "platform_fee_payment_id")
+    private Integer platformFeePaymentId; // Link to Payment record for platform fee
 
     @Column(name = "platform_fee_due_date")
     private Instant platformFeeDueDate;
 
     @Column(name = "platform_fee_paid_at")
     private Instant platformFeePaidAt;
+    
+    // Overdue handling
+    @Column(name = "overdue_penalty_rate", precision = 5, scale = 4)
+    private BigDecimal overduePenaltyRate = new BigDecimal("0.05"); // 5% penalty per week
+    
+    @Column(name = "penalty_amount", precision = 15, scale = 2)
+    private BigDecimal penaltyAmount = BigDecimal.ZERO;
+    
+    @Column(name = "total_amount_due", precision = 15, scale = 2)
+    private BigDecimal totalAmountDue; // platform_fee + penalty_amount
+    
+    @Column(name = "overdue_since")
+    private Instant overdueSince; // When it became overdue
+    
+    @Column(name = "escalation_level")
+    private Integer escalationLevel = 0; // 0=none, 1=warning, 2=restriction, 3=suspension
 
     @Column(name = "is_deleted")
     private Boolean isDeleted = false;

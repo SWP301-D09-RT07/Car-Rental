@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Swiper, SwiperSlide } from "swiper/react"
 import { Pagination, Autoplay, EffectFade, Navigation } from "swiper/modules"
+import { formatVND } from '@/utils/format'
 import {
     FaCarSide,
     FaSearch,
@@ -58,9 +59,8 @@ import BookingModal from '@/components/features/cars/BookingModal';
 import Header from '@/components/layout/Header/Header';
 import Footer from '@/components/layout/Footer/Footer';
 import { getItem } from '@/utils/auth';
-import TestimonialCarousel from '@/components/Rating/TestimonialCarousel';
+import TestimonialCarousel from '@/components/features/Rating/TestimonialCarousel';
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
-import CozeChatbot from '@/components/CozeChatbot';
 
 // Images
 const bg1 = "/images/bg_1.jpg"
@@ -208,6 +208,7 @@ const HomePage = () => {
     const [popularCars, setPopularCars] = useState([])
     const [brands, setBrands] = useState([])
     const [locations, setLocations] = useState([])
+    const [regions, setRegions] = useState([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState("")
     const [searchError, setSearchError] = useState("")
@@ -250,8 +251,31 @@ const HomePage = () => {
                 setFeaturedCars(featuredResponse?.data || [])
                 setPopularCars(popularResponse?.data || [])
                 setBrands(brandsResponse || [])
-                setLocations(regionsResponse?.map((region) => region.name) || [])
+                // ✅ SỬA: Gọi API lấy regions theo country code
+                try {
+                    const regionsResponse = await api.get('/api/cars/regions/country/+84', config);
+                    console.log("[HomePage] Vietnam Regions API Response:", regionsResponse.data);
+                    setRegions(regionsResponse.data || []);
+                    setLocations(regionsResponse.data?.map((region) => region.regionName) || []);
+                } catch (regionError) {
+                    console.error("[HomePage] Error fetching Vietnam regions:", regionError);
+                    // Fallback: thử API cũ và filter
+                    try {
+                        const allRegionsResponse = await getRegions();
+                        console.log("[HomePage] All Regions Fallback:", allRegionsResponse);
+                        const vietnamRegions = allRegionsResponse?.filter(region =>
+                            region.countryCode === "+84" || region.countryCode === "VN"
+                        ) || [];
+                        setRegions(vietnamRegions);
+                        setLocations(vietnamRegions?.map((region) => region.regionName) || []);
+                    } catch (fallbackError) {
+                        console.error("[HomePage] Fallback regions failed:", fallbackError);
+                        setRegions([]);
+                        setLocations([]);
+                    }
+                }
             } catch (err) {
+                console.error("[HomePage] Fetch error:", err);
                 const errorMessage = err.message || "Lỗi khi tải dữ liệu"
                 toast.error(`Lỗi khi tải dữ liệu: ${errorMessage}`)
                 setError(errorMessage)
@@ -349,12 +373,15 @@ const HomePage = () => {
             }
 
             try {
+                // Tìm region được chọn để lấy regionId
+                const selectedRegion = regions.find(region => region.regionName === formData.pickupLocation)
+
                 const params = {
                     pickupLocation: formData.pickupLocation,
+                    regionId: selectedRegion?.regionId || "", // Thêm regionId
                     pickupDateTime: `${formData.pickupDate}T${formData.pickupTime}:00`,
                     dropoffDateTime: `${formData.dropoffDate}T${formData.dropoffTime}:00`,
-                    countryCode: "+84",
-                    regionId: "VN",
+                    countryCode: "+84", // Mặc định Việt Nam
                 };
                 console.log("[HomePage] Navigate to SearchPage with params:", params);
                 navigate("/search", { state: { searchParams: params } });
@@ -362,7 +389,7 @@ const HomePage = () => {
                 setSearchError(err.response?.data?.message || "Tìm kiếm thất bại")
             }
         },
-        [formData, navigate],
+        [formData, navigate, regions],
     )
 
     // Handle Google login
@@ -423,7 +450,6 @@ const HomePage = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-             <CozeChatbot />
             <Header
                 isUserDropdownOpen={isUserDropdownOpen}
                 setIsUserDropdownOpen={setIsUserDropdownOpen}
@@ -536,22 +562,27 @@ const HomePage = () => {
                                         </div>
                                         Điểm nhận xe
                                     </label>
-                                    <input
-                                        type="text"
+                                    <select
                                         id="pickupLocation"
                                         name="pickupLocation"
                                         value={formData.pickupLocation}
                                         onChange={handleInputChange}
-                                        placeholder="Nhập địa điểm nhận xe"
                                         className="w-full px-4 py-4 border-2 border-blue-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-blue-50/50 hover:bg-white transition-all duration-300 text-sm font-medium"
-                                        list="locations"
                                         required
-                                    />
-                                    <datalist id="locations">
-                                        {locations.map((loc, index) => (
-                                            <option key={index} value={loc} />
-                                        ))}
-                                    </datalist>
+                                    >
+                                        <option value="">Chọn khu vực nhận xe</option>
+                                        {/* Debug: Hiển thị số lượng regions */}
+                                        {console.log("[HomePage Render] Regions count:", regions.length)}
+                                        {console.log("[HomePage Render] Regions data:", regions)}
+                                        {regions.map((region) => {
+                                            console.log("[HomePage Render] Mapping region:", region); // Debug từng region
+                                            return (
+                                                <option key={region.regionId} value={region.regionName}>
+                                                    {region.regionName}
+                                                </option>
+                                            )
+                                        })}
+                                    </select>
                                 </div>
                                 {/* ĐÃ XÓA trường nhập Điểm trả xe */}
                                 {/* <div className="lg:col-span-2"> ... </div> */}
@@ -1116,26 +1147,26 @@ const HomePage = () => {
                         </button>
                     )}
                 </div>
-                  {/* Enhanced Testimonial Section - Thêm ngay trước Footer */}
-            {testimonials.length > 0 && (
-                <section className="py-24 bg-gradient-to-b from-white via-blue-50 to-indigo-50">
-                    <div className="container mx-auto px-4">
-                        <div className="text-center mb-20">
-                            <div className="inline-flex items-center bg-gradient-to-r from-yellow-100 to-orange-100 rounded-full px-6 py-2 mb-6">
-                                <FaStar className="text-yellow-600 mr-2" />
-                                <span className="text-yellow-700 font-semibold text-sm">ĐÁNH GIÁ KHÁCH HÀNG</span>
+                {/* Enhanced Testimonial Section - Thêm ngay trước Footer */}
+                {testimonials.length > 0 && (
+                    <section className="py-24 bg-gradient-to-b from-white via-blue-50 to-indigo-50">
+                        <div className="container mx-auto px-4">
+                            <div className="text-center mb-20">
+                                <div className="inline-flex items-center bg-gradient-to-r from-yellow-100 to-orange-100 rounded-full px-6 py-2 mb-6">
+                                    <FaStar className="text-yellow-600 mr-2" />
+                                    <span className="text-yellow-700 font-semibold text-sm">ĐÁNH GIÁ KHÁCH HÀNG</span>
+                                </div>
+                                <h2 className="text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 bg-clip-text text-transparent mb-6">
+                                    Khách Hàng Nói Gì Về Chúng Tôi
+                                </h2>
+                                <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                                    Những phản hồi chân thực từ khách hàng đã sử dụng dịch vụ cho thuê xe của chúng tôi
+                                </p>
                             </div>
-                            <h2 className="text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 to-red-600 bg-clip-text text-transparent mb-6">
-                                Khách Hàng Nói Gì Về Chúng Tôi
-                            </h2>
-                            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                                Những phản hồi chân thực từ khách hàng đã sử dụng dịch vụ cho thuê xe của chúng tôi
-                            </p>
+                            <TestimonialCarousel ratings={testimonials} />
                         </div>
-                        <TestimonialCarousel ratings={testimonials} />
-                    </div>
-                </section>
-            )}
+                    </section>
+                )}
                 {/* Enhanced Cookie Consent Banner
                 {showCookieConsent && (
                     <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl shadow-2xl p-6 z-40 border-t border-gray-200">
@@ -1175,7 +1206,7 @@ const HomePage = () => {
                 car={selectedCar}
                 onSubmitBooking={handleSubmitBooking}
             />
-            
+
         </div>
     )
 }

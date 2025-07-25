@@ -35,13 +35,16 @@ public class Favorite {
     private Instant updatedAt;
 
     @Column(name = "is_deleted")
-    private Boolean isDeleted;
+    private Boolean isDeleted = false;
 
     @PrePersist
     public void prePersist() {
         Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
+        if (this.isDeleted == null) {
+            this.isDeleted = false;
+        }
     }
 
     @PreUpdate

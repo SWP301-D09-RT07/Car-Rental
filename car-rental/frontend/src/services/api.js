@@ -68,41 +68,38 @@ api.interceptors.response.use(
         console.log('[API Response Error] - ExpiresAt:', getItem('expiresAt'));
         
         if (error.response?.status === 401) {
-
-            console.log('[API Response Error] 401 error detected, but not clearing tokens immediately');
-            console.log('[API Response Error] Let the calling code handle the 401 error');
-            // Không xóa token ngay lập tức, để code gọi API xử lý
-            // localStorage.removeItem('token');
-            // localStorage.removeItem('expiresAt');
-            // localStorage.removeItem('role');
-            // window.location.href = '/login?error=unauthorized';
+            console.log('[API Response Error] 401 error detected - checking if token expired');
+            
+            // Kiểm tra token có thực sự hết hạn không
+            if (isTokenExpired()) {
+                console.log('[API Response Error] Token has expired, clearing auth data');
+                
+                // Chỉ clear token nếu không phải là public endpoints
+                const isPublicEndpoint = error.config?.url?.includes('/cars') || 
+                                       error.config?.url?.includes('/regions') ||
+                                       error.config?.url?.includes('/car-brands');
+                
+                if (!isPublicEndpoint) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('expiresAt');
+                    localStorage.removeItem('role');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('userId');
+                    
+                    // Delay redirect để tránh interrupt payment flow
+                    setTimeout(() => {
+                        if (!window.location.pathname.includes('/payment/')) {
+                            window.location.href = '/login?error=session_expired';
+                        }
+                    }, 100);
+                }
+            } else {
+                console.log('[API Response Error] Token not expired, may be server issue');
+            }
         }
         return Promise.reject(error);
     }
 );
-
-// Interceptor xử lý lỗi
-// api.interceptors.response.use(
-//     (response) => response,
-//     (error) => {
-//         if (error.response?.status === 401) {
-//             if (!error.config.url.includes('/cars')) {
-//                 localStorage.removeItem('token');
-//                 localStorage.removeItem('expiresAt');
-//                 localStorage.removeItem('role');
-//                 window.location.href = '/login?error=unauthorized';
-//             }
-//         } else if (error.response?.status === 400) {
-//             const message = error.response?.data?.message || error.response?.data?.errors?.join(', ') || 'Dữ liệu không hợp lệ';
-//             return Promise.reject(new Error(message));
-//         } else if (error.response?.status === 500) {
-//             // Ném lỗi để component xử lý, không chuyển hướng
-//             const message = error.response?.data?.message || 'Lỗi server, vui lòng thử lại sau';
-//             return Promise.reject(new Error(message));
-//         }
-//         return Promise.reject(error);
-//     }
-// );
 
 // Xử lý Google login callback
 export const handleGoogleLoginCallback = () => {
@@ -267,6 +264,34 @@ export const updateProfile = async (userData) => {
     }
 };
 
+export const getAvailableCars = async (filters = {}, page = 0, size = 10) => {
+    try {
+        const params = {
+            page,
+            size,
+            ...filters
+        };
+
+        // Đảm bảo có pickupDateTime và dropoffDateTime
+        if (!params.pickupDateTime || !params.dropoffDateTime) {
+            // Nếu không có, sử dụng thời gian mặc định (hiện tại + 1 ngày)
+            const now = new Date();
+            const tomorrow = new Date(now);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            params.pickupDateTime = params.pickupDateTime || now.toISOString();
+            params.dropoffDateTime = params.dropoffDateTime || tomorrow.toISOString();
+        }
+
+        const response = await api.get('/api/cars/available', { params });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching available cars:', error);
+        if (error.message.includes('CORS')) return { content: [], totalElements: 0, totalPages: 1 };
+        throw new Error(error.response?.data?.message || 'Lấy danh sách xe available thất bại');
+    }
+};
+
 export const toggleNotifications = async (userId, enable) => {
     if (!userId) throw new Error('Vui lòng cung cấp ID người dùng');
     try {
@@ -382,14 +407,22 @@ export const searchCars = async (filters = {}, page = 0, size = 10) => {
     // XÓA dropoffLocation khỏi filters nếu có
     const { dropoffLocation, ...restFilters } = filters;
     try {
-        const response = await api.get('/api/cars/search', { 
-            params: { 
-                ...restFilters, 
-                page,
-                size,
-                sort: 'createdAt,desc',
-            },
-        });
+        const params = {
+            ...restFilters, 
+            page,
+            size,
+            sort: 'createdAt,desc',
+        };
+
+        // Thêm date filters nếu có
+        if (filters.pickupDateTime) {
+            params.pickupDateTime = filters.pickupDateTime;
+        }
+        if (filters.dropoffDateTime) {
+            params.dropoffDateTime = filters.dropoffDateTime;
+        }
+
+        const response = await api.get('/api/cars/search', { params });
         return response.data;
     } catch (error) {
         if (error.message.includes('CORS')) return { content: [] };
@@ -620,33 +653,25 @@ export const updateBooking = async (bookingId, bookingData) => {
     }
 };
 
+// Hủy booking (customer)
 export const cancelBooking = async (bookingId) => {
+    if (!bookingId) throw new Error('Thiếu bookingId');
     try {
-        console.log('🔄 Cancelling booking ID:', bookingId);
         const response = await api.put(`/api/bookings/${bookingId}/cancel`);
-        console.log('✅ Booking cancelled successfully:', response.data);
         return response.data;
     } catch (error) {
-        console.error('❌ Cancel booking error:', {
-            status: error.response?.status,
-            statusText: error.response?.statusText,
-            data: error.response?.data,
-            url: error.config?.url
-        });
-        
-        if (error.response?.status === 401) {
-            throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
-        } else if (error.response?.status === 403) {
-            throw new Error('Bạn không có quyền hủy đặt xe này.');
-        } else if (error.response?.status === 404) {
-            throw new Error('Không tìm thấy thông tin đặt xe.');
-        } else if (error.response?.status === 400) {
-            throw new Error(error.response?.data?.error || 'Không thể hủy đặt xe với trạng thái hiện tại.');
-        } else if (error.response?.status === 500) {
-            throw new Error(error.response?.data?.error || 'Lỗi hệ thống khi hủy đặt xe.');
-        } else {
-            throw new Error(error.response?.data?.error || 'Lỗi khi hủy đặt xe');
-        }
+        throw new Error(error.response?.data?.error || error.response?.data?.message || 'Không thể hủy booking');
+    }
+};
+
+// Xóa booking (admin hoặc chủ booking)
+export const deleteBooking = async (bookingId) => {
+    if (!bookingId) throw new Error('Thiếu bookingId');
+    try {
+        const response = await api.delete(`/api/bookings/${bookingId}`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.error || error.response?.data?.message || 'Không thể xóa booking');
     }
 };
 
@@ -887,7 +912,7 @@ export const verifyEmail = async (token) => {
 export const getFavoriteCars = async () => {
     try {
         console.log('🔄 Fetching favorite cars...');
-        const response = await api.get('/api/users/favorites');
+        const response = await api.get('/api/favorites');
         console.log('✅ Favorite cars fetched:', response.data);
         return response.data;
     } catch (error) {
@@ -948,6 +973,15 @@ export const getBookingDetails = async (bookingId) => {
 export const filterCars = (filters, page = 0, size = 9, sortBy = "") => {
     const params = { ...filters, page, size };
     if (sortBy) params.sortBy = sortBy;
+    
+    // Thêm date filters nếu có
+    if (filters.pickupDateTime) {
+        params.pickupDateTime = filters.pickupDateTime;
+    }
+    if (filters.dropoffDateTime) {
+        params.dropoffDateTime = filters.dropoffDateTime;
+    }
+    
     return api.get("/api/cars/filter", { params });
 };
 
@@ -1167,6 +1201,22 @@ export const createOwnerRegistrationRequest = async (data) => {
 //Rating apis
 
 // ...existing code...
+
+// Lấy danh sách country code
+export const getCountryCodes = async () => {
+    try {
+        const response = await api.get('/api/country-codes');
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể lấy danh sách mã quốc gia');
+    }
+};
+
+// Lấy danh sách customer đã từng nhắn với supplier
+export const getCustomersOfSupplier = async (supplierId) => {
+    const res = await api.get(`/api/chat-messages/customers-of-supplier/${supplierId}`);
+    return res.data;
+};
 
 // Rating APIs
 export const getAllRatings = async () => {
@@ -1500,7 +1550,21 @@ export const getTotalPendingPlatformFees = async () => {
     }
 };
 
-// Thanh toán platform fee
+// Thanh toán platform fee thông qua payment gateway
+export const initiatePlatformFeePayment = async (confirmationId, paymentMethod = 'vnpay') => {
+    try {
+        const response = await api.post(`/api/cash-payments/confirmations/${confirmationId}/initiate-platform-fee-payment`, {
+            paymentMethod: paymentMethod,
+            returnUrl: `${window.location.origin}/payment/platform-fee/success`,
+            cancelUrl: `${window.location.origin}/payment/platform-fee/cancel`
+        });
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Không thể khởi tạo thanh toán phí platform');
+    }
+};
+
+// Deprecated: Thanh toán platform fee (chỉ cập nhật status)
 export const payPlatformFee = async (confirmationId) => {
     try {
         const response = await api.post(`/api/cash-payments/confirmations/${confirmationId}/pay-platform-fee`);
@@ -1925,4 +1989,50 @@ const getCurrentUserId = () => {
     
     // If no user ID found, return null
     return null;
+};
+
+// ============== CHAT API ==============
+
+// Get chat messages between two users
+export const getChatMessagesBetweenUsers = async (senderId, receiverId) => {
+    try {
+        const response = await api.get('/api/chat-messages/between-users', {
+            params: { senderId, receiverId }
+        });
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Lấy tin nhắn chat thất bại');
+    }
+};
+
+// Send chat message
+export const sendChatMessage = async (messageData) => {
+    try {
+        const response = await api.post('/api/chat-messages', messageData);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Gửi tin nhắn thất bại');
+    }
+};
+
+// Get chat messages by booking ID
+export const getChatMessagesByBooking = async (bookingId) => {
+    try {
+        const response = await api.get(`/api/chat-messages/booking/${bookingId}`);
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Lấy tin nhắn theo booking thất bại');
+    }
+};
+
+// Gửi OTP
+export const sendPhoneOtp = async (phone) => {
+  const response = await api.post('/api/auth/send-otp', { phone });
+  return response.data;
+};
+
+// Xác thực OTP
+export const verifyPhoneOtp = async (phone, otp) => {
+  const response = await api.post('/api/auth/verify-otp', { phone, otp });
+  return response.data;
 };

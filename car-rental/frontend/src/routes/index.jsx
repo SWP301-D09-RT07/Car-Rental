@@ -1,5 +1,5 @@
-import { useContext } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useContext } from 'react';
 import { AuthContext } from '../store/AuthContext';
 
 // Pages
@@ -13,10 +13,12 @@ import FavoritePage from '../pages/favorites/FavoritePage/FavoritePage';
 import ProfilePage from '../pages/profile/ProfilePage/ProfilePage';
 import SearchPage from "../pages/cars/SearchPage/SearchPage";
 import PaymentFailedPage from '../pages/payments/PaymentFailedPage';
+import PlatformFeeSuccess from '../pages/payments/PlatformFeeSuccess';
+import PlatformFeeCancel from '../pages/payments/PlatformFeeCancel';
 import OwnerRegistrationPage from '../pages/owner/OwnerRegistrationPage';
 import OwnerRegistrationSuccessPage from '../pages/owner/OwnerRegistrationSuccessPage';
-import ForgotPassword from '../pages/Auth/ForgotPassword';
-import ResetPassword from '../pages/Auth/ResetPassword';
+import ForgotPassword from '../components/features/auth/ForgotPassword';
+import ResetPassword from '../components/features/auth/ResetPassword';
 
 // Components
 import { ProtectedRoute } from '../components/features/auth/ProtectedRoute.jsx';
@@ -32,7 +34,7 @@ import AdminCarApproval from '../components/features/admin/CarApprovalPage';
 import CarConditionReportManagement from '../components/CarConditionReport/CarConditionReportManagement';
 
 // Supplier Pages
-import SupplierCarDashboard from '../components/Supplier/SupplierCarDashboard';
+import SupplierCarDashboard from '../components/features/Supplier/SupplierCarDashboard';
 
 import AdminLayout from '../components/features/admin/AdminLayout';
 
@@ -90,6 +92,22 @@ const AppRoutes = () => {
                 element={
                     <ProtectedRoute>
                         <PaymentFailedPage />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/payment/platform-fee/success"
+                element={
+                    <ProtectedRoute>
+                        <PlatformFeeSuccess />
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/payment/platform-fee/cancel"
+                element={
+                    <ProtectedRoute>
+                        <PlatformFeeCancel />
                     </ProtectedRoute>
                 }
             />

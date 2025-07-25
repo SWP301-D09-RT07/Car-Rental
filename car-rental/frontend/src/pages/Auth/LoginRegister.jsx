@@ -5,6 +5,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { AuthContext } from "../../store/AuthContext"
 import { login, register } from "@/services/api"
+import PhoneOtpVerification from '../../components/Common/PhoneOtpVerification';
 
 const LoginRegisterPage = () => {
   const { login: setAuthData } = useContext(AuthContext);
@@ -20,6 +21,9 @@ const LoginRegisterPage = () => {
   const [countryCode, setCountryCode] = useState('+84');
   const navigate = useNavigate();
   const [rememberMe, setRememberMe] = useState(false);
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [pendingPhone, setPendingPhone] = useState('');
+  const [showOtpModal, setShowOtpModal] = useState(false);
 
   // Login form
   const {
@@ -36,6 +40,7 @@ const LoginRegisterPage = () => {
     formState: { errors: registerErrors, isSubmitting: isRegisterSubmitting },
     watch,
     reset: resetRegister,
+    getValues,
   } = useForm();
 
   const password = watch('password');
@@ -139,14 +144,30 @@ const LoginRegisterPage = () => {
     setLoading(true);
     setError('');
     try {
-      // Ghép country code với số điện thoại
       const fullPhone = `${countryCode}${data.phone}`;
+      setPendingPhone(fullPhone);
+      setIsPhoneVerified(false);
+      setShowOtpModal(true);
+      // Không gọi API đăng ký ở đây
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePhoneVerified = async () => {
+    setIsPhoneVerified(true);
+    setShowOtpModal(false);
+    setLoading(true);
+    setError('');
+    try {
+      const data = getValues();
+      const fullPhone = pendingPhone;
       const userData = {
         username: data.username,
         email: data.email,
         password: data.password,
-        phone: fullPhone, // Sử dụng số điện thoại đã ghép
-        roleId: data.userType === 'renter' ? 3 : 2, // 3 = customer, 2 = supplier
+        phone: fullPhone,
+        roleId: data.userType === 'renter' ? 3 : 2,
         statusId: 8,
         countryCode: countryCode,
         preferredLanguage: 'vi',
@@ -155,42 +176,30 @@ const LoginRegisterPage = () => {
           address: 'Unknown',
         },
       };
-      // Log dữ liệu gửi lên
-      console.log('[Register][FRONTEND] userData gửi lên:', { ...userData, password: '***' });
       if (userData.roleId === 2) {
-        // Nếu là chủ xe, chỉ chuyển sang trang đăng ký chủ xe, KHÔNG gọi API đăng ký user
-        console.log('[Register][FRONTEND] Chuyển hướng sang owner-registration, không gọi API');
         showToast('Vui lòng hoàn thiện hồ sơ chủ xe!', 'success');
         setTimeout(() => {
           navigate('/owner-registration', { 
             state: { 
               email: data.email, 
               username: data.username,
-              phone: fullPhone, // Truyền số điện thoại đã ghép
-              password: data.password // truyền thêm password
+              phone: fullPhone,
+              password: data.password
             } 
           });
         }, 1000);
         return;
       }
-      // Nếu là khách thuê, đăng ký tài khoản user như cũ
-      console.log('[Register][FRONTEND] Bắt đầu gọi API register...');
       const response = await register(userData);
-      console.log('[Register][FRONTEND] Đăng ký thành công, response:', response);
       showToast('Đăng ký thành công! Vui lòng đăng nhập.', 'success');
       setTimeout(() => {
         setRegisterActive(false);
       }, 1500);
     } catch (err) {
-      console.error('[Register][FRONTEND] Register error:', err);
-      if (err?.response) {
-        console.error('[Register][FRONTEND] err.response.data:', err.response.data);
-      }
       setError(err.message || 'Đăng ký thất bại. Vui lòng thử lại.');
       showToast('Đăng ký thất bại!', 'error');
     } finally {
       setLoading(false);
-      console.log('[Register][FRONTEND] Kết thúc onRegisterSubmit, loading:', false);
     }
   };
 
@@ -229,10 +238,14 @@ const LoginRegisterPage = () => {
   // Lấy country code từ API khi mở form
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080'}/api/country-codes`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Không lấy được country code');
+        return res.json();
+      })
       .then(data => {
+        if (!Array.isArray(data)) throw new Error('Dữ liệu country code không hợp lệ');
         setCountryCodes(data);
-        if (data && data.length > 0) setCountryCode(data[0].countryCode);
+        if (data.length > 0) setCountryCode(data[0].countryCode);
       })
       .catch(() => setCountryCodes([{ countryCode: '+84', countryName: 'Việt Nam' }]));
   }, []);
@@ -751,6 +764,28 @@ const LoginRegisterPage = () => {
           </div>
         </div>
       </div>
+      {showOtpModal && pendingPhone && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <h3>Xác thực số điện thoại</h3>
+            <PhoneOtpVerification phone={pendingPhone} onVerified={handlePhoneVerified} />
+            <button className="close-btn" onClick={() => setShowOtpModal(false)}>Đóng</button>
+          </div>
+          <style>{`
+            .modal-overlay {
+              position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+              background: rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; justify-content: center;
+            }
+            .modal {
+              background: #fff; border-radius: 12px; padding: 32px; min-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+              display: flex; flex-direction: column; align-items: center;
+            }
+            .close-btn {
+              margin-top: 16px; background: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   );
 };

@@ -12,6 +12,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.net.URLEncoder;
 import java.io.UnsupportedEncodingException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.TimeZone;
 
 @Component
 public class VNPayConfig {
@@ -21,6 +24,8 @@ public class VNPayConfig {
     public String VNP_PAY_URL;
     @Value("${vnpay.returnUrl}")
     public String VNP_RETURN_URL;
+    @Value("${vnpay.platformFeeReturnUrl}")
+    public String VNP_PLATFORM_FEE_RETURN_URL;
     @Value("${vnpay.tmnCode}")
     public String VNP_TMN_CODE;
     @Value("${vnpay.secretKey}")
@@ -176,5 +181,152 @@ public class VNPayConfig {
         }
 
         return true;
+    }
+
+    /**
+     * Tạo URL thanh toán VNPay cho platform fee
+     * @param request HttpServletRequest để lấy IP
+     * @param paymentId ID của payment record
+     * @param amount Số tiền platform fee (đơn vị VND)
+     * @param confirmationId ID của cash payment confirmation
+     * @param returnUrl URL callback sau khi thanh toán
+     * @param cancelUrl URL callback khi hủy thanh toán
+     * @return URL redirect đến VNPay
+     */
+    public String createPlatformFeePaymentUrl(HttpServletRequest request, String paymentId, 
+                                            long amount, Integer confirmationId, 
+                                            String returnUrl, String cancelUrl) {
+        logger.info("Creating VNPay platform fee payment URL - PaymentId: {}, Amount: {}, ConfirmationId: {}", 
+                   paymentId, amount, confirmationId);
+        
+        try {
+            // Validate input parameters
+            if (paymentId == null || paymentId.trim().isEmpty()) {
+                throw new IllegalArgumentException("Payment ID cannot be null or empty");
+            }
+            if (amount <= 0) {
+                throw new IllegalArgumentException("Amount must be greater than 0");
+            }
+            if (confirmationId == null) {
+                throw new IllegalArgumentException("Confirmation ID cannot be null");
+            }
+            
+            // Prepare VNPay parameters
+            Map<String, String> vnp_Params = new HashMap<>();
+            vnp_Params.put("vnp_Version", VNP_VERSION);
+            vnp_Params.put("vnp_Command", VNP_COMMAND);
+            vnp_Params.put("vnp_TmnCode", VNP_TMN_CODE);
+            vnp_Params.put("vnp_Amount", String.valueOf(amount * 100)); // VNPay tính bằng xu
+            vnp_Params.put("vnp_CurrCode", VNP_CURRENCY_CODE);
+            vnp_Params.put("vnp_TxnRef", paymentId);
+            vnp_Params.put("vnp_OrderInfo", "Thanh toan phi platform - Confirmation ID: " + confirmationId);
+            vnp_Params.put("vnp_OrderType", VNP_ORDER_TYPE);
+            vnp_Params.put("vnp_Locale", VNP_LOCALE);
+            vnp_Params.put("vnp_ReturnUrl", returnUrl != null ? returnUrl : VNP_PLATFORM_FEE_RETURN_URL);
+            vnp_Params.put("vnp_IpAddr", getIpAddress(request));
+            
+            // Set timestamps
+            Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
+            SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+            String vnp_CreateDate = formatter.format(cld.getTime());
+            vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
+            
+            cld.add(Calendar.MINUTE, VNP_EXPIRE_MINUTES);
+            String vnp_ExpireDate = formatter.format(cld.getTime());
+            vnp_Params.put("vnp_ExpireDate", vnp_ExpireDate);
+            
+            // Validate parameters
+            if (!validateParams(vnp_Params)) {
+                throw new IllegalArgumentException("Invalid VNPay parameters");
+            }
+            
+            logger.info("VNPay platform fee parameters prepared: {}", vnp_Params);
+            
+            // Generate secure hash
+            String vnp_SecureHash = hashAllFields(vnp_Params);
+            logger.info("VNPay platform fee SecureHash generated: {}", vnp_SecureHash);
+            
+            // Build query string
+            List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
+            Collections.sort(fieldNames);
+            StringBuilder query = new StringBuilder();
+            
+            for (int i = 0; i < fieldNames.size(); i++) {
+                String fieldName = fieldNames.get(i);
+                String fieldValue = vnp_Params.get(fieldName);
+                if (fieldValue != null && !fieldValue.isEmpty()) {
+                    query.append(URLEncoder.encode(fieldName, StandardCharsets.UTF_8.toString()));
+                    query.append("=");
+                    query.append(URLEncoder.encode(fieldValue, StandardCharsets.UTF_8.toString()));
+                    if (i < fieldNames.size() - 1) {
+                        query.append("&");
+                    }
+                }
+            }
+            
+            // Add secure hash to query
+            query.append("&vnp_SecureHash=").append(vnp_SecureHash);
+            
+            // Build final payment URL
+            String paymentUrl = VNP_PAY_URL + "?" + query.toString();
+            logger.info("VNPay platform fee payment URL generated successfully: {}", paymentUrl);
+            
+            return paymentUrl;
+            
+        } catch (Exception e) {
+            logger.error("Error creating VNPay platform fee payment URL: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to create VNPay platform fee payment URL: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Validate VNPay callback cho platform fee payment
+     * @param params VNPay callback parameters
+     * @return true nếu callback hợp lệ
+     */
+    public boolean validatePlatformFeeCallback(Map<String, String> params) {
+        logger.info("Validating VNPay platform fee callback parameters");
+        
+        try {
+            if (params == null || params.isEmpty()) {
+                logger.warn("Platform fee callback parameters are null or empty");
+                return false;
+            }
+            
+            // Kiểm tra các tham số bắt buộc
+            String[] requiredParams = {
+                "vnp_TmnCode", "vnp_Amount", "vnp_BankCode", "vnp_BankTranNo",
+                "vnp_CardType", "vnp_OrderInfo", "vnp_PayDate", "vnp_ResponseCode",
+                "vnp_TmnCode", "vnp_TransactionNo", "vnp_TxnRef", "vnp_SecureHash"
+            };
+            
+            for (String param : requiredParams) {
+                if (!params.containsKey(param) || params.get(param) == null || params.get(param).isEmpty()) {
+                    logger.warn("Missing required platform fee callback parameter: {}", param);
+                    return false;
+                }
+            }
+            
+            // Validate secure hash
+            String vnp_SecureHash = params.get("vnp_SecureHash");
+            Map<String, String> paramsCopy = new HashMap<>(params);
+            paramsCopy.remove("vnp_SecureHash");
+            
+            String calculatedHash = hashAllFields(paramsCopy);
+            boolean hashValid = vnp_SecureHash.equals(calculatedHash);
+            
+            if (!hashValid) {
+                logger.warn("Platform fee callback secure hash validation failed. Expected: {}, Got: {}", 
+                           calculatedHash, vnp_SecureHash);
+                return false;
+            }
+            
+            logger.info("Platform fee callback validation successful");
+            return true;
+            
+        } catch (Exception e) {
+            logger.error("Error validating platform fee callback: {}", e.getMessage(), e);
+            return false;
+        }
     }
 }
