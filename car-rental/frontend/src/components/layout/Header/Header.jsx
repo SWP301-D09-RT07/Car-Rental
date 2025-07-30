@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { FaCarSide, FaHome, FaCar, FaStore, FaSearch, FaHeart, FaChevronDown, FaSignOutAlt, FaSignInAlt, FaUserPlus, FaTimes, FaBars, FaPhone, FaUser, FaCalendarAlt } from "react-icons/fa";
+import { FaCarSide, FaHome, FaCar, FaStore, FaSearch, FaHeart, FaChevronDown, FaSignOutAlt, FaSignInAlt, FaUserPlus, FaTimes, FaBars, FaPhone, FaUser, FaCalendarAlt, FaComments } from "react-icons/fa";
 import { useAuth } from "@/hooks/useAuth";
 import AutocompleteSearch from '@/components/Common/AutocompleteSearch';
 import api from "@/services/api";
@@ -173,6 +173,7 @@ const Header = ({
                         {/* Favorites Button */}
                         <Link
                             to="/favorites"
+                            state={{ refresh: true }}
                             className="flex items-center text-gray-700 hover:text-red-600 transition-all duration-300 p-2 rounded-xl hover:bg-red-50 group"
                         >
                             <FaHeart className="text-lg" />
@@ -214,6 +215,12 @@ const Header = ({
                                     <div className="px-6 py-4 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl">
                                         <p className="text-sm font-semibold text-gray-900">Xin chào!</p>
                                         <p className="text-xs text-gray-500">{user?.username || "user@example.com"}</p>
+                                        {user?.role === 'customer' && location.pathname === '/customer/messages' && (
+                                            <div className="mt-3 flex items-center space-x-2">
+                                                <FaComments className="text-blue-500 w-4 h-4" />
+                                                <span className="font-bold text-blue-600 text-base">Tin nhắn</span>
+                                            </div>
+                                        )}
                                     </div>
                                     {user?.role === 'supplier' && (
                                         <Link
@@ -232,6 +239,14 @@ const Header = ({
                                     >
                                         <FaUser className="mr-3 text-gray-400" />
                                         Hồ sơ của tôi
+                                    </Link>
+                                    <Link
+                                        to="/customer/messages"
+                                        className={`flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 ${location.pathname === '/customer/messages' ? 'text-blue-600 bg-blue-50 font-bold' : 'text-gray-700 hover:text-blue-600'}`}
+                                        onClick={() => setIsUserDropdownOpen(false)}
+                                    >
+                                        <FaComments className={`mr-3 ${location.pathname === '/customer/messages' ? 'text-blue-600' : 'text-gray-400'}`} />
+                                        Tin nhắn
                                     </Link>
                                     {user?.role === 'customer' && (
                                         <button
@@ -305,6 +320,7 @@ const Header = ({
                         {/* Mobile Favorites */}
                         <Link
                             to="/favorites"
+                            state={{ refresh: true }}
                             className="font-semibold p-4 rounded-xl transition-all duration-300 flex items-center space-x-3 text-gray-700 hover:bg-red-50 hover:text-red-600"
                             onClick={() => setIsMobileMenuOpen(false)}
                         >
@@ -382,4 +398,4 @@ const Header = ({
     );
 };
 
-export default Header; 
+export default Header;

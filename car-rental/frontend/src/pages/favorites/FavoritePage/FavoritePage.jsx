@@ -5,20 +5,20 @@ import { useNavigate, Link } from "react-router-dom"
 import { getFavorites, removeFavorite } from "../../../services/api"
 import FavoriteButton from "@/components/ui/FavoriteButton/FavoriteButton"
 import LoadingSpinner from "@/components/ui/Loading/LoadingSpinner.jsx"
+import { useLocation } from 'react-router-dom';
+import { formatVND } from '@/utils/format'
 
 const FavoritePage = () => {
+  const location = useLocation();
   const [favorites, setFavorites] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [removingId, setRemovingId] = useState(null)
   const [showToast, setShowToast] = useState({ show: false, message: "", type: "" })
-  const [viewMode, setViewMode] = useState("list") // grid or list
-  const [sortBy, setSortBy] = useState("newest") // newest, oldest, price-low, price-high
+  const [viewMode, setViewMode] = useState("list") 
+  const [sortBy, setSortBy] = useState("newest") 
   const navigate = useNavigate()
-
-  useEffect(() => {
-    fetchFavorites()
-  }, [])
+  
 
   const fetchFavorites = async () => {
     try {
@@ -33,6 +33,31 @@ const FavoritePage = () => {
       setLoading(false)
     }
   }
+
+
+// Luôn fetch khi vào trang FavoritePage
+useEffect(() => {
+  fetchFavorites();
+}, []);
+
+// Refetch khi nhận state refresh từ Header
+useEffect(() => {
+  if (location.state?.refresh) {
+    fetchFavorites();
+    navigate('/favorites', { replace: true, state: {} });
+  }
+}, [location]);
+
+// Refetch khi chuyển tab (trở lại tab này)
+useEffect(() => {
+  const handleVisibility = () => {
+    if (document.visibilityState === 'visible') {
+      fetchFavorites();
+    }
+  };
+  document.addEventListener('visibilitychange', handleVisibility);
+  return () => document.removeEventListener('visibilitychange', handleVisibility);
+}, []);
 
   const handleRemoveFavorite = async (favoriteId) => {
     try {
@@ -75,7 +100,11 @@ const FavoritePage = () => {
   }
 
   if (loading) {
-    return <LoadingSpinner />
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+        <LoadingSpinner />
+      </div>
+    );
   }
 
   if (error) {
@@ -311,7 +340,7 @@ const FavoritePage = () => {
 
                       {/* Enhanced Favorite Button */}
                       <div className="absolute top-4 left-4">
-                        <FavoriteButton carId={favorite.carId} />
+                        <FavoriteButton carId={favorite.carId} onFavoriteChange={fetchFavorites} />
                       </div>
 
                       {/* Enhanced Remove Button */}
@@ -367,7 +396,7 @@ const FavoritePage = () => {
                         </div>
                         <div className="text-right ml-4">
                           <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                            {favorite.car?.dailyRate ? `${(favorite.car.dailyRate / 1000).toFixed(0)}K` : "500K"}
+                            {formatVND(favorite.car?.dailyRate ? `${(favorite.car.dailyRate / 1000).toFixed(0)}K` : "500K")}
                           </div>
                           <div className="text-xs text-gray-500 font-medium">/ ngày</div>
                         </div>
@@ -433,7 +462,7 @@ const FavoritePage = () => {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                         <div className="absolute top-4 left-4">
-                          <FavoriteButton carId={favorite.carId} />
+                        <FavoriteButton carId={favorite.carId} onFavoriteChange={fetchFavorites} />
                         </div>
                         <button
                           className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-lg hover:bg-red-50 transition-all duration-300"

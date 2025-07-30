@@ -157,6 +157,11 @@ const LoginRegisterPage = () => {
   const handlePhoneVerified = async () => {
     setIsPhoneVerified(true);
     setShowOtpModal(false);
+    // Lưu trạng thái otpVerified và số điện thoại đã xác thực vào localStorage
+    if (pendingPhone) {
+      localStorage.setItem("otpVerified", "true");
+      localStorage.setItem("lastConfirmedPhone", pendingPhone);
+    }
     setLoading(true);
     setError('');
     try {

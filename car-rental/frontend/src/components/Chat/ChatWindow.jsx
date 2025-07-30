@@ -11,6 +11,13 @@ const ChatWindow = ({ currentUser, initialSelectedUser }) => {
   const [selectedUser, setSelectedUser] = useState(initialSelectedUser || null)
   const [messages, setMessages] = useState([])
   const [zoomImageUrl, setZoomImageUrl] = useState(null)
+  // Đồng bộ selectedUser khi prop initialSelectedUser thay đổi
+  useEffect(() => {
+    if (initialSelectedUser) {
+      setSelectedUser(initialSelectedUser);
+      setMessages([]); // reset messages khi đổi user
+    }
+  }, [initialSelectedUser]);
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [isNearBottom, setIsNearBottom] = useState(true)
   const bottomRef = useRef(null)
@@ -75,9 +82,17 @@ const ChatWindow = ({ currentUser, initialSelectedUser }) => {
       .then((data) => {
         console.log("[WS][Supplier] Lịch sử chat:", data)
         historyMessages = Array.isArray(data) ? data : []
+        // Chuẩn hóa: luôn có trường content
+        historyMessages = historyMessages.map(m => ({
+          ...m,
+          content: m.content || m.messageContent
+        }))
         setMessages((prev) => {
           // Merge lịch sử và tin nhắn realtime, tránh trùng lặp
-          const all = [...historyMessages, ...prev]
+          const all = [...historyMessages, ...prev].map(m => ({
+            ...m,
+            content: m.content || m.messageContent
+          }))
           const unique = []
           const ids = new Set()
           for (const m of all) {

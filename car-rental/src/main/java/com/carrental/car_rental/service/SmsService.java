@@ -9,7 +9,7 @@ import java.util.Map;
 
 @Service
 public class SmsService {
-    private static final String API_KEY = "0384d6075769ec1bab062d33a5d453f3b8e280060f9e7107";
+    private static final String API_KEY = "da527d427e66cdbe25e2c4ee9e3185075e47ae41195b8055";
     public void sendOtp(String toPhone, String otp) {
         String sms = "Mã xác thực của bạn là: " + otp;
         String url = "https://api.smsmobileapi.com/sendsms/";

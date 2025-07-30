@@ -19,4 +19,8 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Intege
     // Lấy tất cả customer (sender) đã từng nhắn với supplier (receiver)
     @Query("SELECT DISTINCT cm.sender FROM ChatMessage cm WHERE cm.receiver.id = :supplierId AND cm.isDeleted = false")
     List<com.carrental.car_rental.entity.User> findDistinctCustomersBySupplierId(@Param("supplierId") Integer supplierId);
+
+    // Lấy tất cả supplier (receiver) đã từng nhắn với customer (sender)
+    @Query("SELECT DISTINCT cm.receiver FROM ChatMessage cm WHERE cm.sender.id = :customerId AND cm.isDeleted = false")
+    List<com.carrental.car_rental.entity.User> findDistinctSuppliersByCustomerId(@Param("customerId") Integer customerId);
 }

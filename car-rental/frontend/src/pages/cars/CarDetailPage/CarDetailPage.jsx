@@ -222,6 +222,10 @@ const CarDetailPage = () => {
     ))
     || '';
 
+    const handleFavoriteChange = (isFavorite) => {
+      setIsFavorite(isFavorite);
+    };
+
 // Handler mở/tắt modal chat
   const handleOpenChatModal = () => setShowChatModal(true);
   const handleCloseChatModal = () => setShowChatModal(false);
@@ -838,7 +842,9 @@ const CarDetailPage = () => {
               <div className="flex items-center gap-4 lg:flex-col lg:items-end">
                 <div className="flex gap-4">
                   <div className="w-14 h-14">
-                    <FavoriteButton carId={car?.carId || car?.id} supplierId={car?.supplierId || car?.supplier?.id} />
+                    <FavoriteButton carId={car?.carId || car?.id} supplierId={car?.supplierId || car?.supplier?.id}  
+                      onFavoriteChange={handleFavoriteChange}
+                      isFavorite={isFavorite} /> 
                   </div>
                   <button
                     onClick={handleShare}
@@ -1809,6 +1815,7 @@ const CarDetailPage = () => {
                       type="featured"
                       isLoading={false}
                       onBookNow={() => {}}
+                      onFavoriteChange={(isFavorite) => handleFavoriteChange(isFavorite)}
                     />
                   </SwiperSlide>
                 ))}

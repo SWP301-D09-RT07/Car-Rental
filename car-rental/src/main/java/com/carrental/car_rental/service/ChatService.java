@@ -69,4 +69,17 @@ public class ChatService {
             return dto;
         }).collect(Collectors.toList());
     }
+
+    // Trả về danh sách supplier đã từng chat với customer (trả về DTO, tránh lỗi lazy loading)
+    public List<CustomerInfoDTO> getSuppliersChattedWithCustomer(Integer customerId) {
+        List<User> suppliers = chatMessageRepository.findDistinctSuppliersByCustomerId(customerId);
+        return suppliers.stream().map(user -> {
+            CustomerInfoDTO dto = new CustomerInfoDTO();
+            dto.setId(user.getId());
+            dto.setUsername(user.getUsername());
+            dto.setFullName(user.getUserDetail() != null ? user.getUserDetail().getName() : null);
+            dto.setEmail(user.getEmail());
+            return dto;
+        }).collect(Collectors.toList());
+    }
 }

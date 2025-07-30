@@ -555,6 +555,18 @@ const BookingConfirmationPage = () => {
   const [pendingOtpPhone, setPendingOtpPhone] = useState("")
   const [otpVerified, setOtpVerified] = useState(false)
   const lastConfirmedPhone = useRef("")
+
+  // Load last confirmed phone và otpVerified từ localStorage on mount
+  useEffect(() => {
+    const storedPhone = localStorage.getItem("lastConfirmedPhone")
+    if (storedPhone) {
+      lastConfirmedPhone.current = storedPhone
+    }
+    const storedOtpVerified = localStorage.getItem("otpVerified")
+    if (storedOtpVerified === "true") {
+      setOtpVerified(true)
+    }
+  }, [])
   const [isApplyingPromo, setIsApplyingPromo] = useState(false)
   const [showTermsDetails, setShowTermsDetails] = useState(false)
   const [contactInfo, setContactInfo] = useState({
@@ -888,6 +900,8 @@ const BookingConfirmationPage = () => {
     setOtpVerified(true)
     setShowOtpModal(false)
     lastConfirmedPhone.current = pendingOtpPhone
+    localStorage.setItem("lastConfirmedPhone", pendingOtpPhone)
+    localStorage.setItem("otpVerified", "true")
     // Gọi lại handleConfirm để tiếp tục flow chuyển trang
     setTimeout(() => handleConfirm(), 0)
   }

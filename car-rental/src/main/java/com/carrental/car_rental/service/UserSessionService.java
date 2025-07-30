@@ -46,7 +46,20 @@ public class UserSessionService {
     }
 
     public boolean hasActiveSession(User user) {
-        return userSessionRepository.findByUserAndIsActive(user, true).isPresent();
+        Optional<UserSession> sessionOpt = userSessionRepository.findByUserAndIsActive(user, true);
+        if (sessionOpt.isPresent()) {
+            UserSession session = sessionOpt.get();
+            Timestamp now = new Timestamp(System.currentTimeMillis());
+            // Kiểm tra xem session có hết hạn chưa
+            if (session.getExpiredAt().before(now)) {
+                // Session đã hết hạn, vô hiệu hóa nó
+                session.setIsActive(false);
+                userSessionRepository.save(session);
+                return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     public void invalidateSessionByUser(User user) {

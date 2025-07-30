@@ -266,7 +266,7 @@ public class BookingService {
         
         if (!conflictingBookings.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, 
-                "Car is not available for the specified dates. Please choose different dates.");
+                "Xe đã được đặt trong thời gian này. Vui lòng chọn xe hoặc thời gian khác.");
         }
 
         // Create booking entity

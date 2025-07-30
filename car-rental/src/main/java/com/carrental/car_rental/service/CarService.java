@@ -219,6 +219,7 @@ public class CarService {
         dto.setColor(carDTO.getColor());
         dto.setNumOfSeats(carDTO.getNumOfSeats());
         dto.setRegionId(carDTO.getRegionId());
+        dto.setRegionName(carDTO.getRegionName());
         dto.setFeatures(carDTO.getFeatures());
         dto.setFuelTypeId(carDTO.getFuelTypeId());
         dto.setFuelTypeName(carDTO.getFuelTypeName());

@@ -10,6 +10,17 @@ const MessageList = ({ messages, currentUserId, setZoomImageUrl }) => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  // Debug: log dữ liệu truyền vào
+  console.log('[MessageList] messages:', messages)
+  console.log('[MessageList] currentUserId:', currentUserId)
+  if (Array.isArray(messages)) {
+    messages.forEach((msg, idx) => {
+      console.log(`[MessageList][${idx}]`, msg)
+    })
+  } else {
+    console.log('[MessageList] messages is not an array:', messages)
+  }
+
   if (messages.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-gradient-to-b from-gray-50 to-white">

@@ -26,4 +26,5 @@ public class UserDTO {
     private Instant updatedAt;
     private Instant lastLogin;
     private UserDetailDTO userDetail;
+    private boolean online;
 }

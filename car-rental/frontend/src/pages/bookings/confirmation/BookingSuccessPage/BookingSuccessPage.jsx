@@ -558,13 +558,13 @@ const BookingSuccessPage = () => {
                   <FaReceipt className="mr-2" />
                   Thử lại
                 </button>
-                <Link
-                  to="/profile?tab=bookings"
+                <button
+                  onClick={() => navigate('/profile', { state: { activeTab: 'bookings' } })}
                   className="inline-flex items-center px-6 py-3 bg-blue-200 text-blue-700 font-semibold rounded-xl hover:bg-blue-300 transition-all duration-300"
                 >
                   <FaSearch className="mr-2" />
                   Xem lịch sử đặt xe
-                </Link>
+                </button>
               </div>
             </div>
           </div>

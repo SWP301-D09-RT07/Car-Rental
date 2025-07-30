@@ -287,12 +287,12 @@ function Users() {
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-gray-500">Đăng nhập:</span>
                               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
-                                  user.statusName === "online"
+                                  user.online
                                       ? "bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 border border-blue-200"
                                       : "bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 border border-gray-200"
                               }`}>
-                            <div className={`w-2 h-2 rounded-full mr-1 ${user.statusName === "online" ? "bg-green-500" : "bg-gray-400"}`}></div>
-                                {user.statusName === "online" ? "Online" : "Offline"}
+                            <div className={`w-2 h-2 rounded-full mr-1 ${user.online ? "bg-green-500" : "bg-gray-400"}`}></div>
+                                {user.online ? "Online" : "Offline"}
                           </span>
                             </div>
                           </div>

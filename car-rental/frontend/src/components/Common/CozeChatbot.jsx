@@ -40,6 +40,15 @@ const CozeChatbot = () => {
       window.__cozeChatbotLoaded = true;
     }
     // Cleanup: không xóa script để tránh reload lại nhiều lần
+    return () => {
+      // Xóa khung chat Coze khỏi DOM khi rời trang Home
+      const cozeDivs = Array.from(document.querySelectorAll('div')).filter(div => {
+        // Tìm div có thuộc tính đặc trưng của Coze
+        return div.className && div.className.includes('ab1ac9d9bab12da47298') || div.getAttribute('data-coze-webchat');
+      });
+      cozeDivs.forEach(div => div.remove());
+      window.__cozeChatbotLoaded = false;
+    };
   }, []);
   return null;
 };

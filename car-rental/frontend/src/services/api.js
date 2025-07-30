@@ -375,6 +375,7 @@ export const addFavorite = async (carId, supplierId) => {
     if (!supplierId) throw new Error('Vui lòng cung cấp ID chủ xe');
     try {
         const response = await api.post('/api/favorites', { carId, supplierId });
+        invalidateCache('favorites');
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Thêm vào yêu thích thất bại');
@@ -2022,6 +2023,18 @@ export const getChatMessagesByBooking = async (bookingId) => {
         return response.data;
     } catch (error) {
         throw new Error(error.response?.data?.message || 'Lấy tin nhắn theo booking thất bại');
+    }
+};
+
+// Lấy danh sách supplier đã từng nhắn với customer
+export const getSuppliersOfCustomer = async (customerId) => {
+    try {
+        const response = await api.get(`/api/chat-users/of-customer`, {
+            params: { customerId }
+        });
+        return response.data;
+    } catch (error) {
+        throw new Error(error.response?.data?.message || 'Lấy danh sách supplier đã từng nhắn với customer thất bại');
     }
 };
 

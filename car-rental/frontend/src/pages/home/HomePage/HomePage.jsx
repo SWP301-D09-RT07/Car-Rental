@@ -1,4 +1,5 @@
 import React from "react"
+import { motion } from "framer-motion"
 import { useState, useEffect, useCallback } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Swiper, SwiperSlide } from "swiper/react"
@@ -61,6 +62,8 @@ import Footer from '@/components/layout/Footer/Footer';
 import { getItem } from '@/utils/auth';
 import TestimonialCarousel from '@/components/features/Rating/TestimonialCarousel';
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
+import CozeChatbot from '@/components/Common/CozeChatbot.jsx';
+
 
 // Images
 const bg1 = "/images/bg_1.jpg"
@@ -187,6 +190,49 @@ const ErrorMessage = ({ message, className = "" }) => {
 
 // HomePage component
 const HomePage = () => {
+    // Splash animation state
+    const [showSplash, setShowSplash] = useState(true);
+    useEffect(() => {
+        const timer = setTimeout(() => setShowSplash(false), 2200); // 2.2s
+        return () => clearTimeout(timer);
+    }, []);
+
+    const splashLogo = (
+        <motion.div
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.7 }}
+            transition={{ duration: 0.7 }}
+            className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600"
+        >
+            <motion.div
+                initial={{ y: -40, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.3, duration: 0.7 }}
+                className="mb-6"
+            >
+                <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-5 rounded-2xl shadow-2xl flex items-center justify-center">
+                    <FaCarSide className="text-5xl text-white" />
+                </div>
+            </motion.div>
+            <motion.h1
+                initial={{ y: 40, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.7, duration: 0.7 }}
+                className="text-5xl md:text-7xl font-bold text-white mb-2 drop-shadow-[0_2px_16px_rgba(60,0,120,0.7)] px-6 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/30"
+            >
+                DriveLuxe
+            </motion.h1>
+            <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.2, duration: 0.6 }}
+                className="text-lg md:text-2xl text-blue-100 font-semibold"
+            >
+                Premium Car Rental
+            </motion.p>
+        </motion.div>
+    );
     const { isAuthenticated, user } = useAuth();
     const todayStr = getToday();
     const tomorrowStr = getTomorrow();
@@ -203,24 +249,30 @@ const HomePage = () => {
         dropoffDate: tomorrowStr,
         pickupTime: currentTimePlus4,
         dropoffTime: dropoffTime,
-    })
-    const [featuredCars, setFeaturedCars] = useState([])
-    const [popularCars, setPopularCars] = useState([])
-    const [brands, setBrands] = useState([])
-    const [locations, setLocations] = useState([])
-    const [regions, setRegions] = useState([])
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState("")
-    const [searchError, setSearchError] = useState("")
-    const [heroIdx, setHeroIdx] = useState(0)
-    const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false)
-    const [showScrollToTop, setShowScrollToTop] = useState(false)
-    const [showCookieConsent, setShowCookieConsent] = useState(true)
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+    });
+    const [featuredCars, setFeaturedCars] = useState([]);
+    const [popularCars, setPopularCars] = useState([]);
+    const [brands, setBrands] = useState([]);
+    const [locations, setLocations] = useState([]);
+    const [regions, setRegions] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [searchError, setSearchError] = useState("");
+    const [heroIdx, setHeroIdx] = useState(0);
+    const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+    const [showScrollToTop, setShowScrollToTop] = useState(false);
+    const [showCookieConsent, setShowCookieConsent] = useState(true);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [userEmail, setUserEmail] = useState("");
     const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
     const [selectedCar, setSelectedCar] = useState(null);
-    const [testimonials, setTestimonials] = useState([])
+    const [testimonials, setTestimonials] = useState([]);
+    // Handler khi nhấn yêu thích ở CarCard
+    const handleFavoriteChange = async (carId, isFavorite) => {
+        // Chỉ cập nhật trạng thái isFavorite của xe trong state, không refetch toàn bộ
+        setFeaturedCars((prev) => prev.map(car => car.id === carId ? { ...car, isFavorite } : car));
+        setPopularCars((prev) => prev.map(car => car.id === carId ? { ...car, isFavorite } : car));
+    };
 
     // Swiper refs for navigation
     const brandSwiperRef = React.useRef(null);
@@ -438,6 +490,22 @@ const HomePage = () => {
         }
     };
 
+
+    // Hiển thị splash nếu đang showSplash
+    if (showSplash) {
+        return (
+            <motion.div
+                initial={{ scaleX: 1 }}
+                animate={{ scaleX: 1 }}
+                exit={{ scaleX: 0 }}
+                transition={{ duration: 0.7, delay: 1.7 }}
+                style={{ originX: 0.5 }}
+            >
+                {splashLogo}
+            </motion.div>
+        );
+    }
+    // Loading spinner như cũ
     if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-white">
@@ -446,7 +514,7 @@ const HomePage = () => {
         );
     }
 
-    const currentHero = heroSlides[heroIdx]
+    // Đã xóa biến currentHero
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
@@ -458,13 +526,18 @@ const HomePage = () => {
             />
             <main className="pt-24">
                 {/* Enhanced Hero Section */}
-                <section className="relative h-screen overflow-hidden">
+                <motion.section
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.7 }}
+                    className="relative h-screen overflow-hidden"
+                >
                     <Swiper
                         modules={[EffectFade, Autoplay]}
                         effect="fade"
                         autoplay={{ delay: 6000, disableOnInteraction: false }}
                         loop={true}
-                        onSlideChange={(swiper) => setHeroIdx(swiper.realIndex)}
                         className="h-full"
                     >
                         {heroSlides.map((slide, index) => (
@@ -476,54 +549,50 @@ const HomePage = () => {
                                         className="w-full h-full object-cover"
                                     />
                                     <div className={`absolute inset-0 bg-gradient-to-r from-blue-900/80 via-indigo-900/70 to-purple-900/60`}></div>
+                                    <div className="absolute inset-0 flex items-center justify-center z-10">
+                                        <div className="container mx-auto px-4">
+                                            <div className="max-w-4xl mx-auto text-center text-white">
+                                                <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight">
+                                                    {slide.title.split(" ").map((word, idx) => (
+                                                        <span
+                                                            key={idx}
+                                                            className={
+                                                                idx % 2 === 0
+                                                                    ? "text-white drop-shadow-lg"
+                                                                    : "bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent"
+                                                            }
+                                                        >
+                                                            {word}{" "}
+                                                        </span>
+                                                    ))}
+                                                </h1>
+                                                <h2 className="text-xl md:text-3xl font-semibold mb-6 text-blue-200 drop-shadow-lg">
+                                                    {slide.subtitle}
+                                                </h2>
+                                                <p className="text-lg md:text-xl mb-12 text-indigo-100 max-w-3xl mx-auto leading-relaxed drop-shadow-lg">
+                                                    {slide.description}
+                                                </p>
+                                                <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
+                                                    <Link
+                                                        to="/search"
+                                                        state={{ filterType: "all" }}
+                                                        className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 text-white py-4 px-10 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-3xl"
+                                                    >
+                                                        <FaRocket className="inline mr-3" />
+                                                        Khám phá ngay
+                                                    </Link>
+                                                    <button className="bg-white/20 backdrop-blur-md hover:bg-white/30 text-white py-4 px-10 rounded-2xl font-semibold text-lg transition-all duration-300 border border-white/30 flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl">
+                                                        <FaPlay className="text-sm" />
+                                                        Xem video giới thiệu
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </SwiperSlide>
                         ))}
                     </Swiper>
-
-                    <div className="absolute inset-0 flex items-center justify-center z-10">
-                        <div className="container mx-auto px-4">
-                            <div className="max-w-4xl mx-auto text-center text-white">
-                                <div className="animate-in fade-in slide-in-from-bottom-10 duration-1000">
-                                    <h1 className="text-4xl md:text-7xl font-bold mb-6 leading-tight">
-                                        {currentHero.title.split(" ").map((word, idx) => (
-                                            <span
-                                                key={idx}
-                                                className={
-                                                    idx % 2 === 0
-                                                        ? "text-white drop-shadow-lg"
-                                                        : "bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent"
-                                                }
-                                            >
-                                                {word}{" "}
-                                            </span>
-                                        ))}
-                                    </h1>
-                                    <h2 className="text-xl md:text-3xl font-semibold mb-6 text-blue-200 drop-shadow-lg">
-                                        {currentHero.subtitle}
-                                    </h2>
-                                    <p className="text-lg md:text-xl mb-12 text-indigo-100 max-w-3xl mx-auto leading-relaxed drop-shadow-lg">
-                                        {currentHero.description}
-                                    </p>
-
-                                    <div className="flex flex-col sm:flex-row gap-6 justify-center mb-16">
-                                        <Link
-                                            to="/search"
-                                            state={{ filterType: "all" }}
-                                            className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 text-white py-4 px-10 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105 shadow-2xl hover:shadow-3xl"
-                                        >
-                                            <FaRocket className="inline mr-3" />
-                                            Khám phá ngay
-                                        </Link>
-                                        <button className="bg-white/20 backdrop-blur-md hover:bg-white/30 text-white py-4 px-10 rounded-2xl font-semibold text-lg transition-all duration-300 border border-white/30 flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl">
-                                            <FaPlay className="text-sm" />
-                                            Xem video giới thiệu
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                     <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-white animate-bounce z-10">
                         <div className="flex flex-col items-center">
@@ -533,10 +602,16 @@ const HomePage = () => {
                             </div>
                         </div>
                     </div>
-                </section>
+                </motion.section>
 
                 {/* Enhanced Search Section */}
-                <section className="relative -mt-40 z-20 px-4">
+                <motion.section
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.7 }}
+                    className="relative -mt-40 z-20 px-4"
+                >
                     <div className="container mx-auto">
                         <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border border-blue-100 max-w-7xl mx-auto">
                             <div className="text-center mb-8">
@@ -693,10 +768,16 @@ const HomePage = () => {
                             {searchError && <ErrorMessage message={searchError} className="mt-6" />}
                         </div>
                     </div>
-                </section>
+                </motion.section>
 
                 {/* Enhanced Brand Section */}
-                <section className="py-24 bg-gradient-to-b from-white via-blue-50 to-indigo-50">
+                <motion.section
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.7 }}
+                    className="py-24 bg-gradient-to-b from-white via-blue-50 to-indigo-50"
+                >
                     <div className="container mx-auto px-4">
                         <div className="text-center mb-20">
                             <h2 className="text-5xl font-bold text-gray-900 mb-6">
@@ -766,10 +847,16 @@ const HomePage = () => {
                             </Swiper>
                         </div>
                     </div>
-                </section>
+                </motion.section>
 
                 {/* Enhanced Featured Cars Section */}
-                <section className="py-24 bg-gradient-to-b from-indigo-50 via-white to-purple-50">
+                <motion.section
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.7 }}
+                    className="py-24 bg-gradient-to-b from-indigo-50 via-white to-purple-50"
+                >
                     <div className="container mx-auto px-4">
                         <div className="text-center mb-20">
                             <div className="inline-flex items-center bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full px-6 py-2 mb-6">
@@ -835,7 +922,13 @@ const HomePage = () => {
                                     >
                                         {featuredCars.map((car) => (
                                             <SwiperSlide key={`featured-car-${car.id}`}>
-                                                <CarCard car={car} type="featured" isLoading={isLoading} onBookNow={handleBookNow} />
+                                                <CarCard
+                                                    car={car}
+                                                    type="featured"
+                                                    isLoading={isLoading}
+                                                    onBookNow={handleBookNow}
+                                                    onFavoriteChange={(isFavorite) => handleFavoriteChange(car.id, isFavorite)}
+                                                />
                                             </SwiperSlide>
                                         ))}
                                     </Swiper>
@@ -854,10 +947,16 @@ const HomePage = () => {
                             </>
                         )}
                     </div>
-                </section>
+                </motion.section>
 
                 {/* Enhanced Popular Cars Section */}
-                <section className="py-24 bg-gradient-to-b from-purple-50 via-white to-emerald-50">
+                <motion.section
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.7 }}
+                    className="py-24 bg-gradient-to-b from-purple-50 via-white to-emerald-50"
+                >
                     <div className="container mx-auto px-4">
                         <div className="text-center mb-20">
                             <div className="inline-flex items-center bg-gradient-to-r from-emerald-100 to-teal-100 rounded-full px-6 py-2 mb-6">
@@ -923,7 +1022,13 @@ const HomePage = () => {
                                     >
                                         {popularCars.map((car) => (
                                             <SwiperSlide key={`popular-car-${car.id}`}>
-                                                <CarCard car={car} type="popular" isLoading={isLoading} onBookNow={handleBookNow} />
+                                                <CarCard
+                                                    car={car}
+                                                    type="popular"
+                                                    isLoading={isLoading}
+                                                    onBookNow={handleBookNow}
+                                                    onFavoriteChange={(isFavorite) => handleFavoriteChange(car.id, isFavorite)}
+                                                />
                                             </SwiperSlide>
                                         ))}
                                     </Swiper>
@@ -942,10 +1047,16 @@ const HomePage = () => {
                             </>
                         )}
                     </div>
-                </section>
+                </motion.section>
 
                 {/* Enhanced CTA Banner Section */}
-                <section className="py-24 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">
+                <motion.section
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.7 }}
+                    className="py-24 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600"
+                >
                     <div className="container mx-auto px-4">
                         <div className="flex flex-col lg:flex-row items-center bg-white/10 backdrop-blur-lg rounded-3xl overflow-hidden shadow-2xl border border-white/20">
                             <div className="lg:w-1/2 p-12 text-center lg:text-left">
@@ -984,10 +1095,16 @@ const HomePage = () => {
                             </div>
                         </div>
                     </div>
-                </section>
+                </motion.section>
 
                 {/* Enhanced Why Choose Us Section */}
-                <section className="py-24 bg-gradient-to-b from-gray-50 via-white to-emerald-50">
+                <motion.section
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.7 }}
+                    className="py-24 bg-gradient-to-b from-gray-50 via-white to-emerald-50"
+                >
                     <div className="container mx-auto px-4">
                         <div className="text-center mb-20">
                             <div className="inline-flex items-center bg-gradient-to-r from-amber-100 to-orange-100 rounded-full px-6 py-2 mb-6">
@@ -1038,10 +1155,16 @@ const HomePage = () => {
                             ))}
                         </div>
                     </div>
-                </section>
+                </motion.section>
 
                 {/* Enhanced How It Works Section */}
-                <section className="py-24 bg-gradient-to-b from-emerald-50 via-white to-blue-50">
+                <motion.section
+                    initial={{ opacity: 0, y: 40 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, amount: 0.3 }}
+                    transition={{ duration: 0.7 }}
+                    className="py-24 bg-gradient-to-b from-emerald-50 via-white to-blue-50"
+                >
                     <div className="container mx-auto px-4">
                         <div className="text-center mb-20">
                             <div className="inline-flex items-center bg-gradient-to-r from-blue-100 to-indigo-100 rounded-full px-6 py-2 mb-6">
@@ -1116,11 +1239,11 @@ const HomePage = () => {
                             ))}
                         </div>
                     </div>
-                </section>
+                </motion.section>
 
                 {/* Enhanced Floating Elements */}
-                <div className="fixed bottom-8 right-8 z-30 flex flex-col space-y-4">
-                    <a href="https://zalo.me" target="_blank" rel="noopener noreferrer" className="group relative">
+                <div className="fixed bottom-8 left-8 z-30 flex flex-col space-y-4">
+                    {/* <a href="https://zalo.me" target="_blank" rel="noopener noreferrer" className="group relative">
                         <div className="bg-blue-500 hover:bg-blue-600 w-14 h-14 rounded-full shadow-xl hover:shadow-2xl flex items-center justify-center transition-all duration-300 transform hover:scale-110">
                             <img
                                 src={zaloLogo || "/placeholder.svg"}
@@ -1132,7 +1255,7 @@ const HomePage = () => {
                         <div className="absolute right-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
                             Chat với chúng tôi
                         </div>
-                    </a>
+                    </a> */}
 
                     {showScrollToTop && (
                         <button
@@ -1141,7 +1264,7 @@ const HomePage = () => {
                             aria-label="Lên đầu trang"
                         >
                             <FaArrowUp className="text-lg" />
-                            <div className="absolute right-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+                            <div className="absolute left-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
                                 Lên đầu trang
                             </div>
                         </button>
@@ -1149,7 +1272,13 @@ const HomePage = () => {
                 </div>
                 {/* Enhanced Testimonial Section - Thêm ngay trước Footer */}
                 {testimonials.length > 0 && (
-                    <section className="py-24 bg-gradient-to-b from-white via-blue-50 to-indigo-50">
+                    <motion.section
+                        initial={{ opacity: 0, y: 40 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, amount: 0.3 }}
+                        transition={{ duration: 0.7 }}
+                        className="py-24 bg-gradient-to-b from-white via-blue-50 to-indigo-50"
+                    >
                         <div className="container mx-auto px-4">
                             <div className="text-center mb-20">
                                 <div className="inline-flex items-center bg-gradient-to-r from-yellow-100 to-orange-100 rounded-full px-6 py-2 mb-6">
@@ -1165,7 +1294,7 @@ const HomePage = () => {
                             </div>
                             <TestimonialCarousel ratings={testimonials} />
                         </div>
-                    </section>
+                    </motion.section>
                 )}
                 {/* Enhanced Cookie Consent Banner
                 {showCookieConsent && (
@@ -1206,6 +1335,8 @@ const HomePage = () => {
                 car={selectedCar}
                 onSubmitBooking={handleSubmitBooking}
             />
+
+            <CozeChatbot />
 
         </div>
     )

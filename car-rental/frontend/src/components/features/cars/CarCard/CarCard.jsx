@@ -168,7 +168,7 @@ const BookingModal = ({ isOpen, onClose, car, onSubmit }) => {
     );
 };
 
-const CarCard = ({ car, type = "default", isLoading = false, onBookNow }) => {
+const CarCard = ({ car, type = "default", isLoading = false, onBookNow, onFavoriteChange }) => {
     const navigate = useNavigate();
     const [imageLoaded, setImageLoaded] = useState(false);
     const [isFavorite, setIsFavorite] = useState(false);
@@ -255,7 +255,7 @@ const CarCard = ({ car, type = "default", isLoading = false, onBookNow }) => {
 
                 {/* Action Buttons */}
                 <div className="absolute top-4 right-4">
-                    <FavoriteButton carId={car.carId} supplierId={car.supplierId} />
+                    <FavoriteButton carId={car.carId} supplierId={car.supplierId} onFavoriteChange={onFavoriteChange} />
                 </div>
             </div>
 

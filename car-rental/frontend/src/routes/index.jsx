@@ -19,6 +19,7 @@ import OwnerRegistrationPage from '../pages/owner/OwnerRegistrationPage';
 import OwnerRegistrationSuccessPage from '../pages/owner/OwnerRegistrationSuccessPage';
 import ForgotPassword from '../components/features/auth/ForgotPassword';
 import ResetPassword from '../components/features/auth/ResetPassword';
+import MessagePage from '../pages/chatMessage/Message';
 
 // Components
 import { ProtectedRoute } from '../components/features/auth/ProtectedRoute.jsx';
@@ -127,6 +128,14 @@ const AppRoutes = () => {
                     </ProtectedRoute>
                 }
             />
+            <Route
+                path="/customer/messages"
+                element={
+                    <ProtectedRoute requiredRole="customer">
+                        <MessagePage />
+                    </ProtectedRoute>
+                }
+            />
 
             {/* Supplier routes - Tất cả đều sử dụng SupplierCarDashboard */}
             <Route
@@ -198,4 +207,4 @@ const AppRoutes = () => {
     );
 }
 
-export default AppRoutes; 
+export default AppRoutes;

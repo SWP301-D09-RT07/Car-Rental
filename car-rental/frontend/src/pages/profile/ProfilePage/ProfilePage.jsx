@@ -556,6 +556,11 @@ const handleCancelBooking = async (bookingId) => {
     }
 };
 
+    function normalizePhone(phone, countryCode = '+84') {
+        if (!phone) return '';
+        if (phone.startsWith('+')) return phone;
+        return countryCode + (phone.startsWith('0') ? phone.slice(1) : phone);
+    }
     // Handle view booking details
     const handleViewBookingDetails = async (booking) => {
         try {
@@ -1014,7 +1019,7 @@ const handleCancelBooking = async (bookingId) => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                     <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100 text-center hover:shadow-lg transition-shadow">
                         <div className="text-3xl font-bold text-blue-600 mb-2">{bookings.length}</div>
-                        <div className="text-gray-600 font-medium">Tổng chuyến đi</div>
+                        <div className="text-gray-600 font-medium">Tổng đơn đặt</div>
                     </div>
                     <div className="bg-white rounded-xl p-6 shadow-md border border-gray-100 text-center hover:shadow-lg transition-shadow">
                         <div className="text-3xl font-bold text-green-600 mb-2">
@@ -1953,7 +1958,7 @@ const handleCancelBooking = async (bookingId) => {
                             
                             <div className="user-stats">
                                 <div className="stat-item">
-                                    <span className="stat-number">{bookings.length}</span>
+                                    <span className="stat-number">{bookings.filter(b => ['completed', 'refunded', 'payout'].includes(b.statusName)).length}</span>
                                     <span className="stat-label">
                                         <i className="fas fa-car"></i>
                                         Chuyến đi
@@ -2780,97 +2785,54 @@ const handleCancelBooking = async (bookingId) => {
                 />
             )}
             {/* OTP Modal - chỉ 1 modal trung tâm như login */}
-                                                {showOtpModal && pendingPhone && pendingPhone !== formData.phone && (
-                                                    <div className="modal-overlay">
-                                                        <div className="modal">
-                                                            <h3>Xác thực số điện thoại</h3>
-                                                            <PhoneOtpVerification phone={
-                                                                // Đảm bảo số điện thoại gửi đi luôn có mã quốc gia
-                                                                pendingPhone.startsWith('+')
-                                                                  ? pendingPhone
-                                                                  : (formData.countryCode || '+84') + (pendingPhone.startsWith('0') ? pendingPhone.slice(1) : pendingPhone)
-                                                            } onVerified={async () => {
-                                                                setOtpVerified(true);
-                                                                // Khi lưu vào DB cũng lưu đúng định dạng mã quốc gia
-                                                                const fullPhone = pendingPhone.startsWith('+')
-                                                                  ? pendingPhone
-                                                                  : (formData.countryCode || '+84') + (pendingPhone.startsWith('0') ? pendingPhone.slice(1) : pendingPhone);
-                                                                setFormData(prev => ({ ...prev, phone: fullPhone }));
-                                                                setShowOtpModal(false);
-                                                                try {
-                                                                    setUpdating(true);
-                                                                    const response = await updateProfile({ ...formData, phone: fullPhone });
-                                                                    if (response.success) {
-                                                                        toast.success('Cập nhật thông tin thành công!');
-                                                                        setEditMode(false);
-                                                                        await fetchProfile();
-                                                                    } else {
-                                                                        toast.error(response.error || 'Có lỗi xảy ra');
-                                                                    }
-                                                                } catch (error) {
-                                                                    toast.error(error.message || 'Không thể cập nhật thông tin');
-                                                                } finally {
-                                                                    setUpdating(false);
-                                                                }
-                                                            }} />
-                                                            <button className="close-btn" onClick={() => setShowOtpModal(false)}>Đóng</button>
-                                                        </div>
-                                                        <style>{`
-                                                            .modal-overlay {
-                                                              position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                                                              background: rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; justify-content: center;
-                                                            }
-                                                            .modal {
-                                                              background: #fff; border-radius: 12px; padding: 32px; min-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-                                                              display: flex; flex-direction: column; align-items: center;
-                                                            }
-                                                            .close-btn {
-                                                              margin-top: 16px; background: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                                                            }
-                                                        `}</style>
-                                                    </div>
-                                                )}{/* OTP Modal - chỉ 1 modal trung tâm như login */}
-                                                {showOtpModal && pendingPhone && pendingPhone !== formData.phone && (
-                                                    <div className="modal-overlay">
-                                                        <div className="modal">
-                                                            <h3>Xác thực số điện thoại</h3>
-                                                            <PhoneOtpVerification phone={pendingPhone} onVerified={async () => {
-                                                                setOtpVerified(true);
-                                                                setFormData(prev => ({ ...prev, phone: pendingPhone }));
-                                                                setShowOtpModal(false);
-                                                                try {
-                                                                    setUpdating(true);
-                                                                    const response = await updateProfile({ ...formData, phone: pendingPhone });
-                                                                    if (response.success) {
-                                                                        toast.success('Cập nhật thông tin thành công!');
-                                                                        setEditMode(false);
-                                                                        await fetchProfile();
-                                                                    } else {
-                                                                        toast.error(response.error || 'Có lỗi xảy ra');
-                                                                    }
-                                                                } catch (error) {
-                                                                    toast.error(error.message || 'Không thể cập nhật thông tin');
-                                                                } finally {
-                                                                    setUpdating(false);
-                                                                }
-                                                            }} />
-                                                            <button className="close-btn" onClick={() => setShowOtpModal(false)}>Đóng</button>
-                                                        </div>
-                                                        <style>{`
-                                                            .modal-overlay {
-                                                              position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                                                              background: rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; justify-content: center;
-                                                            }
-                                                            .modal {
-                                                              background: #fff; border-radius: 12px; padding: 32px; min-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-                                                              display: flex; flex-direction: column; align-items: center;
-                                                            }
-                                                            .close-btn {
-                                                              margin-top: 16px; background: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;
-                                                            }
-                                                        `}</style>
-                                                    </div>
-                                                )}           
+            {showOtpModal && pendingPhone && pendingPhone !== formData.phone && (
+            <div className="modal-overlay">
+                <div className="modal">
+                <h3>Xác thực số điện thoại</h3>
+                <PhoneOtpVerification
+                    phone={normalizePhone(pendingPhone, formData.countryCode || '+84')}
+                    onVerified={async () => {
+                        setOtpVerified(true);
+                        const fullPhone = normalizePhone(pendingPhone, formData.countryCode || '+84');
+                        // Lưu trạng thái otpVerified và số điện thoại đã xác thực vào localStorage
+                        localStorage.setItem("otpVerified", "true");
+                        localStorage.setItem("lastConfirmedPhone", fullPhone);
+                        setFormData(prev => ({ ...prev, phone: fullPhone }));
+                        setShowOtpModal(false);
+                        try {
+                            setUpdating(true);
+                            const response = await updateProfile({ ...formData, phone: fullPhone });
+                            if (response.success) {
+                                toast.success('Cập nhật thông tin thành công!');
+                                setEditMode(false);
+                                await fetchProfile();
+                            } else {
+                                toast.error(response.error || 'Có lỗi xảy ra');
+                            }
+                        } catch (error) {
+                            toast.error(error.message || 'Không thể cập nhật thông tin');
+                        } finally {
+                            setUpdating(false);
+                        }
+                    }}
+                />
+                <button className="close-btn" onClick={() => setShowOtpModal(false)}>Đóng</button>
+                </div>
+                <style>{`
+                .modal-overlay {
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(0,0,0,0.3); z-index: 1000; display: flex; align-items: center; justify-content: center;
+                }
+                .modal {
+                    background: #fff; border-radius: 12px; padding: 32px; min-width: 320px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+                    display: flex; flex-direction: column; align-items: center;
+                }
+                .close-btn {
+                    margin-top: 16px; background: #eee; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+                }
+                `}</style>
+            </div>
+            )}                                           
         </div>
     );
 

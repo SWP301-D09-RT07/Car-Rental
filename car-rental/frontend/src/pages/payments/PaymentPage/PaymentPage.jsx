@@ -868,15 +868,21 @@ const PaymentPage = () => {
       setPaymentStatus("failed")
       showToast("Thanh toán thất bại!", "error")
 
+      // Ưu tiên lấy message tiếng Việt từ backend nếu có
+      const backendMessage = err.response?.data?.message || err.response?.data?.error || err.response?.data;
       if (err.response?.status === 401) {
         setError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.")
         setTimeout(() => navigate("/login"), 2000)
       } else if (err.response?.status === 400) {
-        setError(err.response?.data?.message || "Dữ liệu thanh toán không hợp lệ")
+        setError(backendMessage || "Dữ liệu thanh toán không hợp lệ")
+      } else if (err.response?.status === 409) {
+        setError(backendMessage || "Xe đã được đặt trong thời gian này. Vui lòng chọn xe hoặc thời gian khác.")
+      } else if (err.response?.status === 500) {
+        setError(backendMessage || "Lỗi máy chủ. Vui lòng thử lại hoặc liên hệ hỗ trợ.")
       } else if (!err.response) {
         setError("Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.")
       } else {
-        setError(err.message || "Thanh toán thất bại. Vui lòng thử lại.")
+        setError(backendMessage || err.message || "Thanh toán thất bại. Vui lòng thử lại.")
       }
     } finally {
       setIsProcessing(false)

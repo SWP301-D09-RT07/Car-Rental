@@ -41,8 +41,18 @@ public class ChatController {
      */
     @GetMapping("/api/chat-users/of-user")
     @ResponseBody
-    public java.util.List<CustomerInfoDTO> getUsersChattedWithSupplier(@RequestParam Integer supplierId) {
+    public java.util.List<CustomerInfoDTO> getUsersChattedWithSupplier(@RequestParam(required = false) Integer supplierId) {
         return chatService.getUsersChattedWithSupplier(supplierId);
+    }
+
+    /**
+     * API: Lấy danh sách supplier đã từng chat với 1 customer
+     * GET /api/chat-users/of-customer?customerId=...
+     */
+    @GetMapping("/api/chat-users/of-customer")
+    @ResponseBody
+    public java.util.List<CustomerInfoDTO> getSuppliersChattedWithCustomer(@RequestParam Integer customerId) {
+        return chatService.getSuppliersChattedWithCustomer(customerId);
     }
     private static final Logger logger = LoggerFactory.getLogger(ChatController.class);
 

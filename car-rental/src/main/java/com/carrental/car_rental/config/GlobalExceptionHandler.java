@@ -69,11 +69,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleGenericException(Exception ex) {
         logger.error("Unexpected error: {}", ex.getMessage(), ex);
-        
         Map<String, Object> response = new HashMap<>();
         response.put("success", false);
         response.put("error", "Lỗi hệ thống: " + ex.getMessage());
-        
+        response.put("message", "Lỗi hệ thống: " + ex.getMessage());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 
@@ -83,6 +82,7 @@ public class GlobalExceptionHandler {
         Map<String, Object> response = new HashMap<>();
         response.put("success", false);
         response.put("error", ex.getReason());
+        response.put("message", ex.getReason());
         response.put("code", ex.getStatusCode().toString());
         return ResponseEntity.status(ex.getStatusCode()).body(response);
     }

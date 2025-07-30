@@ -56,6 +56,7 @@ import Header from '@/components/layout/Header/Header';
 import Footer from '@/components/layout/Footer/Footer';
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
 import AutocompleteSearch from '@/components/Common/AutocompleteSearch';
+import FavoriteButton from '@/components/ui/FavoriteButton/FavoriteButton.jsx';
 
 
 // Enhanced Error Message Component
@@ -1065,18 +1066,19 @@ const SearchPage = () => {
                         )}
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="absolute top-4 right-4 flex flex-col space-y-2">
-                        <button
-                            onClick={() => toggleFavorite(car.carId)}
-                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg backdrop-blur-sm ${favoriteVehicles.includes(car.carId)
-
-                                ? "bg-red-500 text-white"
-                                : "bg-white/90 text-gray-600 hover:text-red-500"
-                                }`}
-                        >
-                            <FaHeart className="text-sm" />
-                        </button>
+                    {/* Favorite Button - fixed position, not in overlay */}
+                    <div className="absolute top-4 right-4 z-20">
+                        <FavoriteButton
+                            carId={car.carId}
+                            supplierId={car.supplierId}
+                            initialIsFavorite={favoriteVehicles.includes(car.carId)}
+                            onFavoriteChange={(isFav) => {
+                                setFavoriteVehicles(isFav
+                                    ? [...favoriteVehicles, car.carId]
+                                    : favoriteVehicles.filter(id => id !== car.carId)
+                                );
+                            }}
+                        />
                     </div>
 
                     {/* Quick View Button - Overlay */}

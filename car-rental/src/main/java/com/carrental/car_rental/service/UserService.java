@@ -20,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.carrental.car_rental.service.UserSessionService;
 
 import java.time.Instant;
 import java.util.List;
@@ -43,6 +44,8 @@ public class UserService {
     private final UserDetailMapper userDetailMapper;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final UserSessionService userSessionService;
+    
 
     public UserDTO findById(Integer id) {
         User user = userRepository.findById(id)
@@ -393,6 +396,8 @@ public class UserService {
             UserDTO dto = userMapper.toDto(user);
             userDetailRepository.findByUserIdAndIsDeletedFalse(user.getId())
                     .ifPresent(ud -> dto.setUserDetail(userDetailMapper.toDTO(ud)));
+            boolean isOnline = userSessionService.hasActiveSession(user);
+            dto.setOnline(isOnline);
             return dto;
         });
     }

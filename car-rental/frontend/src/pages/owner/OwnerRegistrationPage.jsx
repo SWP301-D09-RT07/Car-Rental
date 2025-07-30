@@ -45,6 +45,7 @@ import { createOwnerRegistrationRequest } from "@/services/api";
 import { getItem } from "@/utils/auth";
 import heroBg from "@/assets/images/car-7.jpg";
 import { motion } from "framer-motion";
+import PhoneOtpVerification from "@/components/Common/PhoneOtpVerification";
 
 // Badge component
 function Badge({ children, className = "" }) {
@@ -415,6 +416,8 @@ const OwnerRegistrationPage = () => {
     password: "",
     confirmPassword: "",
   });
+  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
   const [files, setFiles] = useState({ carDocuments: null, businessLicense: null, driverLicense: null });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
@@ -475,6 +478,7 @@ const OwnerRegistrationPage = () => {
     if (name === "phoneNumber") {
       const formattedValue = formatPhoneNumber(value);
       setFormData((prev) => ({ ...prev, [name]: formattedValue }));
+      setIsPhoneVerified(false);
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -494,6 +498,10 @@ const OwnerRegistrationPage = () => {
     e.preventDefault();
     if (!validateForm()) {
       toast.error("Vui lòng kiểm tra lại thông tin và hoàn thiện các trường bắt buộc");
+      return;
+    }
+    if (!isPhoneVerified) {
+      setShowOtpModal(true);
       return;
     }
     setIsSubmitting(true);
@@ -1316,6 +1324,7 @@ const OwnerRegistrationPage = () => {
                               className={`h-16 text-lg px-6 rounded-2xl border-2 transition-all duration-300 ${
                                 errors.phoneNumber ? "border-red-500 focus:border-red-500" : "border-gray-200 focus:border-blue-500"
                               }`}
+                              disabled={isPhoneVerified}
                             />
                             <FaPhone className="absolute right-6 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                           </div>
@@ -1324,6 +1333,12 @@ const OwnerRegistrationPage = () => {
                               <FaExclamationTriangle className="w-4 h-4" />
                               {errors.phoneNumber}
                             </p>
+                          )}
+                          {isPhoneVerified && (
+                            <div className="text-green-600 text-sm font-semibold mt-2 flex items-center gap-2">
+                              <span className="w-4 h-4 bg-green-500 rounded-full inline-block mr-2"></span>
+                              Số điện thoại đã xác thực OTP!
+                            </div>
                           )}
                         </div>
                         <div>
@@ -1563,6 +1578,27 @@ const OwnerRegistrationPage = () => {
         </motion.section>
       </div>
 
+      {/* OTP Modal */}
+      {showOtpModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full flex flex-col items-center">
+            <PhoneOtpVerification
+              phone={formData.phoneNumber}
+              onVerified={() => {
+                setIsPhoneVerified(true);
+                setShowOtpModal(false);
+                toast.success("Xác thực OTP thành công! Vui lòng nhấn lại Xác nhận đăng ký.");
+              }}
+            />
+            <button
+              className="mt-6 px-6 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold"
+              onClick={() => setShowOtpModal(false)}
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
       {/* Scroll to Top Button */}
       {(() => {
         const [showScroll, setShowScroll] = React.useState(false);

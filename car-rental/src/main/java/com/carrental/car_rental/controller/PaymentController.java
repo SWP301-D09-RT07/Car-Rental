@@ -50,34 +50,18 @@ public class PaymentController {
     @PostMapping
     public ResponseEntity<PaymentResponseDTO> createPayment(@Valid @RequestBody PaymentDTO dto, HttpServletRequest request) {
         logger.info("Request to create payment for booking ID: {}", dto.getBookingId());
-        try {
-            PaymentResponseDTO response = service.processPayment(dto, request);
-            logger.info("Payment processed with ID: {}", response.getPaymentId());
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            logger.error("Invalid payment data: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-        } catch (Exception e) {
-            logger.error("Error processing payment: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
+        PaymentResponseDTO response = service.processPayment(dto, request);
+        logger.info("Payment processed with ID: {}", response.getPaymentId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/with-booking")
     public ResponseEntity<PaymentResponseDTO> createPaymentWithBooking(@Valid @RequestBody PaymentDTO dto, HttpServletRequest request) {
         logger.info("Request to create payment with booking for car ID: {}", dto.getCarId());
-        try {
-            PaymentResponseDTO response = service.processPaymentWithBooking(dto, request);
-            logger.info("Payment with booking processed successfully. Booking ID: {}, Payment ID: {}", 
-                       response.getBookingId(), response.getPaymentId());
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (IllegalArgumentException e) {
-            logger.error("Invalid payment/booking data: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
-        } catch (Exception e) {
-            logger.error("Error processing payment with booking: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
+        PaymentResponseDTO response = service.processPaymentWithBooking(dto, request);
+        logger.info("Payment with booking processed successfully. Booking ID: {}, Payment ID: {}", 
+                   response.getBookingId(), response.getPaymentId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PutMapping("/{id}")
