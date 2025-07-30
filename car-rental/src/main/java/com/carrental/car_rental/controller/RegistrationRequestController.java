@@ -184,7 +184,14 @@ public class RegistrationRequestController {
             RegistrationRequest req = reqOpt.get();
             req.setStatus("rejected");
             service.save(req);
-            return ResponseEntity.ok("Đã từ chối yêu cầu.");
+            // Gửi email thông báo từ chối
+            String subject = "Yêu cầu đăng ký chủ xe bị từ chối";
+            String body = "Xin chào " + req.getFullName() + ",\n\n" +
+                    "Rất tiếc, yêu cầu đăng ký chủ xe của bạn đã bị từ chối.\n" +
+                    "Nếu cần thêm thông tin, vui lòng liên hệ với chúng tôi.\n\n" +
+                    "Trân trọng,\nĐội ngũ Car Rental";
+            emailService.sendEmail(req.getEmail(), subject, body);
+            return ResponseEntity.ok("Đã từ chối yêu cầu và gửi email thông báo.");
         }
         return ResponseEntity.notFound().build();
     }

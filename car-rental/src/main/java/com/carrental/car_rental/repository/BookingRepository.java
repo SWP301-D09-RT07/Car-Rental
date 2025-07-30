@@ -164,4 +164,23 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
 
     // Đếm số booking của supplier với 1 customer trước thời điểm chỉ định
     int countByCar_SupplierAndCustomer_IdAndCreatedAtBefore(User supplier, Integer customerId, Instant before);
+
+    @Query("SELECT b FROM Booking b " +
+           "LEFT JOIN FETCH b.car c " +
+           "LEFT JOIN FETCH c.images " +
+           "LEFT JOIN FETCH c.supplier s " +
+           "LEFT JOIN FETCH s.role " +
+           "LEFT JOIN FETCH s.status " +
+           "LEFT JOIN FETCH s.userDetail " +
+           "LEFT JOIN FETCH c.brand " +
+           "LEFT JOIN FETCH c.region " +
+           "LEFT JOIN FETCH c.fuelType " +
+           "LEFT JOIN FETCH c.status " +
+           "LEFT JOIN FETCH b.customer cu " +
+           "LEFT JOIN FETCH cu.userDetail " +
+           "LEFT JOIN FETCH cu.status " +
+           "LEFT JOIN FETCH cu.role " +
+           "LEFT JOIN FETCH b.status " +
+           "WHERE b.id = :bookingId")
+    Optional<Booking> findByIdWithAllRelationsAndImages(@Param("bookingId") Integer bookingId);
 }

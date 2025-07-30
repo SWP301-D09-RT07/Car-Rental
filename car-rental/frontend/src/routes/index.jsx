@@ -29,7 +29,11 @@ import Users from '../components/features/admin/Users';
 import Sidebar from '../components/features/admin/Sidebar';
 import OwnerRequests from '../components/features/admin/OwnerRequests';
 import PaymentsAdmin from '../components/features/admin/PaymentsAdmin';
+
+import AdminCarApproval from '../components/features/admin/CarApprovalPage';
+
 // import AdminCarApproval from '../components/admin/AdminCarApproval';//
+
 
 
 // Supplier Pages

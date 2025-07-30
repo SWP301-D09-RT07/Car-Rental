@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { getProfile, updateProfile } from "@/services/api";
 import { toast } from "react-toastify";
 import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaEdit, FaSave, FaTimes } from "react-icons/fa";
+import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
 
 const SupplierProfile = () => {
   const [profile, setProfile] = useState(null);
@@ -100,7 +101,7 @@ const SupplierProfile = () => {
     return (
       <div className="flex items-center justify-center min-h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-blue-600 mx-auto mb-6"></div>
+          <LoadingSpinner size="large" color="blue" />
           <p className="text-gray-600 text-xl font-medium">Đang tải thông tin hồ sơ...</p>
           <p className="text-gray-500 text-sm mt-2">Vui lòng đợi trong giây lát</p>
         </div>

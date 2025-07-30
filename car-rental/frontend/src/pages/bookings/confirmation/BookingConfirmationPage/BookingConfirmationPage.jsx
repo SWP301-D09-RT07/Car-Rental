@@ -34,33 +34,8 @@ import {
 import { toast } from "react-toastify"
 import { useAuth } from "@/hooks/useAuth"
 import { getItem } from '@/utils/auth'
-
-// Enhanced Loading Spinner Component
-const LoadingSpinner = ({ size = "medium", color = "blue", text }) => {
-
-  const sizeClasses = {
-    small: "w-4 h-4",
-    medium: "w-8 h-8",
-    large: "w-12 h-12",
-  }
-
-  const colorClasses = {
-    blue: "border-blue-600",
-    white: "border-white",
-    gray: "border-gray-600",
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center">
-      <div
-        className={`animate-spin rounded-full border-2 border-t-transparent ${sizeClasses[size]} ${colorClasses[color]}`}
-      >
-        <div className="sr-only">Đang tải...</div>
-      </div>
-      {text && <p className="mt-3 text-gray-600 text-sm font-medium">{text}</p>}
-    </div>
-  )
-}
+import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
+import Footer from '@/components/layout/Footer/Footer.jsx';
 
 // Enhanced Progress Steps Component
 const ProgressSteps = ({ currentStep = 1 }) => {
@@ -920,16 +895,7 @@ const BookingConfirmationPage = () => {
   if (isLoading && !car) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="text-center">
-          <div className="mb-12">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-8 rounded-3xl inline-block shadow-2xl animate-pulse">
-              <FaCarSide className="text-6xl text-white animate-bounce" />
-            </div>
-          </div>
-          <LoadingSpinner size="large" />
-          <p className="mt-8 text-gray-700 text-2xl font-bold">Đang tải thông tin đặt xe...</p>
-          <p className="mt-4 text-gray-500 text-lg">Vui lòng chờ trong giây lát</p>
-        </div>
+        <LoadingSpinner size="large" />
       </div>
     )
   }
@@ -1171,111 +1137,7 @@ const BookingConfirmationPage = () => {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white/95 backdrop-blur-xl border-t border-gray-200 mt-16">
-        <div className="container mx-auto px-4 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="md:col-span-1">
-              <Link to="/" className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white">
-                  <FaCar />
-                </div>
-                <span className="font-bold text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  RentCar
-                </span>
-              </Link>
-              <p className="text-gray-600 mb-6">
-                Dịch vụ thuê xe uy tín, an toàn và tiện lợi. Mang đến trải nghiệm tuyệt vời cho mọi chuyến đi.
-              </p>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <FaShieldAlt className="text-green-600" />
-                  <span>Bảo hiểm toàn diện</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-gray-900 mb-6">Liên kết nhanh</h3>
-              <ul className="space-y-3 text-gray-600">
-                <li>
-                  <Link to="/" className="hover:text-blue-600 transition-colors">
-                    Trang chủ
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/search" className="hover:text-blue-600 transition-colors">
-                    Tìm kiếm xe
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/favorites" className="hover:text-blue-600 transition-colors">
-                    Xe yêu thích
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/bookings" className="hover:text-blue-600 transition-colors">
-                    Đặt xe của tôi
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-gray-900 mb-6">Hỗ trợ</h3>
-              <ul className="space-y-3 text-gray-600">
-                <li>
-                  <Link to="/help" className="hover:text-blue-600 transition-colors">
-                    Trung tâm trợ giúp
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/terms" className="hover:text-blue-600 transition-colors">
-                    Điều khoản dịch vụ
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/privacy" className="hover:text-blue-600 transition-colors">
-                    Chính sách bảo mật
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/contact" className="hover:text-blue-600 transition-colors">
-                    Liên hệ
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-bold text-gray-900 mb-6">Liên hệ</h3>
-              <div className="space-y-3 text-gray-600">
-                <div className="flex items-center gap-3">
-                  <FaHeadset className="text-blue-600" />
-                  <span>Hotline: 1900 1234</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <FaEnvelope className="text-blue-600" />
-                  <span>support@rentcar.com</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <FaMapMarkerAlt className="text-blue-600" />
-                  <span>123 Đường ABC, Quận 1, TP.HCM</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 pt-8 mt-8 flex flex-col md:flex-row items-center justify-between">
-            <p className="text-gray-600">© 2024 RentCar. Tất cả quyền được bảo lưu.</p>
-            <div className="flex items-center gap-2 text-gray-600 mt-4 md:mt-0">
-              <span>Made with</span>
-              <FaHeart className="text-red-500" />
-              <span>in Vietnam</span>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

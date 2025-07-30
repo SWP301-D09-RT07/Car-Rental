@@ -11,28 +11,31 @@ const styles = {
 }
 
 const LoadingSkeleton = ({ count = 3 }) => (
-  <div className="flex gap-4">
+  <div className="flex gap-6">
     {Array.from({ length: count }).map((_, i) => (
-      <div key={i} className="flex-1 bg-white rounded-2xl p-6 shadow-lg">
+      <div key={i} className="flex-1 bg-white rounded-2xl p-6 shadow-lg min-h-[280px] flex flex-col">
         <div className="flex justify-between mb-4">
-          <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+          <div className="w-6 h-6 bg-gray-200 rounded animate-pulse"></div>
           <div className="flex gap-1">
             {Array.from({ length: 5 }).map((_, j) => (
               <div key={j} className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
             ))}
           </div>
         </div>
-        <div className="space-y-2 mb-4">
+        <div className="space-y-2 mb-6 flex-grow">
           <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
           <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4"></div>
           <div className="h-4 bg-gray-200 rounded animate-pulse w-1/2"></div>
         </div>
-        <div className="flex items-center">
-          <div className="w-10 h-10 bg-gray-200 rounded-full animate-pulse"></div>
-          <div className="ml-3 space-y-1">
-            <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
-            <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
+        <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-auto">
+          <div className="flex items-center">
+            <div className="w-10 h-10 bg-gray-200 rounded-full animate-pulse"></div>
+            <div className="ml-3 space-y-1">
+              <div className="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
+              <div className="h-3 bg-gray-200 rounded animate-pulse w-16"></div>
+            </div>
           </div>
+          <div className="w-12 h-6 bg-gray-200 rounded-full animate-pulse"></div>
         </div>
       </div>
     ))}
@@ -46,14 +49,13 @@ const TestimonialCarousel = ({ carId, ratings = [], loading = false, error = nul
   const [touchStart, setTouchStart] = useState(0)
   const [touchEnd, setTouchEnd] = useState(0)
 
-  // Enhanced Responsive visible ratings
+  // Enhanced Responsive visible ratings - Fixed to 3 for better rectangle layout
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth
       if (width < 640) setVisibleRatings(1)      // Mobile
-      else if (width < 1024) setVisibleRatings(2) // Tablet
-      else if (width < 1280) setVisibleRatings(3) // Desktop
-      else setVisibleRatings(4)                   // Large Desktop
+      else if (width < 768) setVisibleRatings(2) // Small tablet
+      else setVisibleRatings(3)                  // Tablet, Desktop, Large Desktop - always 3
     }
 
     handleResize()
@@ -250,9 +252,9 @@ const TestimonialCarousel = ({ carId, ratings = [], loading = false, error = nul
           </>
         )}
 
-        {/* Enhanced Cards Container */}
+        {/* Enhanced Cards Container - Wider layout */}
         <div 
-          className="flex transition-transform duration-500 ease-out px-8"
+          className="flex transition-transform duration-500 ease-out px-4"
           style={{ 
             transform: `translateX(-${currentIndex * (100 / visibleRatings)}%)`,
           }}
@@ -266,23 +268,23 @@ const TestimonialCarousel = ({ carId, ratings = [], loading = false, error = nul
               className="flex-shrink-0 px-2"
               style={{ width: `${100 / visibleRatings}%` }}
             >
-              {/* Enhanced Card Design */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 h-full border border-gray-100 hover:border-blue-200 hover:-translate-y-1">
-                {/* Quote Icon */}
+              {/* Enhanced Card Design - Rectangle layout */}
+              <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 h-full border border-gray-100 hover:border-blue-200 hover:-translate-y-1 min-h-[280px] flex flex-col">
+                {/* Quote Icon and Rating - More compact */}
                 <div className="flex justify-between items-start mb-4">
                   <FaQuoteLeft className="text-blue-200 text-2xl" />
                   <StarRating rating={rating.ratingScore || 0} size="base" />
                 </div>
 
-                {/* Enhanced Comment */}
-                <div className="mb-6">
-                  <p className="text-gray-700 leading-relaxed line-clamp-4 text-sm md:text-base" style={styles.lineClamp4}>
+                {/* Enhanced Comment - More compact */}
+                <div className="mb-6 flex-grow">
+                  <p className="text-gray-700 leading-relaxed line-clamp-3 text-sm md:text-base" style={{...styles.lineClamp4, WebkitLineClamp: 3}}>
                     "{rating.comment || 'Khách hàng hài lòng với dịch vụ của chúng tôi.'}"
                   </p>
                 </div>
 
-                {/* Enhanced Customer Info */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                {/* Enhanced Customer Info - Compact */}
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-auto">
                   <div className="flex items-center">
                     <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md">
                       {rating.isAnonymous 

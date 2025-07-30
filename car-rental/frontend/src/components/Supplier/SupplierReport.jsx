@@ -41,6 +41,68 @@ const getPercentChange = (arr) => {
   return ((last - prev) / prev) * 100;
 };
 
+// Thêm hàm getStatusColor và getStatusLabel ở đầu file (hoặc gần render bảng)
+const getStatusColor = (status) => {
+  const st = (status || '').toLowerCase();
+  switch (st) {
+    case 'confirmed':
+    case 'đã xác nhận':
+      return 'bg-green-100 text-green-700 border-green-300';
+    case 'pending':
+    case 'chờ xác nhận':
+      return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+    case 'cancelled':
+    case 'đã hủy':
+      return 'bg-red-100 text-red-700 border-red-300';
+    case 'completed':
+    case 'hoàn thành':
+      return 'bg-blue-100 text-blue-700 border-blue-300';
+    case 'in_progress':
+    case 'in progress':
+    case 'đang thuê':
+      return 'bg-purple-100 text-purple-700 border-purple-300';
+    case 'ready_for_pickup':
+    case 'sẵn sàng nhận xe':
+      return 'bg-cyan-100 text-cyan-700 border-cyan-300';
+    case 'delivered':
+    case 'đã giao xe':
+      return 'bg-indigo-100 text-indigo-700 border-indigo-300';
+    case 'refunded':
+    case 'đã hoàn cọc':
+      return 'bg-pink-100 text-pink-700 border-pink-300';
+    case 'payout':
+      return 'bg-teal-100 text-teal-700 border-teal-300';
+    default:
+      return 'bg-gray-100 text-gray-700 border-gray-300';
+  }
+};
+const getStatusLabel = (status) => {
+  const st = (status || '').toLowerCase();
+  switch (st) {
+    case 'confirmed':
+      return 'Đã xác nhận';
+    case 'pending':
+      return 'Chờ xác nhận';
+    case 'cancelled':
+      return 'Đã hủy';
+    case 'completed':
+      return 'Hoàn thành';
+    case 'in_progress':
+    case 'in progress':
+      return 'Đang thuê';
+    case 'ready_for_pickup':
+      return 'Sẵn sàng nhận xe';
+    case 'delivered':
+      return 'Đã giao xe';
+    case 'refunded':
+      return 'Đã hoàn cọc';
+    case 'payout':
+      return 'Đã payout';
+    default:
+      return status || 'N/A';
+  }
+};
+
 const SupplierReport = () => {
   const [summary, setSummary] = useState(null);
   const [orders, setOrders] = useState([]);
@@ -175,11 +237,7 @@ const SupplierReport = () => {
         animate={{ opacity: 1 }}
         className="flex items-center justify-center min-h-64"
       >
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-20 w-20 border-b-4 border-blue-600 mx-auto mb-6"></div>
-          <p className="text-gray-600 text-xl font-medium">Đang tải báo cáo...</p>
-          <p className="text-gray-500 text-sm mt-2">Vui lòng đợi trong giây lát</p>
-        </div>
+        <LoadingSpinner size="large" color="blue" />
       </motion.div>
     );
   }
@@ -572,26 +630,10 @@ const SupplierReport = () => {
                           </div>
                     </td>
                     <td className="py-3 px-4">
-                          <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-sm border-2 text-center min-w-[100px] transition-all
-                            ${(() => {
-                              const st = (order.status?.statusName || order.statusName || '').toLowerCase();
-                              if (st === 'confirmed') return 'bg-green-100 text-green-700 border-green-300';
-                              if (st === 'pending') return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-                              if (st === 'cancelled') return 'bg-red-100 text-red-700 border-red-300';
-                              if (st === 'completed') return 'bg-blue-100 text-blue-700 border-blue-300';
-                              if (st === 'in_progress') return 'bg-purple-100 text-purple-700 border-purple-300';
-                              return 'bg-gray-100 text-gray-700 border-gray-300';
-                            })()}`}
-                          >
-                            {(() => {
-                              const st = (order.status?.statusName || order.statusName || '').toLowerCase();
-                              if (st === 'confirmed') return 'Đã xác nhận';
-                              if (st === 'pending') return 'Chờ xác nhận';
-                              if (st === 'cancelled') return 'Đã hủy';
-                              if (st === 'completed') return 'Hoàn thành';
-                              if (st === 'in_progress') return 'Đang thuê';
-                              return order.status?.statusName || order.statusName || 'N/A';
-                            })()}
+                      <span className={`px-4 py-2 rounded-full text-sm font-bold shadow-sm border-2 text-center min-w-[100px] transition-all
+                        ${getStatusColor(order.status?.statusName || order.statusName || '')}
+                      `}>
+                        {getStatusLabel(order.status?.statusName || order.statusName || '')}
                       </span>
                     </td>
                         <td className="py-3 px-4">

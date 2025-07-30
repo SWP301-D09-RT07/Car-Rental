@@ -36,4 +36,16 @@ public class Favorite {
 
     @Column(name = "is_deleted")
     private Boolean isDeleted;
+
+    @PrePersist
+    public void prePersist() {
+        Instant now = Instant.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = Instant.now();
+    }
 }

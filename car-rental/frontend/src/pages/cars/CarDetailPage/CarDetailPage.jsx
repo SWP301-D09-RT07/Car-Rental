@@ -72,38 +72,8 @@ import "swiper/css/pagination"
 import "swiper/css/navigation"
 import TestimonialCarousel from '../../../components/Rating/TestimonialCarousel'
 import { getItem } from '@/utils/auth';
+import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
 
-// Enhanced Loading Spinner Component
-const LoadingSpinner = ({ size = "medium", color = "blue", text }) => {
-  const sizeClasses = {
-    small: "w-6 h-6",
-    medium: "w-12 h-12",
-    large: "w-20 h-20",
-  }
-
-  const colorClasses = {
-    blue: "border-blue-600",
-    white: "border-white",
-    gray: "border-gray-600",
-  }
-
-  return (
-    <div className="flex flex-col items-center justify-center p-8">
-      <div className="relative">
-        <div
-          className={`animate-spin rounded-full border-4 border-t-transparent ${sizeClasses[size]} ${colorClasses[color]} shadow-lg`}
-        />
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 opacity-20 animate-pulse" />
-      </div>
-      {text && (
-        <div className="mt-6 text-center">
-          <p className="text-gray-700 font-semibold text-lg">{text}</p>
-          <p className="text-gray-500 text-sm mt-2">Vui lòng chờ trong giây lát...</p>
-        </div>
-      )}
-    </div>
-  )
-}
 
 // Enhanced Error Message Component
 const ErrorMessage = ({ message, onRetry, className = "" }) => {
@@ -221,6 +191,8 @@ const CarDetailPage = () => {
       setLoading(true)
       try {
         const carData = await getCarById(carId)
+        console.log('Car data received:', carData)
+        console.log('Rental count from backend:', carData.rentalCount)
         setCar(carData)
 
         // Fetch ratings for this car
@@ -359,6 +331,8 @@ const CarDetailPage = () => {
         setError(null)
 
         const carData = await getCarById(carId)
+        console.log('Car data received in fetchCarDetail:', carData)
+        console.log('Rental count from backend in fetchCarDetail:', carData.rentalCount)
         setCar(carData)
 
         // Nếu backend KHÔNG trả về car.supplier, thì fetch bằng supplierId
@@ -641,18 +615,16 @@ const CarDetailPage = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-sky-50 to-white">
         <Header
           isUserDropdownOpen={isUserDropdownOpen}
           setIsUserDropdownOpen={setIsUserDropdownOpen}
           isMobileMenuOpen={isMobileMenuOpen}
           setIsMobileMenuOpen={setIsMobileMenuOpen}
         />
-        <div className="container mx-auto px-4 py-16">
-          <LoadingSpinner size="large" text="Đang tải thông tin xe..." />
-        </div>
+        <LoadingSpinner size="large" text="Đang tải thông tin xe..." />
       </div>
-    )
+    );
   }
 
   // Error state
@@ -798,7 +770,7 @@ const CarDetailPage = () => {
                   </div>
                   <div className="flex items-center bg-white rounded-2xl px-6 py-4 shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300">
                     <FaThumbsUp className="mr-3 text-green-500 text-xl" />
-                    <span className="font-bold text-lg">{car.rentalCount || 25} lượt thuê</span>
+                    <span className="font-bold text-lg">{car.rentalCount !== undefined ? car.rentalCount : 0} lượt thuê</span>
                   </div>
                 </div>
               </div>

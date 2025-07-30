@@ -47,38 +47,16 @@ import {
 } from "react-icons/fa"
 import Skeleton from "react-loading-skeleton"
 import "react-loading-skeleton/dist/skeleton.css"
-import api, { filterCars, findCars, searchCars, getUserById } from "@/services/api.js"
+import api, { filterCars, findCars, searchCars, getUserById, getRatingsByCarId } from "@/services/api.js"
 import { getToken } from "@/utils/auth.js"
 import "react-toastify/dist/ReactToastify.css"
 import BookingModal from '@/components/features/cars/BookingModal.jsx';
 import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/layout/Header/Header';
 import Footer from '@/components/layout/Footer/Footer';
+import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner.jsx';
+import AutocompleteSearch from '@/components/Common/AutocompleteSearch';
 
-// Enhanced Loading Spinner Component
-const LoadingSpinner = ({ size = "medium", color = "blue" }) => {
-    const sizeClasses = {
-        small: "w-4 h-4",
-        medium: "w-8 h-8",
-        large: "w-12 h-12",
-    }
-
-    const colorClasses = {
-        blue: "border-blue-600",
-        white: "border-white",
-        gray: "border-gray-600",
-    }
-
-    return (
-        <div className="flex justify-center items-center">
-            <div
-                className={`animate-spin rounded-full border-2 border-t-transparent ${sizeClasses[size]} ${colorClasses[color]}`}
-            >
-                <div className="sr-only">Đang tải...</div>
-            </div>
-        </div>
-    )
-}
 
 // Enhanced Error Message Component
 const ErrorMessage = ({ message, onRetry, className = "" }) => {
@@ -163,6 +141,9 @@ const SearchPage = () => {
     const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false);
     const [quickViewCar, setQuickViewCar] = useState(null);
     const [isQuickViewOpen, setIsQuickViewOpen] = useState(false);
+    const [quickViewRatingCount, setQuickViewRatingCount] = useState(0);
+    const [quickViewRatingLoading, setQuickViewRatingLoading] = useState(false);
+    const [isSearchingByQuery, setIsSearchingByQuery] = useState(false);
 
     // Form Management for Filters
     const { register, handleSubmit, reset, watch, setValue, getValues } = useForm({
@@ -534,6 +515,7 @@ const SearchPage = () => {
         setCurrentFilterType("all");
         setIsInitialFilterApplied(false);
         setNoCarMessage("");
+        setIsSearchingByQuery(false); // Reset lại trạng thái search tự do
         handleFilterChange({});
         toast.info("Filters reset.");
     };
@@ -590,7 +572,7 @@ const SearchPage = () => {
     const displayedRentedCars = showAllRented ? rentedCars : rentedCars.slice(0, rentedCarsLimit)
 
     // Quick View Modal Component
-const QuickViewModal = ({ isOpen, onClose, car }) => {
+const QuickViewModal = ({ isOpen, onClose, car, ratingCount = 0, ratingLoading = false }) => {
     if (!isOpen || !car) return null;
 
     return (
@@ -643,11 +625,31 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                             {car.averageRating && car.averageRating > 0 ? (
                                 <div className="flex items-center space-x-2">
                                     {renderStars(car.averageRating)}
-                                    <span className="text-gray-500">({car.reviewCount || "0"} đánh giá)</span>
+                                    <span className="text-gray-500">
+                                        ({ratingLoading ? (
+                                            <div className="inline-flex items-center">
+                                                <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin mr-1"></div>
+                                                Đang tải...
+                                            </div>
+                                        ) : (
+                                            `${ratingCount} đánh giá`
+                                        )})
+                                    </span>
                                 </div>
                             ) : (
                                 <div className="flex items-center space-x-2">
-                                    <span className="text-gray-500">Chưa có đánh giá</span>
+                                    <span className="text-gray-500">
+                                        {ratingLoading ? (
+                                            <div className="inline-flex items-center">
+                                                <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin mr-1"></div>
+                                                Đang tải...
+                                            </div>
+                                        ) : ratingCount > 0 ? (
+                                            `${ratingCount} đánh giá chưa có điểm`
+                                        ) : (
+                                            "Chưa có đánh giá"
+                                        )}
+                                    </span>
                                 </div>
                             )}
 
@@ -752,14 +754,29 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
     );
 }
     // Quick View handlers
-    const handleQuickView = (car) => {
+    const handleQuickView = async (car) => {
         setQuickViewCar(car);
         setIsQuickViewOpen(true);
+        setQuickViewRatingCount(0); // Reset về 0 trước khi fetch
+        setQuickViewRatingLoading(true);
+        
+        // Fetch số lượng đánh giá
+        try {
+            const ratings = await getRatingsByCarId(car.carId);
+            setQuickViewRatingCount(ratings ? ratings.length : 0);
+        } catch (error) {
+            console.error('Error fetching ratings count:', error);
+            setQuickViewRatingCount(0);
+        } finally {
+            setQuickViewRatingLoading(false);
+        }
     };
 
     const closeQuickView = () => {
         setIsQuickViewOpen(false);
         setQuickViewCar(null);
+        setQuickViewRatingCount(0);
+        setQuickViewRatingLoading(false);
     };
 
     // Enhanced Car Card Component
@@ -832,7 +849,7 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                             "https://via.placeholder.com/400x250?text=Car+Image" ||
                             "/placeholder.svg"
                         }
-                        alt={`${car.brandName} ${car.model}`}
+                        alt={`${car.model}`}
                         className={`w-full h-full object-cover object-center transition-all duration-700 ${isHovered ? "scale-110" : "scale-100"
                             } ${imageLoaded ? "opacity-100" : "opacity-0"}`}
                         loading="lazy"
@@ -892,9 +909,9 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                             <h3 
                                 className="text-xl font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors cursor-pointer line-clamp-1" 
                                 onClick={() => navigate(`/cars/${car.carId}`)}
-                                title={`${car.brandName} ${car.model}`}
+                                title={`${car.model}`}
                             >
-                                {car.brandName} {car.model}
+                                {car.model}
                             </h3>
                             <p className="text-gray-500 text-sm">
                                 {car.year} • {car.regionName || 'Hà Nội'}
@@ -1077,20 +1094,19 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
         try {
             setLoading(true);
             setError("");
-            setCurrentFilterType("all"); // Reset về search thường
+            setCurrentFilterType("search"); // Đánh dấu là search tự do
+            setIsSearchingByQuery(true);    // Đánh dấu search tự do
 
             const response = await findCars(query, currentPage - 1, carsPerPage);
             setCars(response);
             setFilteredCars(response.content || []);
 
-            // Xử lý thông báo khi không có xe
             if (!response.content || response.content.length === 0) {
                 setNoCarMessage(`Không tìm thấy xe nào với từ khóa "${query}". Vui lòng thử từ khóa khác.`);
             } else {
                 setNoCarMessage('');
             }
         } catch (error) {
-            console.error("Error searching cars:", error);
             setError("Failed to search cars. Please try again later.");
             setCars({ content: [], totalElements: 0, totalPages: 1 });
             setFilteredCars([]);
@@ -1156,6 +1172,7 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
         setFilters({});
         setNoCarMessage(""); // Reset noCarMessage
         reset();
+        setIsSearchingByQuery(false); // Reset lại trạng thái search tự do
 
         if (location.state?.searchParams) {
             setPendingFilterType(filterType); // Đánh dấu loại filter cần load lại sau khi navigate
@@ -1256,11 +1273,17 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
 
     // useEffect fetchCars chỉ chạy khi không phải lần đầu nhận filter từ HomePage
     useEffect(() => {
-        if (currentFilterType === "all" && !location.state?.searchParams && !location.state?.filters && !isInitialFilterApplied) {
+        if (
+            currentFilterType === "all" &&
+            !location.state?.searchParams &&
+            !location.state?.filters &&
+            !isInitialFilterApplied &&
+            !isSearchingByQuery // Đừng fetch lại khi đang search tự do
+        ) {
             fetchCars(filters, 0);
         }
         // eslint-disable-next-line
-    }, [currentFilterType, filters, location.state, isInitialFilterApplied]);
+    }, [currentFilterType, filters, location.state, isInitialFilterApplied, isSearchingByQuery]);
 
     useEffect(() => {
         // Nếu vừa xóa searchParams và có pendingFilterType, tự động load lại đúng loại xe
@@ -1288,6 +1311,61 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
             })();
         }
     }, [location.state, pendingFilterType]);
+
+    // Thêm hàm fetchSuggestions phía trên SearchPage
+    const fetchSuggestions = async (query) => {
+      // Gợi ý theo brand và model từ danh sách xe đã fetch
+      const allNames = [
+        ...new Set(
+          (cars.content || [])
+            .flatMap(car => [car.brandName, car.model])
+            .filter(Boolean)
+        )
+      ];
+      return allNames.filter(name =>
+        name.toLowerCase().startsWith(query.toLowerCase())
+      );
+    };
+
+    // Effect đồng bộ searchQuery từ Header vào filter hoặc search tự do
+    useEffect(() => {
+        if (
+            location.state &&
+            location.state.searchQuery &&
+            brands.length > 0 &&
+            regions.length > 0 &&
+            fuelTypes.length > 0 &&
+            years.length > 0
+        ) {
+            const query = location.state.searchQuery;
+
+            const foundBrand = brands.find(b => b.brandName?.toLowerCase() === query.toLowerCase());
+            const foundRegion = regions.find(r => r.regionName?.toLowerCase() === query.toLowerCase());
+            const foundFuel = fuelTypes.find(f => f.fuelTypeName?.toLowerCase() === query.toLowerCase());
+            const foundYear = years.find(y => y.toString() === query);
+
+            if (foundBrand) {
+                setValue("brand", foundBrand.brandName);
+                onFilterSubmit({ ...getValues(), brand: foundBrand.brandName });
+            } else if (foundRegion) {
+                setValue("countryCode", "+84");
+                setValue("regionId", foundRegion.regionId);
+                onFilterSubmit({ ...getValues(), countryCode: "+84", regionId: foundRegion.regionId });
+            } else if (foundFuel) {
+                setValue("fuelType", foundFuel.fuelTypeName);
+                onFilterSubmit({ ...getValues(), fuelType: foundFuel.fuelTypeName });
+            } else if (foundYear) {
+                setValue("year", foundYear.toString());
+                onFilterSubmit({ ...getValues(), year: foundYear.toString() });
+            } else {
+                // Nếu không nhận diện được filter, coi là tìm kiếm tự do (model/tên xe)
+                setSearchQuery(query);
+                handleSearch(query);
+            }
+
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [location.state, brands, regions, fuelTypes, years]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
@@ -1582,12 +1660,14 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                                     <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
                                         <div className="w-full lg:w-auto">
                                             <div className="relative">
-                                                <input
-                                                    type="text"
-                                                    placeholder="Tìm theo tên, model..."
-                                                    className="w-full lg:w-96 pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-gray-50 hover:bg-white transition-all"
+                                                <AutocompleteSearch
+                                                    fetchSuggestions={fetchSuggestions}
+                                                    onSelect={value => {
+                                                        setSearchQuery(value);
+                                                        handleSearch(value); // Gọi search luôn khi chọn suggestion
+                                                    }}
                                                     value={searchQuery}
-                                                    onChange={handleSearchInputChange}
+                                                    onChange={val => setSearchQuery(val)}
                                                 />
                                                 <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                                             </div>
@@ -1908,16 +1988,6 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
 
             {/* Enhanced Floating Elements */}
             <div className="fixed bottom-8 right-8 z-30 flex flex-col space-y-4">
-                {/* Chat Button */}
-                <div className="group relative">
-                    <button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white w-14 h-14 rounded-full shadow-xl hover:shadow-2xl flex items-center justify-center transition-all duration-300 transform hover:scale-110">
-                        <FaComments className="text-xl" />
-                    </button>
-                    <div className="absolute right-16 top-1/2 transform -translate-y-1/2 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-                        Chat với chúng tôi
-                    </div>
-                </div>
-
                 {/* Back to Top */}
                 {showScrollToTop && (
                     <button
@@ -1976,6 +2046,8 @@ const QuickViewModal = ({ isOpen, onClose, car }) => {
                 isOpen={isQuickViewOpen}
                 onClose={closeQuickView}
                 car={quickViewCar}
+                ratingCount={quickViewRatingCount}
+                ratingLoading={quickViewRatingLoading}
             />
         </div>
     );

@@ -1,4 +1,4 @@
-﻿
+﻿create database CarRentalDB
 -- 1. Tạo bảng CountryCode
 CREATE TABLE CountryCode (
     country_code VARCHAR(4) PRIMARY KEY CHECK (country_code LIKE '+[0-9]%'),
@@ -279,14 +279,20 @@ CREATE TABLE Booking (
 	with_driver BIT DEFAULT 0 NOT NULL,
     region_id INT NOT NULL,
     booking_date DATETIME NOT NULL DEFAULT GETDATE(),
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL,
+    start_date DATETIME2 NOT NULL,
+    end_date DATETIME2 NOT NULL,
     pickup_location NVARCHAR(200) NOT NULL,
     dropoff_location NVARCHAR(200) NOT NULL,
     status_id INT NOT NULL,
     seat_number TINYINT NOT NULL CHECK (seat_number > 0),
     deposit_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
     promo_id INT,
+	supplier_delivery_confirm BIT DEFAULT 0,
+    customer_receive_confirm BIT DEFAULT 0,
+    customer_return_confirm BIT DEFAULT 0,
+    supplier_return_confirm BIT DEFAULT 0,
+    delivery_confirm_time DATETIME,
+    return_confirm_time DATETIME,
     extension_days INT DEFAULT 0 CHECK (extension_days >= 0),
     extension_status_id INT,
     created_at DATETIME DEFAULT GETDATE(),
@@ -372,6 +378,7 @@ CREATE TABLE Rating (
     comment NVARCHAR(500),
     rating_date DATETIME NOT NULL DEFAULT GETDATE(),
     car_id INT NOT NULL,
+	is_anonymous BIT NOT NULL DEFAULT 0,
     is_deleted BIT DEFAULT 0,
     FOREIGN KEY (booking_id) REFERENCES Booking(booking_id) ON DELETE CASCADE,
     FOREIGN KEY (customer_id) REFERENCES [User](user_id) ON DELETE NO ACTION,
@@ -380,7 +387,6 @@ CREATE TABLE Rating (
 );
 GO
 
-
 -- 24. Tạo bảng Payment
 CREATE TABLE Payment (
     payment_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -388,17 +394,18 @@ CREATE TABLE Payment (
     amount DECIMAL(10, 2) NOT NULL CHECK (amount >= 0),
     region_id INT NOT NULL,
     transaction_id VARCHAR(100),
-    payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('vnpay', 'cash')),
+    payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('vnpay', 'cash', 'momo')),
     payment_status_id INT NOT NULL,
     payment_date DATETIME NOT NULL DEFAULT GETDATE(),
     is_deleted BIT DEFAULT 0,
-    payment_type VARCHAR(20) NOT NULL DEFAULT 'deposit' CHECK (payment_type IN ('deposit', 'full_payment', 'refund')),
+    payment_type VARCHAR(20) NOT NULL DEFAULT 'deposit' CHECK (payment_type IN ('deposit', 'full_payment', 'refund', 'payout')),
     FOREIGN KEY (booking_id) REFERENCES Booking(booking_id) ON DELETE CASCADE,
     FOREIGN KEY (payment_status_id) REFERENCES Status(status_id) ON DELETE NO ACTION,
     FOREIGN KEY (region_id) REFERENCES Region(region_id) ON DELETE NO ACTION,
-    CONSTRAINT UQ_Booking_Payment UNIQUE (booking_id)
+    CONSTRAINT UQ_Booking_Payment_Type UNIQUE (booking_id, payment_type)
 );
 GO
+
 
 -- 25. Tạo bảng Maintenance
 CREATE TABLE Maintenance (
@@ -560,7 +567,96 @@ CREATE TABLE Favorite (
 );
 GO
 
+CREATE TABLE registration_requests (
+    id INT PRIMARY KEY IDENTITY(1,1),
+    full_name NVARCHAR(255),
+    id_number VARCHAR(50),
+    address NVARCHAR(255),
+    phone_number VARCHAR(20),
+    email VARCHAR(255),
+	password VARCHAR(255) NOT NULL,
+    car_documents VARCHAR(255), -- File path
+    business_license VARCHAR(255),
+    driver_license VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'pending', -- pending/approved/rejected
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+GO
+-- Create a trigger to update the updated_at column
+CREATE TRIGGER trigger_registration_requests_updated_at
+ON registration_requests
+AFTER UPDATE
+AS
+BEGIN
+    UPDATE registration_requests
+    SET updated_at = GETDATE()
+    FROM registration_requests r
+    INNER JOIN inserted i ON r.id = i.id;
+END;
 
+CREATE TABLE user_sessions (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT NOT NULL,
+    token NVARCHAR(512) NOT NULL,
+    created_at DATETIME2 DEFAULT SYSDATETIME(),
+    expired_at DATETIME2 NULL,
+    is_active BIT DEFAULT 1,
+    CONSTRAINT FK_user_sessions_user FOREIGN KEY (user_id) REFERENCES [User](user_id) ON DELETE CASCADE
+);
+
+CREATE TABLE cash_payment_confirmations (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    payment_id INT NOT NULL,
+    supplier_id INT NOT NULL,
+    amount_received DECIMAL(15,2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'VND',
+    received_at DATETIME2 DEFAULT GETDATE(),
+    confirmation_type VARCHAR(20) DEFAULT 'pickup',
+    supplier_confirmation_code VARCHAR(50),
+    is_confirmed BIT DEFAULT 0,
+    notes VARCHAR(500),
+    platform_fee DECIMAL(15,2) NOT NULL,
+    platform_fee_status VARCHAR(20) DEFAULT 'pending',
+    platform_fee_due_date DATETIME2,
+    platform_fee_paid_at DATETIME2 NULL,
+    is_deleted BIT DEFAULT 0,
+    created_at DATETIME2 DEFAULT GETDATE(),
+    updated_at DATETIME2 DEFAULT GETDATE(),
+    
+    CONSTRAINT FK_cash_payment_confirmations_payment_id 
+        FOREIGN KEY (payment_id) REFERENCES payment(payment_id) ON DELETE CASCADE,
+    CONSTRAINT FK_cash_payment_confirmations_supplier_id 
+        FOREIGN KEY (supplier_id) REFERENCES [User](user_id) ON DELETE CASCADE
+);
+
+-- Create indexes
+CREATE INDEX idx_cash_payment_confirmations_payment_id ON cash_payment_confirmations(payment_id);
+CREATE INDEX idx_cash_payment_confirmations_supplier_id ON cash_payment_confirmations(supplier_id);
+CREATE INDEX idx_cash_payment_confirmations_platform_fee_status ON cash_payment_confirmations(platform_fee_status);
+CREATE INDEX idx_cash_payment_confirmations_platform_fee_due_date ON cash_payment_confirmations(platform_fee_due_date);
+CREATE INDEX idx_cash_payment_confirmations_is_confirmed ON cash_payment_confirmations(is_confirmed);
+CREATE INDEX idx_cash_payment_confirmations_is_deleted ON cash_payment_confirmations(is_deleted);
+GO 
+-- Create trigger for updated_at column
+CREATE TRIGGER tr_cash_payment_confirmations_updated_at
+ON cash_payment_confirmations
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE cash_payment_confirmations 
+    SET updated_at = GETDATE()
+    FROM cash_payment_confirmations cpc
+    INNER JOIN inserted i ON cpc.id = i.id;
+END;
+
+-- Add extended property for table description (SQL Server equivalent of COMMENT)
+EXEC sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Tracks cash payment confirmations and platform fee management for suppliers',
+    @level0type = N'SCHEMA', @level0name = N'dbo',
+    @level1type = N'TABLE', @level1name = N'cash_payment_confirmations';
 
 -- INSERT dữ liệu
 -- 1. Bảng Role
@@ -712,7 +808,12 @@ VALUES
 	(N'unavailable', N'Không khả dụng'),
     (N'refunded', N'Đã hoàn tiền'),
 	('unread', N'Chưa đọc'),
-    (N'blocked', N'Bị chặn');
+	(N'blocked', N'Chặn'),
+	(N'approved', N'Cho phép'),
+	(N'rejected', N'bị từ chối'),
+	(N'payout', N'Đã chuyển tiền'),
+	(N'ready_for_pickup', N'chờ nhận xe'),
+	(N'delivered', N'đã giao xe');
 GO
 
 -- 4. Bảng Language (SỬA: Thêm ngôn ngữ mới)
@@ -740,11 +841,7 @@ VALUES
     (2, N'Sales Tax', 'percentage', 5.00, N'Thuế bán hàng Hoa Kỳ'),
     (3, N'Consumption Tax', 'percentage', 8.00, N'Thuế tiêu thụ Nhật Bản');
 GO
-Select*from Status
-INSERT INTO Status (status_name, description)
-VALUES ('blocked', N'Bị chặn');
-INSERT INTO Status (status_name, description)
-VALUES ('active', N'Mở chặn');
+
 --8. Bảng User
 INSERT INTO [User] (
     username,
@@ -1521,25 +1618,25 @@ GO
 -- 19. Bảng Booking
 INSERT INTO Booking (customer_id, car_id, driver_id, region_id, start_date, end_date, pickup_location, dropoff_location, status_id, seat_number, deposit_amount, promo_id)
 VALUES 
-    (3, 5, 1, 2, '2025-06-25', '2025-06-27', N'Hà Nội', N'Hải Phòng', 2, 5, 600000.00, 1),
-    (1, 6, 1, 1, '2025-07-01', '2025-07-03', N'Đà Nẵng', N'Hội An', 1, 7, 500000.00, 2),
-    (4, 7, 1, 3, '2025-07-05', '2025-07-08', N'Nha Trang', N'Cam Ranh', 2, 6, 450000.00, NULL),
-    (2, 8, 1, 1, '2025-07-10', '2025-07-12', N'Cần Thơ', N'Vĩnh Long', 1, 5, 350000.00, 3);
+    (3, 5, 1, 2, '2025-09-10', '2025-09-11', N'Hà Nội', N'Hải Phòng', 2, 5, 600000.00, 1),
+    (1, 6, 1, 1, '2025-09-10', '2025-09-11', N'Đà Nẵng', N'Hội An', 1, 7, 500000.00, 2),
+    (4, 7, 1, 3, '2025-09-10', '2025-09-11', N'Nha Trang', N'Cam Ranh', 2, 6, 450000.00, NULL),
+    (2, 8, 1, 1, '2025-09-10', '2025-09-11', N'Cần Thơ', N'Vĩnh Long', 1, 5, 350000.00, 3);
 GO
 INSERT INTO Booking (customer_id, car_id, driver_id, region_id, start_date, end_date, pickup_location, dropoff_location, status_id, seat_number, deposit_amount, promo_id)
 VALUES 
-    (5, 9, 1, 2, '2025-06-25', '2025-06-28', N'Huế', N'Phong Điền', 1, 4, 400000.00, 1),
-    (3, 10, 1, 1, '2025-07-15', '2025-07-17', N'TP.HCM', N'Vũng Tàu', 2, 5, 550000.00, NULL),
-    (2, 11, 1, 3, '2025-07-20', '2025-07-23', N'Đà Lạt', N'Bảo Lộc', 1, 6, 450000.00, 2),
-    (1, 12, 1, 1, '2025-07-25', '2025-07-27', N'Hà Nội', N'Ninh Bình', 2, 7, 500000.00, 3),
-    (4, 13, 1, 2, '2025-08-01', '2025-08-03', N'Quảng Ninh', N'Hạ Long', 1, 5, 600000.00, NULL);
+    (5, 9, 1, 2, '2025-09-10', '2025-09-11', N'Huế', N'Phong Điền', 1, 4, 400000.00, 1),
+    (3, 10, 1, 1, '2025-09-10', '2025-09-11', N'TP.HCM', N'Vũng Tàu', 2, 5, 550000.00, NULL),
+    (2, 11, 1, 3, '2025-09-10', '2025-09-11', N'Đà Lạt', N'Bảo Lộc', 1, 6, 450000.00, 2),
+    (1, 12, 1, 1, '2025-09-10', '2025-09-11', N'Hà Nội', N'Ninh Bình', 2, 7, 500000.00, 3),
+    (4, 13, 1, 2, '2025-09-10', '2025-09-11', N'Quảng Ninh', N'Hạ Long', 1, 5, 600000.00, NULL);
 GO
 INSERT INTO Booking (customer_id, car_id, driver_id, region_id, start_date, end_date, pickup_location, dropoff_location, status_id, seat_number, deposit_amount, promo_id)
 VALUES 
-    (3, 10, 2, 2, '2025-06-25', '2025-06-27', N'Hà Nội', N'Hải Dương', 2, 5, 450000.00, 1),
-    (4, 10, 3, 1, '2025-07-01', '2025-07-03', N'Đà Nẵng', N'Hội An', 1, 4, 500000.00, 2),
-    (5, 10, 2, 3, '2025-07-05', '2025-07-07', N'Nha Trang', N'Cam Ranh', 2, 5, 550000.00, NULL),
-    (1, 10, 2, 1, '2025-07-10', '2025-07-12', N'Cần Thơ', N'Rạch Giá', 1, 4, 400000.00, 3);
+    (3, 10, 2, 2, '2025-09-10', '2025-09-11', N'Hà Nội', N'Hải Dương', 2, 5, 450000.00, 1),
+    (4, 10, 3, 1, '2025-09-10', '2025-09-11', N'Đà Nẵng', N'Hội An', 1, 4, 500000.00, 2),
+    (5, 10, 2, 3, '2025-09-10', '2025-09-11', N'Nha Trang', N'Cam Ranh', 2, 5, 550000.00, NULL),
+    (1, 10, 2, 1, '2025-09-10', '2025-09-11', N'Cần Thơ', N'Rạch Giá', 1, 4, 400000.00, 3);
 GO
 
 -- 20. Bảng BookingFinancials
@@ -1730,11 +1827,11 @@ GO
 INSERT INTO [Image] (car_id, image_url, description, is_main)
 VALUES 
     -- VinFast VF8 2022 (car_id = 1)
-    (1, N'/images/Vinfast_VF8_2022_7.jpg', N'Hình chính VinFast VF8 2022', 1),
+    (1, N'/images/Vinfast_VF8_2022_7.png', N'Hình chính VinFast VF8 2022', 1),
     (1, N'/images/Vinfast_VF8_2022_8.jpg', N'Hình phụ VinFast VF8 2022', 0),
     (1, N'/images/Vinfast_VF8_2022_6.jpg', N'Hình phụ VinFast VF8 2022', 0),
 	(1, N'/images/Vinfast_VF8_2022_9.jpg', N'Hình phụ VinFast VF8 2022', 0),
-	(1, N'/images/Vinfast_VF8_2022_5.jpg', N'Hình phụ VinFast VF8 2022', 0),
+	(1, N'/images/Vinfast_VF8_2022_5.png', N'Hình phụ VinFast VF8 2022', 0),
     -- VinFast Lux SA 2.0 2021 (car_id = 2)
     (2, N'/images/Vinfast_Lux_SA_20_2021_5.jpg', N'Hình chính VinFast Lux SA 2.0 2021', 1),
     (2, N'/images/Vinfast_Lux_SA_20_2021_9.jpg', N'Hình phụ VinFast Lux SA 2.0 2021', 0),
@@ -1868,7 +1965,7 @@ VALUES
     (24, N'/images/MG_ZS_15L_2024_6.jpg', N'Hình phụ MG ZS 1.5L 2024', 0),
     (24, N'/images/MG_ZS_15L_2024_3.jpg', N'Hình phụ MG ZS 1.5L 2024', 0),
     -- MG RX5 2023 (car_id = 25)
-    (25, N'/images/MG_RX5_2023_17.jpg', N'Hình chính MG RX5 2023', 1),
+    (25, N'/images/MG_RX5_2023_7.jpg', N'Hình chính MG RX5 2023', 1),
     (25, N'/images/MG_RX5_2023_8.jpg', N'Hình phụ MG RX5 2023', 0),
     (25, N'/images/MG_RX5_2023_10.jpg', N'Hình phụ MG RX5 2023', 0),
     (25, N'/images/MG_RX5_2023_6.jpg', N'Hình phụ MG RX5 2023', 0),
@@ -2009,7 +2106,7 @@ VALUES
     -- Hyundai Grand i10 2022 (car_id = 52)
     (52, N'/images/HUYNDAI_GRAND_i10_2.png', N'Hình chính Hyundai Grand i10 2022', 1),
     -- KIA Carnival 2023 (car_id = 53)
-    (53, N'/images/KIA_CARNIVAL_1.PNG', N'Hình chính KIA Carnival 2023', 1),
+    (53, N'/images/KIA_CARNIVAL_1.png', N'Hình chính KIA Carnival 2023', 1),
     -- KIA Carnival 2022 (car_id = 54)
     (54, N'/images/KIA_CARNIVAL_2.png', N'Hình chính KIA Carnival 2022', 1),
     (54, N'/images/KIA_CARNIVAL_5.png', N'Hình phụ KIA Carnival 2022', 0),
@@ -2026,10 +2123,10 @@ VALUES
     (56, N'/images/Mitsubishi_Xpander_Cross_2023_6.png', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
     (56, N'/images/Mitsubishi_Xpander_Cross_2023_4.png', N'Hình phụ Mitsubishi Xpander Cross 2023', 0),
     -- Suzuki Ertiga 2022 (car_id = 57)
-    (57, N'/images/Suzuki_Ertiga_2022_1.png', N'Hình chính Suzuki Ertiga 2022', 1),
-	(57, N'/images/Suzuki_Ertiga_2022_11.png', N'Hình chính Suzuki Ertiga 2022', 0),
-	(57, N'/images/Suzuki_Ertiga_2022_12.png', N'Hình chính Suzuki Ertiga 2022', 0),
-	(57, N'/images/Suzuki_Ertiga_2022_13.png', N'Hình chính Suzuki Ertiga 2022', 0),
+    (57, N'/images/Suzuki_Ertiga_2022_1.jpg', N'Hình chính Suzuki Ertiga 2022', 1),
+	(57, N'/images/Suzuki_Ertiga_2022_11.jpg', N'Hình chính Suzuki Ertiga 2022', 0),
+	(57, N'/images/Suzuki_Ertiga_2022_12.jpg', N'Hình chính Suzuki Ertiga 2022', 0),
+	(57, N'/images/Suzuki_Ertiga_2022_13.jpg', N'Hình chính Suzuki Ertiga 2022', 0),
     -- Toyota Corolla Cross 2022 (car_id = 58)
     (58, N'/images/TOYOTA_CROSS_1.png', N'Hình chính Toyota Corolla Cross 2022', 1),
     -- VinFast Lux A 2.0 2021 (car_id = 59)
@@ -2042,10 +2139,10 @@ VALUES
 	(60, N'/images/VinFast_VF8_2022_3.webp', N'Hình phụ VinFast VF8 2022', 0),
 	(60, N'/images/VinFast_VF8_2022_4.webp', N'Hình phụ VinFast VF8 2022', 0),
     -- Honda BR-V G 2024 (car_id = 61)
-    (61, N'/images/Honda_BRV_G_2024_7.jpeg', N'Hình chính Honda BR-V G 2024', 1),
+    (61, N'/images/Honda_BRV_G_2024_7.jpg', N'Hình chính Honda BR-V G 2024', 1),
     (61, N'/images/Honda_BRV_G_2024_4.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
 	(61, N'/images/Honda_BRV_G_2024_2.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
-	(61, N'/images/Honda_BRV_G_2024_15.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
+	(61, N'/images/Honda_BRV_G_2024_15.jpg', N'Hình phụ Honda BR-V G 2024', 0),
     (61, N'/images/Honda_BRV_G_2024_12.jpeg', N'Hình phụ Honda BR-V G 2024', 0),
     -- Toyota Corolla Cross 2022 (car_id = 62)
     (62, N'/images/TOYOTA_CROSS_2.jpeg', N'Hình chính Toyota Corolla Cross 2022', 1),
@@ -2061,7 +2158,7 @@ VALUES
     -- KIA Cerato 2021 (car_id = 67)
     (67, N'/images/KIA_CERATO_2.jpg', N'Hình chính KIA Cerato 2021', 1),
     -- KIA Carnival 2022 (car_id = 68)
-    (68, N'/images/KIA_CARNIVAL_1.jpg', N'Hình chính KIA Carnival 2022', 1),
+    (68, N'/images/KIA_CARNIVAL_1.png', N'Hình chính KIA Carnival 2022', 1),
     -- Hyundai Grand i10 2022 (car_id = 69)
     (69, N'/images/HUYNDAI_GRAND_i10_2.png', N'Hình chính Hyundai Grand i10 2022', 1),
     (69, N'/images/HUYNDAI_GRAND_i10_1.png', N'Hình phụ Hyundai Grand i10 2022', 0),
@@ -2075,106 +2172,32 @@ VALUES
     (71, N'/images/FORD_EVEREST_1.jpg', N'Hình chính Ford Everest', 1);
 GO
 
-ALTER TABLE Rating 
-ADD is_anonymous BIT NOT NULL DEFAULT 0;
-
-use CarRentalDB
--- Thêm booking với status completed (status_id = 4)
-INSERT INTO Booking (
-    customer_id,
-    car_id,
-    driver_id,
-    with_driver,
-    region_id,
-    booking_date,
-    start_date,
-    end_date,
-    pickup_location,
-    dropoff_location,
-    status_id,
-    seat_number,
-    deposit_amount,
-    promo_id,
-    extension_days,
-    extension_status_id,
+INSERT INTO registration_requests (
+    full_name,
+    id_number,
+    address,
+    phone_number,
+    email,
+    password,
+    car_documents,
+    business_license,
+    driver_license,
+    status,
     created_at,
-    updated_at,
-    is_deleted
+    updated_at
 ) VALUES (
-    61,                                    -- customer_id (user có ID = 1)
-    1,                                    -- car_id (xe có ID = 1)
-    NULL,                                 -- driver_id (xe tự lái)
-    0,                                    -- with_driver = false
-    1,                                    -- region_id (khu vực có ID = 1)
-    '2025-06-15 10:00:00',               -- booking_date (ngày đặt)
-    '2025-06-20',                        -- start_date (ngày bắt đầu thuê)
-    '2025-06-22',                        -- end_date (ngày kết thúc thuê)
-    N'Sân bay Tân Sơn Nhất',            -- pickup_location
-    N'Quận 1, TP.HCM',                  -- dropoff_location
-    4,                                    -- status_id = 4 (completed)
-    5,                                    -- seat_number (5 chỗ)
-    5000000.00,                          -- deposit_amount (5 triệu)
-    NULL,                                -- promo_id (không có promotion)
-    0,                                    -- extension_days
-    NULL,                                -- extension_status_id
-    '2024-06-15 10:00:00',               -- created_at
-    '2024-06-22 18:00:00',               -- updated_at (cập nhật khi hoàn thành)
-    0                                     -- is_deleted = false
+    N'Nguyễn Văn D',
+    '012345670',
+    N'123 Đường ABC, Quận 1, TP.HCM',
+    '+84901234580',
+    'nguyenvand@example.com',
+    'Test@word183',
+    'uploads/test_car_doc.pdf',
+    'uploads/test_business_license.pdf',
+    'uploads/test_driver_license.pdf',
+    'pending',
+    GETDATE(),
+    GETDATE()
 );
 
-ALTER TABLE Booking
-ADD supplier_delivery_confirm BIT DEFAULT 0,
-    customer_receive_confirm BIT DEFAULT 0,
-    customer_return_confirm BIT DEFAULT 0,
-    supplier_return_confirm BIT DEFAULT 0,
-    delivery_confirm_time DATETIME,
-    return_confirm_time DATETIME;
-
-INSERT INTO Status (status_name, description, is_deleted)
-VALUES ('rejected', N'bị từ chối', 0);
-
--- ✅ Insert Payment record cho booking_id = 19 với payment_type = 'full_payment'
-INSERT INTO Payment (
-    booking_id,
-    amount,
-    region_id,
-    transaction_id,
-    payment_method,
-    payment_status_id,
-    payment_date,
-    payment_type,
-    is_deleted
-) VALUES (
-    19,                           -- booking_id
-    5000000.00,                   -- amount (5 triệu VND)
-    1,                            -- region_id (cần check region_id thực tế)
-    'TXN_' + CAST(NEWID() AS VARCHAR(36)), -- transaction_id (random)
-    'vnpay',                      -- payment_method ('vnpay' hoặc 'cash')
-    15,                           -- payment_status_id (15 = paid)
-    GETDATE(),                    -- payment_date
-    'full_payment',               -- payment_type
-    0                             -- is_deleted
-);
-
--- ✅ Xóa constraint UNIQUE hiện tại
-ALTER TABLE Payment 
-DROP CONSTRAINT UQ_Booking_Payment;
--- ✅ Tạo constraint UNIQUE cho booking_id + payment_type
--- Mỗi booking chỉ có thể có 1 payment record cho mỗi loại (deposit, full_payment, refund)
-ALTER TABLE Payment 
-ADD CONSTRAINT UQ_Booking_Payment_Type UNIQUE (booking_id, payment_type);
-table status
--- ✅ Update tất cả giá trị NULL thành FALSE cho các trường boolean
-UPDATE booking 
-SET 
-    supplier_delivery_confirm = ISNULL(supplier_delivery_confirm, 0),
-    customer_receive_confirm = ISNULL(customer_receive_confirm, 0),
-    customer_return_confirm = ISNULL(customer_return_confirm, 0),
-    supplier_return_confirm = ISNULL(supplier_return_confirm, 0)
-WHERE 
-    supplier_delivery_confirm IS NULL 
-    OR customer_receive_confirm IS NULL 
-    OR customer_return_confirm IS NULL 
-    OR supplier_return_confirm IS NULL;
-
-
+  UPDATE registration_requests SET status = 'approved' WHERE id = 1;

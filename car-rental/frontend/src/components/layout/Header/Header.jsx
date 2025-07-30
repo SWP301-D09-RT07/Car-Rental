@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { FaCarSide, FaHome, FaCar, FaStore, FaSearch, FaHeart, FaChevronDown, FaSignOutAlt, FaSignInAlt, FaUserPlus, FaTimes, FaBars, FaPhone, FaUser, FaCalendarAlt } from "react-icons/fa";
 import { useAuth } from "@/hooks/useAuth";
+import AutocompleteSearch from '@/components/Common/AutocompleteSearch';
+import api from "@/services/api";
 
 const Header = ({
     isUserDropdownOpen,
@@ -12,6 +14,110 @@ const Header = ({
     const { isAuthenticated, user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const [headerSearch, setHeaderSearch] = useState("");
+    const [cars, setCars] = useState({ content: [] });
+    const [brands, setBrands] = useState([]);
+    const [regions, setRegions] = useState([]);
+    const [fuelTypes, setFuelTypes] = useState([]);
+    const [years, setYears] = useState([]);
+    const userDropdownRef = useRef(null);
+
+    useEffect(() => {
+        // Fetch từng filter riêng biệt, region dùng countryCode mặc định '+84'
+        api.get("/api/cars/car-brands")
+            .then(res => setBrands(Array.isArray(res.data) ? res.data : []))
+            .catch(err => {
+                setBrands([]);
+                console.error("Error fetching brands:", err);
+            });
+
+        api.get("/api/cars/regions/country/+84")
+            .then(res => setRegions(Array.isArray(res.data) ? res.data : []))
+            .catch(err => {
+                setRegions([]);
+                console.error("Error fetching regions:", err);
+            });
+
+        api.get("/api/cars/fuel-types")
+            .then(res => setFuelTypes(Array.isArray(res.data) ? res.data : []))
+            .catch(err => {
+                setFuelTypes([]);
+                console.error("Error fetching fuelTypes:", err);
+            });
+
+        api.get("/api/cars/years")
+            .then(res => setYears(Array.isArray(res.data) ? res.data : []))
+            .catch(err => {
+                setYears([]);
+                console.error("Error fetching years:", err);
+            });
+
+        api.get("/api/cars", { params: { page: 0, size: 1000 } })
+            .then(res => {
+                let carList = [];
+                if (Array.isArray(res.data)) carList = res.data;
+                else if (res.data && Array.isArray(res.data.content)) carList = res.data.content;
+                setCars({ content: carList });
+                console.log('Header cars:', carList);
+            })
+            .catch(err => {
+                setCars({ content: [] });
+                console.error("Error fetching cars:", err);
+            });
+    }, []);
+
+    // Click outside handler for user dropdown
+    useEffect(() => {
+        if (!isUserDropdownOpen) return;
+        function handleClickOutside(event) {
+            if (userDropdownRef.current && !userDropdownRef.current.contains(event.target)) {
+                setIsUserDropdownOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isUserDropdownOpen, setIsUserDropdownOpen]);
+
+    // fetchSuggestions đa loại
+    const fetchSuggestions = async (query) => {
+        try {
+            const carNames = (cars.content || []).flatMap(car => [
+                car.brandName,
+                car.model,
+                car.regionName,
+                car.fuelTypeName,
+                car.year && car.year.toString()
+            ]).filter(Boolean);
+            const brandNames = Array.isArray(brands) ? brands.map(b => b.brandName) : [];
+            const regionNames = Array.isArray(regions) ? regions.map(r => r.regionName) : [];
+            const fuelTypesList = Array.isArray(fuelTypes) ? fuelTypes.map(f => f.fuelTypeName) : [];
+            const yearsList = Array.isArray(years) ? years.map(y => y.toString()) : [];
+            const allSuggestions = [
+                ...carNames,
+                ...brandNames,
+                ...regionNames,
+                ...fuelTypesList,
+                ...yearsList
+            ];
+            const uniqueSuggestions = [...new Set(allSuggestions)];
+            return uniqueSuggestions.filter(name =>
+                name && name.toLowerCase().includes(query.toLowerCase())
+            );
+        } catch (err) {
+            console.error("Error in fetchSuggestions (Header):", err);
+            return [];
+        }
+    };
+
+    const handleHeaderSearch = (value) => {
+        setHeaderSearch(value);
+        if (value && value.trim()) {
+            navigate("/search", { state: { searchQuery: value } });
+        }
+    };
+
     return (
         <header className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-xl shadow-lg z-50 border-b border-blue-100">
             <div className="container mx-auto px-4 py-4">
@@ -42,7 +148,7 @@ const Header = ({
                                 <span>Xe</span>
                                 {location.pathname.startsWith('/search') && <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>}
                             </Link>
-                            <Link to="/provider-register" className="flex items-center text-indigo-600 hover:text-indigo-700 transition-all duration-300 px-4 py-2 rounded-xl hover:bg-indigo-50 group text-sm font-semibold border border-indigo-200 hover:border-indigo-300">
+                            <Link to="/owner-registration" className="flex items-center text-indigo-600 hover:text-indigo-700 transition-all duration-300 px-4 py-2 rounded-xl hover:bg-indigo-50 group text-sm font-semibold border border-indigo-200 hover:border-indigo-300">
                                 <FaStore className="text-sm mr-2 group-hover:scale-110 transition-transform" />
                                 <span>Đối tác</span>
                             </Link>
@@ -52,13 +158,15 @@ const Header = ({
                     <div className="flex items-center space-x-4">
                         {/* Enhanced Search Bar */}
                         <div className="relative group">
-                            <input
-                                type="text"
+                            <AutocompleteSearch
+                                fetchSuggestions={fetchSuggestions}
+                                value={headerSearch}
+                                onChange={setHeaderSearch}
+                                onSelect={handleHeaderSearch}
+                                inputClassName="py-3 px-4 pr-12 rounded-2xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-blue-50/50 hover:bg-white transition-all duration-300 w-64 focus:w-72 group-hover:shadow-lg"
                                 placeholder="Tìm xe mơ ước..."
-                                className="py-3 px-4 pr-12 rounded-2xl border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-blue-50/50 hover:bg-white transition-all duration-300 w-64 focus:w-72 group-hover:shadow-lg"
-                                aria-label="Tìm kiếm xe"
                             />
-                            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-blue-500 to-indigo-500 p-2 rounded-lg cursor-pointer hover:scale-110 transition-transform">
+                            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-blue-500 to-indigo-500 p-2 rounded-lg cursor-pointer hover:scale-110 transition-transform pointer-events-none">
                                 <FaSearch className="text-white text-xs" />
                             </div>
                         </div>
@@ -70,7 +178,7 @@ const Header = ({
                             <FaHeart className="text-lg" />
                         </Link>
                         {/* Enhanced User Account */}
-                        <div className="relative">
+                        <div className="relative" ref={userDropdownRef}>
                             {isAuthenticated ? (
                                 <button
                                     onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
@@ -126,14 +234,16 @@ const Header = ({
                                         Hồ sơ của tôi
                                     </Link>
                                     {user?.role === 'customer' && (
-                                        <Link
-                                            to="/my-bookings"
-                                            className="flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 text-gray-700 hover:text-blue-600"
-                                            onClick={() => setIsUserDropdownOpen(false)}
+                                        <button
+                                            className="flex items-center px-6 py-3 text-sm hover:bg-blue-50 transition-all duration-200 rounded-xl mx-2 text-gray-700 hover:text-blue-600 w-full text-left"
+                                            onClick={() => {
+                                                setIsUserDropdownOpen(false);
+                                                navigate('/profile', { state: { activeTab: 'bookings' } });
+                                            }}
                                         >
                                             <FaCalendarAlt className="mr-3 text-gray-400" />
                                             Lịch sử thuê xe
-                                        </Link>
+                                        </button>
                                     )}
                                     <div className="border-t border-blue-100 mt-2 pt-2">
                                         <button
