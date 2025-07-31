@@ -66,7 +66,13 @@ const CarConditionReportView = ({
             // Update local state
             setReports(prev => prev.map(report => 
                 report.reportId === reportId 
-                    ? { ...report, isConfirmed: true, confirmedBy: currentUser.userId, confirmedAt: new Date().toISOString() }
+                    ? { 
+                        ...report, 
+                        isConfirmed: true, 
+                        confirmedBy: currentUser.userId, 
+                        confirmedAt: new Date().toISOString(),
+                        statusName: 'confirmed' // Update status to confirmed
+                    }
                     : report
             ));
             

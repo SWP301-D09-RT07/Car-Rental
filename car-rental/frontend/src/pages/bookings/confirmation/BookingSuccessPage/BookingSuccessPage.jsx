@@ -214,24 +214,35 @@ const BookingSuccessPage = () => {
   const bookingId = stateBookingId || urlBookingId || orderInfoBookingId
   const paymentId = statePaymentId || urlPaymentId || urlTransactionId || vnpTxnRef || momoOrderId || momoRequestId
 
-  // Detect payment method từ URL parameters với logic cải tiến
+  // Detect payment method từ state, searchParams, hoặc URL parameters
   const detectPaymentMethod = () => {
-    // Ưu tiên VNPay nếu có vnp_ResponseCode hoặc vnp_TxnRef
+    // 1. Ưu tiên lấy từ state nếu có
+    if (location.state?.paymentMethod) {
+      return location.state.paymentMethod;
+    }
+    // 2. Ưu tiên lấy từ searchParams nếu có
+    const paramMethod = searchParams.get("paymentMethod") || searchParams.get("payment_method");
+    if (paramMethod) {
+      if (["cash", "tiền mặt", "tienmat"].includes(paramMethod.toLowerCase())) return "cash";
+      if (["vnpay", "momo", "online"].includes(paramMethod.toLowerCase())) return paramMethod.toLowerCase();
+    }
+    // 3. VNPay nếu có vnp_ResponseCode hoặc vnp_TxnRef
     if (vnpayResponseCode || vnpayTransactionStatus || vnpTxnRef) {
       return 'vnpay';
     }
-    // MoMo nếu có resultCode hoặc orderId từ MoMo
+    // 4. MoMo nếu có resultCode hoặc orderId từ MoMo
     if (momoResultCode || momoOrderId || momoRequestId) {
       return 'momo';
     }
-    // Fallback kiểm tra txn_ref parameter (thường từ payment gateway)
+    // 5. Fallback kiểm tra txn_ref parameter (thường từ payment gateway)
     const txn = searchParams.get("txn_ref");
     if (txn) {
       if (txn.toLowerCase().includes("vnpay")) return "vnpay";
       if (txn.toLowerCase().includes("momo")) return "momo";
       return 'online';
     }
-    return null;
+    // 6. Nếu không có gì, mặc định là cash nếu không có dấu hiệu online
+    return 'cash';
   }
 
   const detectedPaymentMethod = detectPaymentMethod()
@@ -589,34 +600,68 @@ const BookingSuccessPage = () => {
     paymentDetails = [],
   } = bookingData
 
+
   // Parse payment information từ booking data với enhanced fallback logic
   const getPaymentInfo = () => {
     // Ưu tiên lấy tổng tiền từ priceBreakdown
     const total = priceBreakdown?.total || totalAmount || 0;
 
-    // Tính tổng đã thanh toán từ paymentDetails (chỉ lấy payment đã paid)
     let paid = 0;
+    let depositPayment = null;
+    let fullPayment = null;
+    let isFullyPaid = false;
+
     if (Array.isArray(paymentDetails) && paymentDetails.length > 0) {
-      paid = paymentDetails
-        .filter(p => p.statusName === 'paid')
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      // Lấy tất cả khoản đã thanh toán
+      const paidPayments = paymentDetails.filter(p => p.statusName === 'paid' || p.status === 'paid');
+      paid = paidPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+      // Tìm khoản cọc (deposit)
+      depositPayment = paidPayments.find(p => {
+        const type = (p.type || p.paymentType || '').toLowerCase();
+        return type.includes('cọc') || type.includes('deposit');
+      });
+
+      // Tìm khoản thanh toán đủ (full payment)
+      fullPayment = paidPayments.find(p => {
+        const type = (p.type || p.paymentType || '').toLowerCase();
+        return type.includes('đủ') || type.includes('fullpayment') || type.includes('final');
+      });
+
+      // Nếu không có label rõ ràng, lấy khoản lớn nhất làm fullPayment, nhỏ nhất làm deposit nếu có 2 khoản
+      if (!fullPayment && paidPayments.length >= 2) {
+        const sorted = [...paidPayments].sort((a, b) => Number(a.amount) - Number(b.amount));
+        depositPayment = sorted[0];
+        fullPayment = sorted[1];
+      }
+
+      // Nếu có fullPayment và số tiền >= tổng tiền, đánh dấu đã thanh toán đủ
+      if (fullPayment && Number(fullPayment.amount) >= total) {
+        isFullyPaid = true;
+        paid = total;
+      }
     } else if (paymentAmount) {
       paid = Number(paymentAmount);
     }
 
-    // Nếu là thanh toán online (VNPay/MoMo) và paid = 0, fallback paid = total
     let method = paymentMethod || detectedPaymentMethod;
-    if ((method === 'vnpay' || method === 'momo') && paid === 0) {
+    if ((method === 'vnpay' || method === 'momo' || method === 'online') && paid === 0) {
       paid = total;
     }
-
-    const remaining = Math.max(0, total - paid);
+    if (paid > total && total > 0) {
+      paid = total;
+    }
+    // Nếu đã thanh toán đủ, còn lại = 0
+    const remaining = isFullyPaid ? 0 : Math.max(0, total - paid);
 
     return {
       paidAmount: paid,
       totalAmount: total,
       remainingAmount: remaining,
-      paymentMethod: method
+      paymentMethod: method,
+      depositPayment,
+      fullPayment,
+      isFullyPaid
     };
   };
 
@@ -1059,13 +1104,17 @@ const BookingSuccessPage = () => {
                       <tr>
                         <td className="py-2">Đã thanh toán</td>
                         <td className="py-2 text-right">
-                          {paymentInfo.paidAmount ? paymentInfo.paidAmount.toLocaleString() + ' VND' : '0 VND'}
+                          {paymentInfo.isFullyPaid
+                            ? <span className="text-green-600 font-bold">{paymentInfo.totalAmount.toLocaleString()} VND (Đã thanh toán đủ)</span>
+                            : paymentInfo.paidAmount ? paymentInfo.paidAmount.toLocaleString() + ' VND' : '0 VND'}
                         </td>
                       </tr>
                       <tr>
                         <td className="py-2">Còn lại</td>
                         <td className="py-2 text-right">
-                          {paymentInfo.remainingAmount ? paymentInfo.remainingAmount.toLocaleString() + ' VND' : '0 VND'}
+                          {paymentInfo.isFullyPaid
+                            ? <span className="text-green-600 font-bold">0 VND</span>
+                            : paymentInfo.remainingAmount ? paymentInfo.remainingAmount.toLocaleString() + ' VND' : '0 VND'}
                         </td>
                       </tr>
                       <tr>
@@ -1178,13 +1227,14 @@ const BookingSuccessPage = () => {
                   In hóa đơn
                 </button>
                 
-                <Link
-                  to="/profile?tab=bookings"
+                <button
+                  type="button"
+                  onClick={() => navigate('/profile', { state: { activeTab: 'bookings' } })}
                   className="w-full flex items-center justify-center px-6 py-4 bg-white border-2 border-blue-600 text-blue-600 font-semibold rounded-2xl hover:bg-blue-50 transition-all duration-300"
                 >
                   <FaSearch className="mr-3" />
                   Xem lịch sử đặt xe
-                </Link>
+                </button>
                 
                 <Link
                   to="/"

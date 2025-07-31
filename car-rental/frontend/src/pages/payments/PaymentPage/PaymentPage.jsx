@@ -703,6 +703,7 @@ const PaymentPage = () => {
       setError(validationError)
       return
     }
+    
     console.log("[DEBUG] Thực hiện handlePayment với:", {
       customerInfo,
       bookingInfo,
@@ -747,12 +748,17 @@ const PaymentPage = () => {
             hasFullPayment: bookingInfo?.hasFullPayment,
             paymentStatus: bookingInfo?.paymentStatus,
             paymentType: bookingInfo?.paymentType,
+            statePaymentType,
             pickupPayment
           });
           
           if (pickupPayment) {
-            // Kiểm tra trạng thái payment trước khi quyết định paymentType
-            if (bookingInfo.hasDeposit && bookingInfo.paymentStatus === 'paid' && !bookingInfo.hasFullPayment) {
+            // ✅ SỬA: Ưu tiên sử dụng paymentType từ location.state trước
+            if (statePaymentType === 'full_payment') {
+              paymentType = 'full_payment';
+              console.log("🔍 [DEBUG] Sử dụng paymentType từ state: full_payment");
+            } else if (bookingInfo.hasDeposit && !bookingInfo.hasFullPayment) {
+              // Kiểm tra trạng thái payment trước khi quyết định paymentType
               paymentType = 'full_payment';
               console.log("🔍 [DEBUG] Thanh toán full_payment - đã có deposit, chưa có full payment");
             } else if (bookingInfo.hasFullPayment) {
@@ -763,15 +769,15 @@ const PaymentPage = () => {
                 paymentStatus: bookingInfo?.paymentStatus
               });
               setError("Đơn đặt xe này đã được thanh toán đầy đủ. Không thể thanh toán thêm.");
-            return;
-          } else {
-            paymentType = 'deposit';
-            console.log("🔍 [DEBUG] Thanh toán deposit - chưa có deposit hoặc payment status không phải 'paid'", {
-              hasDeposit: bookingInfo?.hasDeposit,
-              hasFullPayment: bookingInfo?.hasFullPayment,
-              paymentStatus: bookingInfo?.paymentStatus
-            });
-          }
+              return;
+            } else {
+              paymentType = 'deposit';
+              console.log("🔍 [DEBUG] Thanh toán deposit - chưa có deposit hoặc chưa thể xác định", {
+                hasDeposit: bookingInfo?.hasDeposit,
+                hasFullPayment: bookingInfo?.hasFullPayment,
+                paymentStatus: bookingInfo?.paymentStatus
+              });
+            }
         } else {
           // Nếu không phải pickupPayment, mặc định là deposit
           paymentType = 'deposit';
@@ -788,6 +794,7 @@ const PaymentPage = () => {
           paymentType: paymentType,
         }
         endpoint = "/api/payments"
+        
       } else if (bookingInfo && !bookingId) {
         // Trường hợp tạo booking mới - sử dụng /api/payments/with-booking
         paymentType = 'deposit'; // Chỉ cho phép deposit khi tạo booking mới

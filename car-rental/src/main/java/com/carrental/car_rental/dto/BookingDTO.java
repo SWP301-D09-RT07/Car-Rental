@@ -31,6 +31,11 @@ public class BookingDTO {
     private String dropoffLocation; // Maps to Booking.dropoff_location
     private LocalDateTime pickupDateTime; // Maps to Booking.startDate
     private LocalDateTime dropoffDateTime; // Maps to Booking.endDate
+    
+    // ✅ THÊM: Backward compatibility fields
+    private LocalDateTime startDate;
+    private LocalDateTime endDate;
+    
     private Short seatNumber; // Maps to Booking.seat_number
     private BigDecimal depositAmount; // Maps to Booking.deposit_amount
     private Integer promoId;
@@ -265,6 +270,9 @@ public void setHasCashDepositPending(Boolean hasCashDepositPending) {
 private Boolean hasPickupReport = false;
 private Boolean hasReturnReport = false;
 
+// ✅ THÊM: Extension status name
+private String extensionStatusName;
+
 public Boolean getHasPickupReport() {
     return hasPickupReport;
 }
@@ -279,5 +287,13 @@ public Boolean getHasReturnReport() {
 
 public void setHasReturnReport(Boolean hasReturnReport) {
     this.hasReturnReport = hasReturnReport;
+}
+
+public String getExtensionStatusName() {
+    return extensionStatusName;
+}
+
+public void setExtensionStatusName(String extensionStatusName) {
+    this.extensionStatusName = extensionStatusName;
 }
 }

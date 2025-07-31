@@ -58,6 +58,19 @@ public class Driver {
     @Column(name = "license_number", nullable = false, length = 20)
     private String licenseNumber;
 
+    @Size(max = 10)
+    @Column(name = "license_type", length = 10)
+    private String licenseType;
+
+    @Column(name = "license_expiry_date")
+    private LocalDate licenseExpiryDate;
+
+    @Column(name = "experience_years")
+    private Integer experienceYears;
+
+    @Column(name = "status_id", length = 50, nullable = true)
+    private String status;
+
     @ColumnDefault("0")
     @Column(name = "is_deleted")
     private Boolean isDeleted;

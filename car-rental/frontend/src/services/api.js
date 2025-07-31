@@ -254,11 +254,15 @@ export const updateProfile = async (userData) => {
         const response = await api.put('/api/users/profile', userData);
         return response.data;
     } catch (error) {
-        console.error('Update profile error:', error);
+        if (error && error.stack) {
+            console.error('Update profile error:', error.stack);
+        } else {
+            console.error('Update profile error:', error);
+        }
         // Handle different error formats from backend
-        const errorMessage = error.response?.data?.error || 
-                            error.response?.data?.message || 
-                            error.message || 
+        const errorMessage = error?.response?.data?.error || 
+                            error?.response?.data?.message || 
+                            error?.message || 
                             'Cập nhật hồ sơ thất bại';
         throw new Error(errorMessage);
     }
@@ -2048,4 +2052,107 @@ export const sendPhoneOtp = async (phone) => {
 export const verifyPhoneOtp = async (phone, otp) => {
   const response = await api.post('/api/auth/verify-otp', { phone, otp });
   return response.data;
+};
+
+export const getSupplierDrivers = async () => {
+  const token = getToken?.() || getItem('token');
+  const res = await api.get('/api/supplier/drivers', {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return res.data;
+};
+
+export const createSupplierDriver = async (driverData) => {
+  const token = getToken?.() || getItem('token');
+  const res = await api.post('/api/supplier/drivers', driverData, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return res.data;
+};
+
+export const updateSupplierDriver = async (driverId, driverData) => {
+  const token = getToken?.() || getItem('token');
+  const res = await api.put(`/api/supplier/drivers/${driverId}`, driverData, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return res.data;
+};
+
+export const deleteSupplierDriver = async (driverId) => {
+  const token = getToken?.() || getItem('token');
+  const res = await api.delete(`/api/supplier/drivers/${driverId}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  return res.data;
+};
+
+export const getSupplierInsurances = async () => {
+    const token = getToken?.() || getItem('token');
+    const res = await api.get('/api/supplier/insurances', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.data;
+};
+
+// Lấy danh sách bảo trì của supplier
+export const getSupplierMaintenances = async () => {
+    const token = getToken?.() || getItem('token');
+    const res = await api.get('/api/supplier/maintenances', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.data;
+};
+
+// Tạo bảo hiểm mới
+export const createInsurance = async (insuranceData) => {
+    const token = getToken?.() || getItem('token');
+    const res = await api.post('/api/insurances', insuranceData, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.data;
+};
+
+// Cập nhật bảo hiểm
+export const updateInsurance = async (insuranceId, insuranceData) => {
+    const token = getToken?.() || getItem('token');
+    const res = await api.put(`/api/insurances/${insuranceId}`, insuranceData, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.data;
+};
+
+// Xóa bảo hiểm
+export const deleteInsurance = async (insuranceId) => {
+    const token = getToken?.() || getItem('token');
+    const res = await api.delete(`/api/insurances/${insuranceId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.data;
+};
+
+// Tạo bảo trì mới
+export const createMaintenance = async (maintenanceData) => {
+    const token = getToken?.() || getItem('token');
+    const res = await api.post('/api/maintenances', maintenanceData, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.data;
+};
+
+// Cập nhật bảo trì
+export const updateMaintenance = async (maintenanceId, maintenanceData) => {
+    const token = getToken?.() || getItem('token');
+    const res = await api.put(`/api/maintenances/${maintenanceId}`, maintenanceData, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.data;
+};
+
+// Xóa bảo trì
+export const deleteMaintenance = async (maintenanceId) => {
+    const token = getToken?.() || getItem('token');
+    const res = await api.delete(`/api/maintenances/${maintenanceId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+    });
+    return res.data;
 };

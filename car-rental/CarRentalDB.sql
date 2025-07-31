@@ -256,6 +256,12 @@ CREATE TABLE Driver (
     FOREIGN KEY (country_code) REFERENCES CountryCode(country_code) ON DELETE NO ACTION
 );
 GO
+ALTER TABLE dbo.Driver
+ADD 
+    status_id INT,
+    license_type VARCHAR(5),
+    experience_years INT,
+    license_expiry_date DATE;
 
 -- 18. Tạo bảng Promotion
 CREATE TABLE Promotion (
@@ -460,7 +466,12 @@ CREATE TABLE Maintenance (
     CONSTRAINT CHK_Maintenance_Dates CHECK (end_date >= start_date)
 );
 GO
-
+ALTER TABLE dbo.Maintenance
+ADD 
+    maintenance_type NVARCHAR(100),
+    service_center NVARCHAR(200),
+    status_id NVARCHAR(50),
+    notes NVARCHAR(1000);
 -- 26. Tạo bảng Insurance
 CREATE TABLE Insurance (
     insurance_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -475,7 +486,12 @@ CREATE TABLE Insurance (
     CONSTRAINT CHK_Insurance_Dates CHECK (end_date > start_date)
 );
 GO
-
+ALTER TABLE dbo.Insurance
+ADD 
+    insurance_type NVARCHAR(100),
+    premium DECIMAL(18, 2),  -- Chỉnh sửa độ chính xác nếu cần
+    status_id NVARCHAR(50),
+    notes NVARCHAR(1000);
 -- 27. Tạo bảng Cancellation
 CREATE TABLE Cancellation (
     cancellation_id INT IDENTITY(1,1) PRIMARY KEY,
@@ -562,6 +578,14 @@ EXEC sys.sp_addextendedproperty
     @level0type=N'SCHEMA', @level0name=N'dbo', 
     @level1type=N'TABLE', @level1name=N'ChatMessage';
 GO
+
+CREATE TABLE ChatMessageImage (
+    image_id INT IDENTITY(1,1) PRIMARY KEY,
+    message_id INT NOT NULL,
+    image_url NVARCHAR(500) NOT NULL,
+    FOREIGN KEY (message_id) REFERENCES ChatMessage(message_id) ON DELETE CASCADE
+);
+CREATE INDEX idx_chatmessageimage_message_id ON ChatMessageImage(message_id);
 
 -- 32. Tạo bảng Contract
 CREATE TABLE Contract (
@@ -899,7 +923,7 @@ CREATE TABLE PhoneOtp (
     id BIGINT IDENTITY(1,1) PRIMARY KEY,
     phone NVARCHAR(32) NOT NULL,
     otp NVARCHAR(16) NOT NULL,
-    created_at DATETIME2 NOT NULL,
+    createdAt DATETIME2 NOT NULL,
     verified BIT NOT NULL
 );
 

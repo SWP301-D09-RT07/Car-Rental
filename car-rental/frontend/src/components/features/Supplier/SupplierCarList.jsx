@@ -19,7 +19,6 @@ const SupplierCarList = () => {
   const [deleting, setDeleting] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editCarData, setEditCarData] = useState(null);
-  // --- Thêm state cho số xe đang thuê ---
   const [rentedCarCount, setRentedCarCount] = useState(0);
 
   useEffect(() => {
@@ -32,7 +31,7 @@ const SupplierCarList = () => {
       setLoading(true);
       setError(null);
       const data = await getSupplierCars();
-      console.log('DANH SÁCH XE:', data); // Thêm dòng này
+      console.log('DANH SÁCH XE:', data);
       setCars(data || []);
     } catch (err) {
       console.error('Error fetching supplier cars:', err);
@@ -43,7 +42,6 @@ const SupplierCarList = () => {
     }
   };
 
-  // --- Thêm hàm fetchRentedCars ---
   const fetchRentedCars = async () => {
     try {
       const orders = await getSupplierOrders();
@@ -77,7 +75,6 @@ const SupplierCarList = () => {
     }
   };
 
-  // Thêm hàm getStatusLabel để chuyển trạng thái sang tiếng Việt
   const getStatusLabel = (status) => {
     switch ((status || '').toLowerCase()) {
       case 'available':
@@ -112,29 +109,44 @@ const SupplierCarList = () => {
   };
 
   const handleEditCar = (car) => {
-    // Đảm bảo truyền đủ các trường brand, fuelType, region (id và name) và images cho form edit
     setEditCarData({
-      ...car,
-      carBrandId: car.carBrandId || car.brand?.id,
-      brandName: car.brandName || car.brand?.brandName,
-      fuelTypeId: car.fuelTypeId || car.fuelType?.id,
-      fuelTypeName: car.fuelTypeName || car.fuelType?.fuelTypeName,
-      regionId: car.regionId || car.region?.id,
-      regionName: car.regionName || car.region?.regionName,
-      images: car.images || [],
+      carId: car.carId,
+      name: car.model || '',
+      licensePlate: car.licensePlate || '',
+      description: car.description || car.describe || car.features || '',
+      rentalPrice: car.dailyRate || 0,
     });
     setShowEditModal(true);
   };
 
   const handleEditCarSubmit = async (formData, images) => {
     try {
-      await updateSupplierCar(editCarData.carId, { ...formData });
+      // Chuẩn bị dữ liệu gửi đi, khớp với VehicleDTO
+      const dataToSend = {
+        name: formData.name?.trim() || editCarData.name,
+        licensePlate: formData.licensePlate?.trim() || editCarData.licensePlate,
+        description: formData.description?.trim() || editCarData.description,
+        rentalPrice: parseFloat(formData.rentalPrice) || editCarData.rentalPrice,
+      };
+
+      // Validate cơ bản
+      if (!dataToSend.name || !dataToSend.name.trim() || !dataToSend.licensePlate || !dataToSend.licensePlate.trim() || dataToSend.rentalPrice <= 0) {
+        toast.error('Vui lòng điền đầy đủ tên xe, biển số và giá (giá phải lớn hơn 0)');
+        return;
+      }
+
+      console.log('Dữ liệu gửi đi:', JSON.stringify(dataToSend, null, 2));
+
+      // Gửi yêu cầu cập nhật
+      const response = await updateSupplierCar(editCarData.carId, dataToSend);
+      console.log('Response từ server:', response);
       toast.success('Cập nhật xe thành công');
       setShowEditModal(false);
       setEditCarData(null);
       fetchCars();
     } catch (err) {
-      toast.error(err.message || 'Cập nhật xe thất bại!');
+      console.error('Error updating car:', err.response ? err.response.data : err.message);
+      toast.error(err.response?.data?.message || err.message || 'Cập nhật xe thất bại!');
     }
   };
 
@@ -168,7 +180,6 @@ const SupplierCarList = () => {
     );
   }
 
-  // Đếm tổng số xe không bao gồm status 'pending' hoặc 'pending_approval'
   const totalActiveCars = cars.filter(car => {
     const st = (car.statusName || car.status?.statusName || '').toLowerCase();
     return st !== 'pending' && st !== 'pending_approval';
@@ -177,45 +188,42 @@ const SupplierCarList = () => {
   return (
     <div className="max-w-7xl mx-auto">
       <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-        {/* Header with gradient */}
         <div className="bg-gradient-to-r from-blue-600 via-indigo-700 to-purple-800 p-8 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-5 translate-x-5"></div>
           <div className="relative z-10">
             <div className="flex items-center justify-between">
-        <div className="flex items-center">
+              <div className="flex items-center">
                 <div className="bg-white/20 p-4 rounded-2xl mr-6 backdrop-blur-sm border border-white/20">
                   <FaCar className="text-4xl" />
-          </div>
-          <div>
+                </div>
+                <div>
                   <h2 className="text-4xl font-heading font-bold mb-2">Danh sách xe của bạn</h2>
                   <p className="text-blue-100 text-lg">Quản lý tất cả xe cho thuê</p>
                 </div>
               </div>
             </div>
           </div>
-      </div>
+        </div>
 
-        {/* Content */}
         <div className="p-8">
-      {cars.length === 0 ? (
-        <div className="text-center py-12">
+          {cars.length === 0 ? (
+            <div className="text-center py-12">
               <div className="bg-blue-100 p-6 rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center">
                 <FaCar className="text-blue-500 text-4xl" />
               </div>
               <h3 className="text-2xl font-bold text-gray-700 mb-4">Chưa có xe nào</h3>
               <p className="text-gray-500 mb-8 text-lg">Bạn chưa đăng ký xe nào cho thuê</p>
               <button 
-                onClick={() => setSelected("add-car")}
+                onClick={() => { /* Có thể thêm logic để mở form thêm xe */ }}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl hover:from-blue-700 hover:to-indigo-700 flex items-center mx-auto font-semibold text-lg shadow-lg transition-all"
               >
                 <FaPlus className="mr-3" />
-            Đăng ký xe đầu tiên
-          </button>
-        </div>
-      ) : (
+                Đăng ký xe đầu tiên
+              </button>
+            </div>
+          ) : (
             <>
-              {/* Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-2xl border border-blue-200">
                   <div className="flex items-center justify-between">
@@ -275,12 +283,11 @@ const SupplierCarList = () => {
                 </div>
               </div>
 
-              {/* Cars Table */}
               <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
-        <div className="overflow-x-auto">
+                <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-              <tr>
+                      <tr>
                         <th className="py-4 px-6 text-left font-semibold">Ảnh xe</th>
                         <th className="py-4 px-6 text-left font-semibold">Thông tin xe</th>
                         <th className="py-4 px-6 text-left font-semibold">Năm</th>
@@ -288,91 +295,91 @@ const SupplierCarList = () => {
                         <th className="py-4 px-6 text-left font-semibold">Trạng thái</th>
                         <th className="py-4 px-6 text-left font-semibold">Giá/ngày</th>
                         <th className="py-4 px-6 text-left font-semibold">Hành động</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cars.map((car, index) => (
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cars.map((car, index) => (
                         <tr key={car.carId} className={`border-t ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'} hover:bg-blue-50/60 transition-all`}>
-                  <td className="py-4 px-6">
+                          <td className="py-4 px-6">
                             {car.image ? (
-                      <img 
+                              <img 
                                 src={car.image} 
-                        alt={car.model} 
+                                alt={car.model} 
                                 className="w-20 h-16 object-cover rounded-xl shadow-md border border-gray-200"
                                 onError={e => { e.target.style.display = 'none'; e.target.parentNode.querySelector('.no-image-icon').style.display = 'flex'; }}
-                      />
+                              />
                             ) : null}
                             {!car.image && (
                               <div className="w-20 h-16 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl flex items-center justify-center border border-gray-200 no-image-icon">
                                 <FaCar className="text-gray-400 text-3xl" />
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-4 px-6">
-                    <div>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-4 px-6">
+                            <div>
                               <div className="font-semibold text-gray-800 text-lg">{car.model}</div>
                               <div className="text-xs text-gray-400">{car.licensePlate}</div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
+                            </div>
+                          </td>
+                          <td className="py-4 px-6">
                             <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm font-medium border border-gray-200">
-                      {car.year}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center">
-                      <div 
+                              {car.year}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6">
+                            <div className="flex items-center">
+                              <div 
                                 className="w-4 h-4 rounded-full mr-3 border-2 border-gray-300 shadow-sm"
-                        style={{ backgroundColor: car.color?.toLowerCase() || '#ccc' }}
-                      ></div>
+                                style={{ backgroundColor: car.color?.toLowerCase() || '#ccc' }}
+                              ></div>
                               <span className="text-gray-700 font-medium">{car.color}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
+                            </div>
+                          </td>
+                          <td className="py-4 px-6">
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(car.statusName)}`}>
-                      {getStatusLabel(car.statusName)}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6">
+                              {getStatusLabel(car.statusName)}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6">
                             <div className="font-bold text-green-600 text-lg">
-                      {(car.dailyRate || 0).toLocaleString('vi-VN', { 
-                        style: 'currency', 
-                        currency: 'VND',
-                        minimumFractionDigits: 0
-                      })}
-                    </div>
+                              {(car.dailyRate || 0).toLocaleString('vi-VN', { 
+                                style: 'currency', 
+                                currency: 'VND',
+                                minimumFractionDigits: 0
+                              })}
+                            </div>
                             <div className="text-xs text-gray-500 font-medium">/ngày</div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex space-x-2">
-                      <button 
-                        className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
-                        title="Xem chi tiết"
+                          </td>
+                          <td className="py-4 px-6">
+                            <div className="flex space-x-2">
+                              <button 
+                                className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
+                                title="Xem chi tiết"
                                 onClick={() => handleViewDetail(car)}
-                      >
-                        <FaEye className="text-sm" />
-                      </button>
-                      <button 
-                        className="bg-yellow-100 text-yellow-600 p-2 rounded-lg hover:bg-yellow-200 transition-colors"
-                        title="Chỉnh sửa"
+                              >
+                                <FaEye className="text-sm" />
+                              </button>
+                              <button 
+                                className="bg-yellow-100 text-yellow-600 p-2 rounded-lg hover:bg-yellow-200 transition-colors"
+                                title="Chỉnh sửa"
                                 onClick={() => handleEditCar(car)}
-                      >
-                        <FaEdit className="text-sm" />
-                      </button>
-                      <button 
-                        className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors"
-                        title="Xóa"
+                              >
+                                <FaEdit className="text-sm" />
+                              </button>
+                              <button 
+                                className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors"
+                                title="Xóa"
                                 onClick={() => handleDeleteCar(car)}
-                      >
-                        <FaTrash className="text-sm" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                              >
+                                <FaTrash className="text-sm" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </>
           )}
@@ -382,7 +389,6 @@ const SupplierCarList = () => {
       {showDetailModal && selectedCar && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl p-0 max-w-lg w-full relative animate-in fade-in duration-300 overflow-hidden">
-            {/* Header with gradient */}
             <div className="bg-gradient-to-r from-blue-600 via-indigo-700 to-purple-800 p-6 text-white flex items-center gap-4">
               <div className="bg-white/20 p-3 rounded-xl">
                 <FaCar className="text-3xl" />
@@ -393,7 +399,6 @@ const SupplierCarList = () => {
               </div>
               <button onClick={() => setShowDetailModal(false)} className="text-white hover:text-red-200 text-2xl font-bold ml-2">×</button>
             </div>
-            {/* Ảnh xe lớn - dùng carousel nếu có nhiều ảnh */}
             <div className="w-full flex justify-center bg-gradient-to-br from-gray-50 to-blue-50 py-4 relative">
               {selectedCar.images && selectedCar.images.length > 0 ? (
                 <>
@@ -404,7 +409,7 @@ const SupplierCarList = () => {
                     slidesToShow={1}
                     slidesToScroll={1}
                     className="w-60 h-40"
-                    arrows={false} // Ẩn arrow mặc định để dùng custom
+                    arrows={false}
                     ref={slider => window.supplierCarSlider = slider}
                   >
                     {selectedCar.images.map((img, idx) => (
@@ -418,7 +423,6 @@ const SupplierCarList = () => {
                       </div>
                     ))}
                   </Slider>
-                  {/* Nút previous */}
                   <button
                     className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-blue-100 rounded-full p-2 text-blue-600 shadow-lg z-10"
                     onClick={() => window.supplierCarSlider && window.supplierCarSlider.slickPrev()}
@@ -426,7 +430,6 @@ const SupplierCarList = () => {
                   >
                     <FaChevronLeft size={18} />
                   </button>
-                  {/* Nút next */}
                   <button
                     className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-blue-100 rounded-full p-2 text-blue-600 shadow-lg z-10"
                     onClick={() => window.supplierCarSlider && window.supplierCarSlider.slickNext()}
@@ -447,7 +450,6 @@ const SupplierCarList = () => {
                 </div>
               )}
             </div>
-            {/* Thông tin xe */}
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <div><span className="font-semibold text-gray-600">Hãng:</span> <span className="font-medium text-gray-800">{selectedCar.brandName || 'N/A'}</span></div>
@@ -462,14 +464,13 @@ const SupplierCarList = () => {
                 <div><span className="font-semibold text-gray-600">Giá/ngày:</span> <span className="font-bold text-green-600">{(selectedCar.dailyRate || 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND', minimumFractionDigits: 0 })}</span></div>
                 <div><span className="font-semibold text-gray-600">Số chỗ:</span> <span className="font-medium text-gray-800">{selectedCar.numOfSeats}</span></div>
                 <div><span className="font-semibold text-gray-600">Trạng thái:</span> <span className="font-medium text-gray-800">{getStatusLabel(selectedCar.statusName)}</span></div>
-          </div>
+              </div>
             </div>
-            {/* Mô tả */}
             <div className="px-6 pb-6">
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100">
                 <div className="font-semibold text-gray-700 mb-2">Mô tả:</div>
                 <div className="text-gray-800">{selectedCar.description || selectedCar.describe || 'N/A'}</div>
-          </div>
+              </div>
             </div>
           </div>
         </div>
@@ -492,8 +493,7 @@ const SupplierCarList = () => {
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full relative animate-in fade-in duration-300"
                style={{ maxHeight: '80vh', overflowY: 'auto' }}>
             <button onClick={() => setShowEditModal(false)} className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-xl font-bold">×</button>
-            <h3 className="text-2xl font-bold mb-4 text-yellow-700 flex items-center gap-2"><FaEdit /> Chỉnh sửa xe {editCarData.model}</h3>
-            {console.log('Edit car data:', editCarData)}
+            <h3 className="text-2xl font-bold mb-4 text-yellow-700 flex items-center gap-2"><FaEdit /> Chỉnh sửa xe {editCarData.name}</h3>
             <SupplierCarForm
               onSuccess={() => {
                 setShowEditModal(false);
@@ -511,4 +511,4 @@ const SupplierCarList = () => {
   );
 };
 
-export default SupplierCarList; 
+export default SupplierCarList;

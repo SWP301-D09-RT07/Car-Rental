@@ -248,7 +248,7 @@ const UserList = ({ currentUserId, onSelect, initialSelectedUser }) => {
       <div className="p-4 border-t border-gray-200 bg-white">
         <div className="text-center">
           <p className="text-xs text-gray-500">
-            💬 Trò chuyện với khách hàng
+            💬 Trò chuyện
           </p>
         </div>
       </div>

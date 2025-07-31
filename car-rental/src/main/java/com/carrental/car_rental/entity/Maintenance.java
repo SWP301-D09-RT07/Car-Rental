@@ -28,6 +28,18 @@ public class Maintenance {
     @JoinColumn(name = "car_id", nullable = false)
     private Car car;
 
+    @Size(max = 100)
+    @NotNull
+    @Nationalized
+    @Column(name = "maintenance_type", nullable = false, length = 100)
+    private String maintenanceType;
+
+    @Size(max = 200)
+    @NotNull
+    @Nationalized
+    @Column(name = "service_center", nullable = false, length = 200)
+    private String serviceCenter;
+
     @NotNull
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
@@ -36,13 +48,21 @@ public class Maintenance {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    @Size(max = 500)
+    @Column(name = "cost", precision = 15, scale = 2)
+    private BigDecimal cost;
+
+    @Size(max = 1000)
     @Nationalized
-    @Column(name = "description", length = 500)
+    @Column(name = "description", length = 1000)
     private String description;
 
-    @Column(name = "cost", precision = 10, scale = 2)
-    private BigDecimal cost;
+    @Column(name = "status_id", length = 50)
+    private Integer status;
+
+    @Size(max = 1000)
+    @Nationalized
+    @Column(name = "notes", length = 1000)
+    private String notes;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @OnDelete(action = OnDeleteAction.SET_NULL)
@@ -52,5 +72,4 @@ public class Maintenance {
     @ColumnDefault("0")
     @Column(name = "is_deleted")
     private Boolean isDeleted;
-
 }

@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -13,6 +14,15 @@ import java.time.LocalDateTime;
 public class MaintenanceDTO {
     private Integer maintenanceId;
     private Integer carId;
+    private String carName;
+    private String maintenanceType;
+    private String serviceCenter;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private BigDecimal cost;
+    private String description;
+    private Integer status;
+    private String notes;
     private String carLicensePlate;
     private String maintenanceDetails;
     private BigDecimal maintenanceCost;

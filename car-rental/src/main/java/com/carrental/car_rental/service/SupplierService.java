@@ -2,11 +2,11 @@ package com.carrental.car_rental.service;
 
 import com.carrental.car_rental.dto.*;
 import com.carrental.car_rental.entity.*;
-import com.carrental.car_rental.entity.Payment;
 import com.carrental.car_rental.repository.*;
 import com.carrental.car_rental.mapper.BookingMapper;
 import com.carrental.car_rental.mapper.CarMapper;
-import com.carrental.car_rental.dto.BookingFinancialsDTO;
+import com.carrental.car_rental.mapper.InsuranceMapper;
+import com.carrental.car_rental.mapper.MaintenanceMapper;
 import com.carrental.car_rental.service.BookingFinancialsService;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.ResponseEntity;
@@ -44,6 +44,10 @@ public class SupplierService {
     private final CarBrandRepository carBrandRepository;
     private final RegionRepository regionRepository;
     private final FuelTypeRepository fuelTypeRepository;
+    private final InsuranceRepository insuranceRepository;
+    private final MaintenanceRepository maintenanceRepository;
+    private final InsuranceMapper insuranceMapper;
+    private final MaintenanceMapper maintenanceMapper;
     private static final Logger logger = LoggerFactory.getLogger(SupplierService.class);
 
 
@@ -58,7 +62,11 @@ public class SupplierService {
                           PaymentRepository paymentRepository,
                           CarBrandRepository carBrandRepository,
                           RegionRepository regionRepository,
-                          FuelTypeRepository fuelTypeRepository) {
+                          FuelTypeRepository fuelTypeRepository,
+                          InsuranceRepository insuranceRepository,
+                          MaintenanceRepository maintenanceRepository,
+                          InsuranceMapper insuranceMapper,
+                          MaintenanceMapper maintenanceMapper) {
         this.carRepository = carRepository;
         this.bookingRepository = bookingRepository;
         this.userRepository = userRepository;
@@ -71,9 +79,13 @@ public class SupplierService {
         this.carBrandRepository = carBrandRepository;
         this.regionRepository = regionRepository;
         this.fuelTypeRepository = fuelTypeRepository;
+        this.insuranceRepository = insuranceRepository;
+        this.maintenanceRepository = maintenanceRepository;
+        this.insuranceMapper = insuranceMapper;
+        this.maintenanceMapper = maintenanceMapper;
     }
 
-    private User getCurrentSupplier() {
+    public User getCurrentSupplier() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("Supplier not found"));
@@ -82,6 +94,10 @@ public class SupplierService {
     @Transactional
     public ResponseEntity<?> addCar(String carDataJson, List<MultipartFile> images) {
         try {
+            System.out.println("=== DEBUG: SupplierService.addCar ===");
+            System.out.println("carDataJson: " + carDataJson);
+            System.out.println("images count: " + (images != null ? images.size() : "null"));
+            
             ObjectMapper objectMapper = new ObjectMapper();
             VehicleDTO vehicleDTO = objectMapper.readValue(carDataJson, VehicleDTO.class);
 
@@ -138,12 +154,39 @@ public class SupplierService {
             }
             car.setColor(vehicleDTO.getColor());
             Car savedCar = carRepository.save(car);
-            if (images != null) {
-                for (MultipartFile file : images) {
+            System.out.println("Đã lưu xe với ID: " + savedCar.getId());
+            
+            if (images != null && !images.isEmpty()) {
+                System.out.println("Bắt đầu xử lý " + images.size() + " ảnh...");
+                for (int i = 0; i < images.size(); i++) {
+                    MultipartFile file = images.get(i);
+                    System.out.println("Xử lý ảnh " + (i + 1) + ": " + file.getOriginalFilename());
+                    
                     Image image = new Image();
                     image.setCar(savedCar);
-                    imageService.saveImage(image, file);
+                    // Ảnh đầu tiên sẽ là ảnh chính
+                    image.setIsMain(i == 0);
+                    // Thiết lập mô tả cho ảnh
+                    String description = i == 0 ? "Hình chính " + savedCar.getModel() : "Hình phụ " + savedCar.getModel() + " (" + (i + 1) + ")";
+                    image.setDescription(description);
+                    
+                    System.out.println("Mô tả ảnh: " + description);
+                    System.out.println("Is main: " + image.getIsMain());
+                    
+                    try {
+                        imageService.saveImage(image, file);
+                        System.out.println("Đã lưu ảnh thành công: " + (i + 1));
+                        logger.info("Đã lưu ảnh {} cho xe {}", i + 1, savedCar.getId());
+                    } catch (Exception e) {
+                        System.err.println("Lỗi khi lưu ảnh " + (i + 1) + ": " + e.getMessage());
+                        e.printStackTrace();
+                        logger.error("Lỗi khi lưu ảnh {} cho xe {}: {}", i + 1, savedCar.getId(), e.getMessage());
+                        // Tiếp tục với ảnh tiếp theo nếu có lỗi
+                    }
                 }
+                System.out.println("Hoàn thành xử lý ảnh");
+            } else {
+                System.out.println("Không có ảnh để xử lý");
             }
             return ResponseEntity.ok(Map.of("success", true, "message", "Đăng xe thành công!"));
         } catch (Exception e) {
@@ -534,6 +577,20 @@ public class SupplierService {
         List<Car> cars = carRepository.findBySupplierAndIsDeletedFalseWithAllRelations(supplier);
         List<CarDTO> carDTOs = cars.stream().map(carMapper::toDTO).collect(Collectors.toList());
         return ResponseEntity.ok(carDTOs);
+    }
+
+    public ResponseEntity<?> getSupplierInsurances() {
+        User supplier = getCurrentSupplier();
+        List<Insurance> insurances = insuranceRepository.findBySupplierIdAndIsDeletedFalse(supplier.getId());
+        List<InsuranceDTO> insuranceDTOs = insurances.stream().map(insuranceMapper::toDTO).collect(Collectors.toList());
+        return ResponseEntity.ok(insuranceDTOs);
+    }
+
+    public ResponseEntity<?> getSupplierMaintenances() {
+        User supplier = getCurrentSupplier();
+        List<Maintenance> maintenances = maintenanceRepository.findBySupplierIdAndIsDeletedFalse(supplier.getId());
+        List<MaintenanceDTO> maintenanceDTOs = maintenances.stream().map(maintenanceMapper::toDTO).collect(Collectors.toList());
+        return ResponseEntity.ok(maintenanceDTOs);
     }
 
     @Transactional
