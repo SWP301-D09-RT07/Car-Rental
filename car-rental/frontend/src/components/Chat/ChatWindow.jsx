@@ -7,7 +7,7 @@ import MessageList from "./MessageList"
 import MessageInput from "./MessageInput"
 import ChatService from "./ChatService"
 
-const ChatWindow = ({ currentUser, initialSelectedUser }) => {
+const ChatWindow = ({ currentUser, initialSelectedUser, suppliers = [] }) => {
   const [selectedUser, setSelectedUser] = useState(initialSelectedUser || null)
   const [messages, setMessages] = useState([])
   const [zoomImageUrl, setZoomImageUrl] = useState(null)
@@ -162,6 +162,7 @@ const ChatWindow = ({ currentUser, initialSelectedUser }) => {
           currentUserId={currentUser.id}
           onSelect={handleSelectUser}
           initialSelectedUser={initialSelectedUser}
+          users={suppliers}
         />
 
         <div className="flex-1 flex flex-col">

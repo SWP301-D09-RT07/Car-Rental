@@ -8,6 +8,8 @@ import {
 import SupplierCarList from "./SupplierCarList";
 import SupplierCarForm from "./SupplierCarForm";
 import SupplierOrderManagement from "./SupplierOrderManagement";
+import DriverManagement from "./DriverManagement";
+import InsuranceManagement from "./InsuranceManagement";
 import SupplierReport from "./SupplierReport";
 import SupplierProfile from "./SupplierProfile";
 import ChatWindow from '../../Chat/ChatWindow';
@@ -1012,6 +1014,12 @@ const SupplierCarDashboard = () => {
         return <SupplierCarList />;
       case "orders":
         return <SupplierOrderManagement />;
+      case "drivers":
+        return <DriverManagement />;
+      case "insurance":
+        return <InsuranceManagement />;
+      case "maintenance":
+        return <InsuranceManagement />;
       case "report":
         return <SupplierReport />;
       case "profile":

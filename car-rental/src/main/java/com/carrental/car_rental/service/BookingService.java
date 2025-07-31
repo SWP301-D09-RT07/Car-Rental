@@ -175,7 +175,35 @@ public class BookingService {
             // Sử dụng query với eager loading
             List<BookingDTO> bookingDTOs = bookingRepository.findByCustomerIdWithDetails(userId)
                     .stream()
-                    .map(bookingMapper::toDTO)
+                    .map(booking -> {
+                        BookingDTO dto = bookingMapper.toDTO(booking);
+                        // ✅ Manually set car model since it's ignored in mapper
+                        if (booking.getCar() != null) {
+                            dto.setCarModel(booking.getCar().getModel());
+                        }
+                        // ✅ Set driver name if exists
+                        if (booking.getDriver() != null) {
+                            dto.setDriverName(booking.getDriver().getDriverName());
+                            dto.setIsSelfDrive(false);
+                        } else {
+                            dto.setDriverName(null);
+                            dto.setIsSelfDrive(true);
+                        }
+                        // ✅ Set promo info if exists
+                        if (booking.getPromo() != null) {
+                            dto.setPromoCode(booking.getPromo().getCode());
+                            dto.setPromoDescription(booking.getPromo().getDescription());
+                            dto.setDiscountPercentage(booking.getPromo().getDiscountPercentage());
+                        }
+                        // ✅ Set extension status if exists
+                        if (booking.getExtensionStatus() != null) {
+                            dto.setExtensionStatusName(booking.getExtensionStatus().getStatusName());
+                        }
+                        // ✅ Add backward compatibility for frontend
+                        dto.setStartDate(dto.getPickupDateTime());
+                        dto.setEndDate(dto.getDropoffDateTime());
+                        return dto;
+                    })
                     .collect(Collectors.toList());
             // Bulk check hasRated để tối ưu performance
             if (!bookingDTOs.isEmpty()) {
@@ -509,6 +537,10 @@ public BookingDTO findByIdWithDetails(Integer bookingId) {
     }
     Booking booking = bookingOpt.get();
     BookingDTO dto = bookingMapper.toDTO(booking);
+    
+    // ✅ Manually enrich ignored fields after mapper
+    enrichIgnoredFields(dto, booking);
+    
     dto.setRegionName(
         booking.getRegion() != null ? booking.getRegion().getRegionName() :
         (booking.getCar() != null && booking.getCar().getRegion() != null ? booking.getCar().getRegion().getRegionName() : null)
@@ -523,6 +555,8 @@ public BookingDTO findByIdWithDetails(Integer bookingId) {
         dto.setTotalAmount(java.math.BigDecimal.ZERO);
     }
     loadPaymentInfo(dto, dto.getBookingId());
+    // ✅ THÊM: Load payment details cho modal chi tiết
+    enrichWithPaymentInfo(dto, dto.getBookingId());
     enrichWithCarReportInfo(dto, dto.getBookingId());
     return dto;
 }
@@ -1168,6 +1202,41 @@ public List<PaymentDTO> getBookingPaymentDetails(Integer bookingId) {
             dto.setHasPickupReport(false);
             dto.setHasReturnReport(false);
         }
+    }
+
+    /**
+     * ✅ THÊM: Helper method để enrich các fields bị ignore trong mapper
+     */
+    private void enrichIgnoredFields(BookingDTO dto, Booking booking) {
+        // Set car model
+        if (booking.getCar() != null) {
+            dto.setCarModel(booking.getCar().getModel());
+        }
+        
+        // Set driver name if exists
+        if (booking.getDriver() != null) {
+            dto.setDriverName(booking.getDriver().getDriverName());
+            dto.setIsSelfDrive(false);
+        } else {
+            dto.setDriverName(null);
+            dto.setIsSelfDrive(true);
+        }
+        
+        // Set promo info if exists
+        if (booking.getPromo() != null) {
+            dto.setPromoCode(booking.getPromo().getCode());
+            dto.setPromoDescription(booking.getPromo().getDescription());
+            dto.setDiscountPercentage(booking.getPromo().getDiscountPercentage());
+        }
+        
+        // Set extension status if exists
+        if (booking.getExtensionStatus() != null) {
+            dto.setExtensionStatusName(booking.getExtensionStatus().getStatusName());
+        }
+        
+        // Add backward compatibility for frontend
+        dto.setStartDate(dto.getPickupDateTime());
+        dto.setEndDate(dto.getDropoffDateTime());
     }
 
 }

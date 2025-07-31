@@ -22,6 +22,7 @@ import {
     confirmCarConditionReport,
     exportCarConditionReports 
 } from '@/services/api';
+import { motion, AnimatePresence } from 'framer-motion';
 import './CarConditionReportManagement.scss';
 
 // Helper để loại bỏ filter không hợp lệ
@@ -56,12 +57,17 @@ const CarConditionReportManagement = () => {
     
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(20);
+    const [itemsPerPage] = useState(10);
 
     useEffect(() => {
         fetchReports();
         fetchStats();
     }, [filters, currentPage]);
+
+    // Reset currentPage khi filter thay đổi
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filters.reportType, filters.status, filters.dateRange, filters.searchTerm]);
 
     const fetchReports = async () => {
         setLoading(true);
@@ -196,13 +202,13 @@ const CarConditionReportManagement = () => {
 
     const getStatusBadge = (isConfirmed) => {
         return isConfirmed ? (
-            <span className="status-badge confirmed">
-                <FaCheck className="w-3 h-3" />
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
+                <FaCheck className="inline mr-1" />
                 Đã xác nhận
             </span>
         ) : (
-            <span className="status-badge pending">
-                <FaExclamationTriangle className="w-3 h-3" />
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+                <FaExclamationTriangle className="inline mr-1" />
                 Chờ xác nhận
             </span>
         );
@@ -210,18 +216,18 @@ const CarConditionReportManagement = () => {
 
     const getReportTypeBadge = (type) => {
         return type === 'PICKUP' ? (
-            <span className="type-badge pickup">Nhận xe</span>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Nhận xe</span>
         ) : (
-            <span className="type-badge return">Trả xe</span>
+            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Trả xe</span>
         );
     };
 
     const getConditionBadge = (condition) => {
         const conditionClass = {
-            'EXCELLENT': 'excellent',
-            'GOOD': 'good',
-            'FAIR': 'fair',
-            'POOR': 'poor'
+            'EXCELLENT': 'bg-green-100 text-green-700',
+            'GOOD': 'bg-blue-100 text-blue-700',
+            'FAIR': 'bg-yellow-100 text-yellow-700',
+            'POOR': 'bg-red-100 text-red-700'
         };
 
         const conditionLabel = {
@@ -232,7 +238,7 @@ const CarConditionReportManagement = () => {
         };
 
         return (
-            <span className={`condition-badge ${conditionClass[condition]}`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${conditionClass[condition]}`}>
                 {conditionLabel[condition]}
             </span>
         );
@@ -252,105 +258,160 @@ const CarConditionReportManagement = () => {
     });
 
     const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
-    const paginatedReports = filteredReports.slice(
-        (currentPage - 1) * itemsPerPage,
-        currentPage * itemsPerPage
-    );
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentReports = filteredReports.slice(startIndex, endIndex);
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page);
+    };
+
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: {
+            y: 0,
+            opacity: 1,
+            transition: {
+                duration: 0.5
+            }
+        }
+    };
 
     return (
-        <div className="car-condition-report-management">
+        <motion.div
+            className="min-h-screen p-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50"
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+        >
             {/* Connection Error Banner */}
             {connectionError && (
-                <div className="connection-error-banner" style={{
-                    backgroundColor: '#fee2e2',
-                    border: '1px solid #fecaca',
-                    borderRadius: '8px',
-                    padding: '12px 16px',
-                    margin: '16px 0',
-                    display: 'flex',
-                    alignItems: 'center',
-                    color: '#991b1b'
-                }}>
-                    <FaExclamationTriangle style={{ marginRight: '8px', color: '#dc2626' }} />
+                <motion.div
+                    className="mb-6 p-4 bg-red-100 border border-red-300 rounded-xl text-red-700 flex items-center gap-2"
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                >
+                    <FaExclamationTriangle className="text-red-500" />
                     <div>
                         <strong>Không thể kết nối với máy chủ</strong>
-                        <p style={{ margin: '4px 0 0 0', fontSize: '14px' }}>
+                        <p className="text-sm mt-1">
                             Máy chủ backend hiện không khả dụng. Vui lòng khởi động máy chủ backend hoặc liên hệ quản trị viên.
                         </p>
                     </div>
-                </div>
+                </motion.div>
             )}
             
-            {/* Header */}
-            <div className="page-header">
-                <div className="header-content">
-                    <div className="header-left">
-                        <div className="header-icon">
-                            <FaClipboardList />
-                        </div>
-                        <div className="header-text">
-                            <h1>Quản lý báo cáo tình trạng xe</h1>
-                            <p>Theo dõi và xác nhận các báo cáo từ khách hàng và chủ xe</p>
-                        </div>
+            {/* Header Section */}
+            <motion.div
+                className="mb-8 text-center"
+                variants={itemVariants}
+            >
+                <div className="inline-flex items-center gap-4 p-6 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-2xl shadow-xl text-white">
+                    <div className="p-3 bg-white bg-opacity-20 rounded-xl">
+                        <FaClipboardList className="text-3xl" />
                     </div>
-                    <button className="export-btn" onClick={handleExportReports}>
-                        <FaDownload />
-                        Xuất báo cáo
-                    </button>
+                    <div>
+                        <h1 className="text-4xl font-bold mb-2">Quản lý báo cáo tình trạng xe</h1>
+                        <p className="text-blue-100 text-lg">Theo dõi và xác nhận các báo cáo từ khách hàng và chủ xe</p>
+                    </div>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Stats Cards */}
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <div className="stat-icon total">
-                        <FaClipboardList />
+            <motion.div
+                className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8"
+                variants={itemVariants}
+            >
+                <motion.div
+                    className="bg-white rounded-2xl p-6 shadow-lg border border-blue-100"
+                    whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-xl">
+                            <FaClipboardList className="text-white text-xl" />
+                        </div>
+                        <div>
+                            <p className="text-gray-600 text-sm font-medium">Tổng báo cáo</p>
+                            <p className="text-2xl font-bold text-gray-800">{stats.totalReports || 0}</p>
+                        </div>
                     </div>
-                    <div className="stat-content">
-                        <div className="stat-number">{stats.totalReports || 0}</div>
-                        <div className="stat-label">Tổng báo cáo</div>
-                    </div>
-                </div>
+                </motion.div>
 
-                <div className="stat-card">
-                    <div className="stat-icon pending">
-                        <FaExclamationTriangle />
+                <motion.div
+                    className="bg-white rounded-2xl p-6 shadow-lg border border-yellow-100"
+                    whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl">
+                            <FaExclamationTriangle className="text-white text-xl" />
+                        </div>
+                        <div>
+                            <p className="text-gray-600 text-sm font-medium">Chờ xác nhận</p>
+                            <p className="text-2xl font-bold text-gray-800">{stats.pendingReports || 0}</p>
+                        </div>
                     </div>
-                    <div className="stat-content">
-                        <div className="stat-number">{stats.pendingReports || 0}</div>
-                        <div className="stat-label">Chờ xác nhận</div>
-                    </div>
-                </div>
+                </motion.div>
 
-                <div className="stat-card">
-                    <div className="stat-icon confirmed">
-                        <FaCheck />
+                <motion.div
+                    className="bg-white rounded-2xl p-6 shadow-lg border border-green-100"
+                    whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-gradient-to-r from-green-400 to-emerald-500 rounded-xl">
+                            <FaCheck className="text-white text-xl" />
+                        </div>
+                        <div>
+                            <p className="text-gray-600 text-sm font-medium">Đã xác nhận</p>
+                            <p className="text-2xl font-bold text-gray-800">{stats.confirmedReports || 0}</p>
+                        </div>
                     </div>
-                    <div className="stat-content">
-                        <div className="stat-number">{stats.confirmedReports || 0}</div>
-                        <div className="stat-label">Đã xác nhận</div>
-                    </div>
-                </div>
+                </motion.div>
 
-                <div className="stat-card">
-                    <div className="stat-icon damage">
-                        <FaCar />
+                <motion.div
+                    className="bg-white rounded-2xl p-6 shadow-lg border border-red-100"
+                    whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-gradient-to-r from-red-400 to-pink-500 rounded-xl">
+                            <FaCar className="text-white text-xl" />
+                        </div>
+                        <div>
+                            <p className="text-gray-600 text-sm font-medium">Có hư hỏng</p>
+                            <p className="text-2xl font-bold text-gray-800">{stats.damageReports || 0}</p>
+                        </div>
                     </div>
-                    <div className="stat-content">
-                        <div className="stat-number">{stats.damageReports || 0}</div>
-                        <div className="stat-label">Có hư hỏng</div>
-                    </div>
-                </div>
-            </div>
+                </motion.div>
+            </motion.div>
 
-            {/* Filters */}
-            <div className="filters-section">
-                <div className="filters-row">
-                    <div className="filter-group">
-                        <label>Loại báo cáo:</label>
+            {/* Filters Section */}
+            <motion.div
+                className="mb-6 p-6 bg-white rounded-2xl shadow-lg border border-blue-200"
+                variants={itemVariants}
+            >
+                <div className="flex flex-wrap gap-4 items-end">
+                    <div className="flex flex-col">
+                        <label className="block text-xs font-medium text-gray-600 mb-2 flex items-center gap-2">
+                            <FaFilter className="text-blue-500" />
+                            Loại báo cáo
+                        </label>
                         <select
                             value={filters.reportType}
                             onChange={(e) => handleFilterChange('reportType', e.target.value)}
+                            className="border border-blue-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm min-w-[150px]"
                         >
                             <option value="all">Tất cả</option>
                             <option value="PICKUP">Nhận xe</option>
@@ -358,11 +419,15 @@ const CarConditionReportManagement = () => {
                         </select>
                     </div>
 
-                    <div className="filter-group">
-                        <label>Trạng thái:</label>
+                    <div className="flex flex-col">
+                        <label className="block text-xs font-medium text-gray-600 mb-2 flex items-center gap-2">
+                            <FaFilter className="text-blue-500" />
+                            Trạng thái
+                        </label>
                         <select
                             value={filters.status}
                             onChange={(e) => handleFilterChange('status', e.target.value)}
+                            className="border border-blue-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm min-w-[150px]"
                         >
                             <option value="all">Tất cả</option>
                             <option value="pending">Chờ xác nhận</option>
@@ -370,11 +435,15 @@ const CarConditionReportManagement = () => {
                         </select>
                     </div>
 
-                    <div className="filter-group">
-                        <label>Thời gian:</label>
+                    <div className="flex flex-col">
+                        <label className="block text-xs font-medium text-gray-600 mb-2 flex items-center gap-2">
+                            <FaFilter className="text-blue-500" />
+                            Thời gian
+                        </label>
                         <select
                             value={filters.dateRange}
                             onChange={(e) => handleFilterChange('dateRange', e.target.value)}
+                            className="border border-blue-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm min-w-[150px]"
                         >
                             <option value="all">Tất cả</option>
                             <option value="today">Hôm nay</option>
@@ -383,146 +452,213 @@ const CarConditionReportManagement = () => {
                         </select>
                     </div>
 
-                    <div className="search-group">
-                        <FaSearch />
+                    <div className="flex flex-col">
+                        <label className="block text-xs font-medium text-gray-600 mb-2 flex items-center gap-2">
+                            <FaSearch className="text-blue-500" />
+                            Tìm kiếm
+                        </label>
                         <input
                             type="text"
                             placeholder="Tìm theo mã đơn, xe, người báo cáo..."
                             value={filters.searchTerm}
                             onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                            className="border border-blue-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm min-w-[250px]"
                         />
                     </div>
+
+                    <motion.button
+                        className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white font-semibold shadow-lg transition-all duration-300 flex items-center gap-2"
+                        onClick={handleExportReports}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                    >
+                        <FaDownload />
+                        Xuất báo cáo
+                    </motion.button>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Reports Table */}
-            <div className="reports-section">
+            <motion.div
+                className="bg-white rounded-2xl shadow-lg overflow-hidden border border-blue-200"
+                variants={itemVariants}
+            >
                 {loading ? (
-                    <div className="loading-container">
-                        <LoadingSpinner size="large" />
+                    <div className="py-12 text-center">
+                        <div className="flex items-center justify-center gap-3 text-blue-600 font-semibold">
+                            <LoadingSpinner size="large" />
+                            Đang tải dữ liệu...
+                        </div>
                     </div>
                 ) : error ? (
-                    <div className="error-container">
-                        <FaTimes className="error-icon" />
-                        <p>{error}</p>
+                    <div className="py-12 text-center">
+                        <div className="flex items-center justify-center gap-3 text-red-600 font-semibold">
+                            <FaTimes className="text-xl" />
+                            {error}
+                        </div>
                     </div>
                 ) : filteredReports.length === 0 ? (
-                    <div className="empty-container">
-                        <FaClipboardList className="empty-icon" />
-                        <h3>Không có báo cáo nào</h3>
+                    <div className="py-12 text-center text-gray-500 font-medium">
+                        <FaClipboardList className="text-4xl mx-auto mb-4 text-gray-300" />
+                        <h3 className="text-xl font-semibold mb-2">Không có báo cáo nào</h3>
                         <p>Chưa có báo cáo tình trạng xe nào phù hợp với bộ lọc hiện tại</p>
                     </div>
                 ) : (
                     <>
-                        <div className="table-container">
-                            <table className="reports-table">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
                                 <thead>
-                                    <tr>
-                                        <th>Mã đơn</th>
-                                        <th>Loại báo cáo</th>
-                                        <th>Xe</th>
-                                        <th>Người báo cáo</th>
-                                        <th>Tình trạng chung</th>
-                                        <th>Ngày tạo</th>
-                                        <th>Trạng thái</th>
-                                        <th>Hành động</th>
+                                    <tr className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white">
+                                        <th className="py-4 px-6 text-left font-bold">Mã đơn</th>
+                                        <th className="py-4 px-6 text-left font-bold">Loại báo cáo</th>
+                                        <th className="py-4 px-6 text-left font-bold">Xe</th>
+                                        <th className="py-4 px-6 text-left font-bold">Người báo cáo</th>
+                                        <th className="py-4 px-6 text-left font-bold">Tình trạng chung</th>
+                                        <th className="py-4 px-6 text-left font-bold">Ngày tạo</th>
+                                        <th className="py-4 px-6 text-left font-bold">Trạng thái</th>
+                                        <th className="py-4 px-6 text-center font-bold">Hành động</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {paginatedReports.map((report) => (
-                                        <tr key={report.reportId}>
-                                            <td>
-                                                <span className="booking-id">#{report.bookingId}</span>
+                                    {currentReports.map((report, idx) => (
+                                        <motion.tr
+                                            key={report.reportId}
+                                            className="border-b border-gray-100 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300"
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: idx * 0.05 }}
+                                            whileHover={{ x: 5 }}
+                                        >
+                                            <td className="py-4 px-6">
+                                                <span className="font-mono font-semibold">#{report.bookingId}</span>
                                             </td>
-                                            <td>
+                                            <td className="py-4 px-6">
                                                 {getReportTypeBadge(report.reportType)}
                                             </td>
-                                            <td>
-                                                <div className="car-info">
-                                                    <div className="car-name">{report.car?.model || 'N/A'}</div>
-                                                    <div className="car-plate">{report.car?.licensePlate || 'N/A'}</div>
+                                            <td className="py-4 px-6">
+                                                <div>
+                                                    <div className="font-semibold">{report.car?.model || 'N/A'}</div>
+                                                    <div className="text-sm text-gray-500">{report.car?.licensePlate || 'N/A'}</div>
                                                 </div>
                                             </td>
-                                            <td>
-                                                <div className="reporter-info">
-                                                    <div className="reporter-name">{report.reporter?.fullName || 'N/A'}</div>
-                                                    <div className="reporter-type">
+                                            <td className="py-4 px-6">
+                                                <div>
+                                                    <div className="font-semibold">{report.reporter?.fullName || 'N/A'}</div>
+                                                    <div className="text-sm text-gray-500">
                                                         {report.reporter?.role === 'customer' ? 'Khách hàng' : 'Chủ xe'}
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td>
-                                                <div className="condition-summary">
+                                            <td className="py-4 px-6">
+                                                <div className="flex items-center gap-2">
                                                     {getConditionBadge(report.exteriorCondition)}
                                                     {report.damageNotes && (
-                                                        <span className="damage-indicator">
-                                                            <FaExclamationTriangle />
-                                                        </span>
+                                                        <FaExclamationTriangle className="text-red-500" />
                                                     )}
                                                 </div>
                                             </td>
-                                            <td>
-                                                <div className="date-info">
-                                                    <div>{new Date(report.reportDate).toLocaleDateString('vi-VN')}</div>
-                                                    <div className="time">{new Date(report.reportDate).toLocaleTimeString('vi-VN')}</div>
+                                            <td className="py-4 px-6">
+                                                <div>
+                                                    <div className="font-semibold">{new Date(report.reportDate).toLocaleDateString('vi-VN')}</div>
+                                                    <div className="text-sm text-gray-500">{new Date(report.reportDate).toLocaleTimeString('vi-VN')}</div>
                                                 </div>
                                             </td>
-                                            <td>
+                                            <td className="py-4 px-6">
                                                 {getStatusBadge(report.isConfirmed)}
                                             </td>
-                                            <td>
-                                                <div className="action-buttons">
-                                                    <button
-                                                        className="action-btn view"
+                                            <td className="py-4 px-6 text-center">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <motion.button
+                                                        className="p-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-lg transition-all duration-300"
                                                         onClick={() => handleViewReport(report)}
+                                                        whileHover={{ scale: 1.1, y: -2 }}
+                                                        whileTap={{ scale: 0.95 }}
                                                         title="Xem chi tiết"
                                                     >
-                                                        <FaEye />
-                                                    </button>
+                                                        <FaEye className="text-sm" />
+                                                    </motion.button>
                                                     {!report.isConfirmed && (
-                                                        <button
-                                                            className="action-btn confirm"
+                                                        <motion.button
+                                                            className="p-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg transition-all duration-300"
                                                             onClick={() => handleConfirmReport(report.reportId)}
+                                                            whileHover={{ scale: 1.1, y: -2 }}
+                                                            whileTap={{ scale: 0.95 }}
                                                             title="Xác nhận báo cáo"
                                                         >
-                                                            <FaCheck />
-                                                        </button>
+                                                            <FaCheck className="text-sm" />
+                                                        </motion.button>
                                                     )}
                                                 </div>
                                             </td>
-                                        </tr>
+                                        </motion.tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
 
-                        {/* Pagination */}
+                        {/* Phân trang */}
                         {totalPages > 1 && (
-                            <div className="pagination">
-                                <button
-                                    className="pagination-btn"
+                            <motion.div
+                                className="flex justify-center items-center gap-4 mt-8"
+                                variants={itemVariants}
+                            >
+                                <motion.button
+                                    onClick={() => handlePageChange(currentPage - 1)}
                                     disabled={currentPage === 1}
-                                    onClick={() => setCurrentPage(currentPage - 1)}
+                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white font-medium shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    whileHover={{ scale: 1.05, y: -1 }}
+                                    whileTap={{ scale: 0.95 }}
                                 >
-                                    Trước
-                                </button>
+                                    ← Trước
+                                </motion.button>
                                 
-                                <div className="pagination-info">
-                                    Trang {currentPage} / {totalPages}
+                                <div className="flex items-center gap-2">
+                                    {(() => {
+                                        const maxVisiblePages = 5;
+                                        let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                                        let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                                        
+                                        if (endPage - startPage + 1 < maxVisiblePages) {
+                                            startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                                        }
+                                        
+                                        const pages = [];
+                                        for (let i = startPage; i <= endPage; i++) {
+                                            pages.push(i);
+                                        }
+                                        
+                                        return pages.map((page) => (
+                                            <motion.button
+                                                key={page}
+                                                onClick={() => handlePageChange(page)}
+                                                className={`px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
+                                                    currentPage === page
+                                                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg'
+                                                        : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 shadow-md'
+                                                }`}
+                                                whileHover={{ scale: 1.05, y: -1 }}
+                                                whileTap={{ scale: 0.95 }}
+                                            >
+                                                {page}
+                                            </motion.button>
+                                        ));
+                                    })()}
                                 </div>
                                 
-                                <button
-                                    className="pagination-btn"
+                                <motion.button
+                                    onClick={() => handlePageChange(currentPage + 1)}
                                     disabled={currentPage === totalPages}
-                                    onClick={() => setCurrentPage(currentPage + 1)}
+                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white font-medium shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    whileHover={{ scale: 1.05, y: -1 }}
+                                    whileTap={{ scale: 0.95 }}
                                 >
-                                    Sau
-                                </button>
-                            </div>
+                                    Sau →
+                                </motion.button>
+                            </motion.div>
                         )}
                     </>
                 )}
-            </div>
+            </motion.div>
 
             {/* View Report Modal */}
             <ViewReportModal
@@ -535,7 +671,7 @@ const CarConditionReportManagement = () => {
                 canConfirm={!selectedReport?.isConfirmed}
                 onConfirm={handleConfirmReport}
             />
-        </div>
+        </motion.div>
     );
 };
 

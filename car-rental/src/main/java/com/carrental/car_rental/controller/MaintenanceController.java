@@ -3,6 +3,7 @@ package com.carrental.car_rental.controller;
 import com.carrental.car_rental.dto.MaintenanceDTO;
 import com.carrental.car_rental.service.MaintenanceService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,17 +33,25 @@ public class MaintenanceController {
         return ResponseEntity.ok(service.findByCarId(carId));
     }
 
+    @GetMapping("/supplier/{supplierId}")
+    public ResponseEntity<List<MaintenanceDTO>> getMaintenancesBySupplierId(@PathVariable Integer supplierId) {
+        return ResponseEntity.ok(service.findBySupplierId(supplierId));
+    }
+
     @PostMapping
+    @PreAuthorize("hasRole('SUPPLIER')")
     public ResponseEntity<MaintenanceDTO> createMaintenance(@RequestBody MaintenanceDTO dto) {
         return ResponseEntity.status(201).body(service.save(dto));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SUPPLIER')")
     public ResponseEntity<MaintenanceDTO> updateMaintenance(@PathVariable Integer id, @RequestBody MaintenanceDTO dto) {
         return ResponseEntity.ok(service.update(id, dto));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SUPPLIER')")
     public ResponseEntity<Void> deleteMaintenance(@PathVariable Integer id) {
         service.delete(id);
         return ResponseEntity.noContent().build();

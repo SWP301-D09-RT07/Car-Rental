@@ -107,6 +107,9 @@ public class BookingController {
             breakdown.setTax(tax);
             breakdown.setDiscount(discount);
             breakdown.setTotal(total);
+            // ✅ THÊM: Set deposit amount from booking
+            breakdown.setDeposit(booking.getDepositAmount() != null ? booking.getDepositAmount() : BigDecimal.ZERO);
+            
             return ResponseEntity.ok(breakdown);
         } catch (Exception e) {
             logger.error("[DEBUG] Breakdown error for bookingId {}: {}", id, e.getMessage(), e);

@@ -61,12 +61,13 @@ const PaymentFailedPage = () => {
                     >
                         Về trang chủ
                     </Link>
-                    <Link
-                        to="/profile"
+                    <button
+                        type="button"
+                        onClick={() => window.location.assign('/profile?tab=bookings')}
                         className="block w-full border border-blue-300 text-blue-700 py-3 rounded-xl font-medium hover:bg-blue-50 transition-all duration-300"
                     >
                         Xem lịch sử đặt & thanh toán lại
-                    </Link>
+                    </button>
                 </div>
                 <div className="mt-6 text-xs text-gray-400">
                     <p>Nếu bạn cần hỗ trợ, vui lòng liên hệ với chúng tôi.</p>

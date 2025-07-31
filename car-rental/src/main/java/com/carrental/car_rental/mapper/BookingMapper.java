@@ -21,94 +21,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
-//<<<<<<< HEAD
-//@Mapper(componentModel = "spring")
-//@Component
-//public class BookingMapper {
-//
-//    private static final Logger logger = LoggerFactory.getLogger(BookingMapper.class);
-//
-//    @Transactional(readOnly = true)
-//    public BookingDTO toDTO(Booking booking) {
-//        if (booking == null) return null;
-//
-//        BookingDTO dto = new BookingDTO();
-//        dto.setBookingId(booking.getId());
-//        dto.setUserId(booking.getCustomer() != null ? booking.getCustomer().getId() : null);
-//        dto.setStartDate(booking.getStartDate());
-//        dto.setEndDate(booking.getEndDate());
-//        dto.setPickupLocation(booking.getPickupLocation());
-//        dto.setDropoffLocation(booking.getDropoffLocation());
-//        dto.setDepositAmount(booking.getDepositAmount());
-//
-//        // ✅ THÊM CÁC FIELDS MỚI
-//        dto.setSeatNumber(booking.getSeatNumber());
-//        dto.setExtensionDays(booking.getExtensionDays());
-//        dto.setIsDeleted(booking.getIsDeleted());
-//
-//        // Convert Instant to LocalDateTime safely
-//        if (booking.getBookingDate() != null) {
-//            dto.setBookingDate(LocalDateTime.ofInstant(booking.getBookingDate(), ZoneId.systemDefault()));
-//        }
-//        if (booking.getCreatedAt() != null) {
-//            dto.setCreatedAt(LocalDateTime.ofInstant(booking.getCreatedAt(), ZoneId.systemDefault()));
-//        }
-//        // ✅ THÊM UPDATED_AT
-//        if (booking.getUpdatedAt() != null) {
-//            dto.setUpdatedAt(LocalDateTime.ofInstant(booking.getUpdatedAt(), ZoneId.systemDefault()));
-//        }
-//
-//        // Car info
-//        if (booking.getCar() != null) {
-//            dto.setCarId(booking.getCar().getId());
-//            dto.setCarModel(booking.getCar().getModel());
-//            dto.setCarLicensePlate(booking.getCar().getLicensePlate());
-//        }
-//
-//        // Driver info - có thể null cho xe tự lái
-//        if (booking.getDriver() != null) {
-//            dto.setDriverId(booking.getDriver().getId());
-//            dto.setDriverName(booking.getDriver().getDriverName());
-//            dto.setIsSelfDrive(false);
-//        } else {
-//            dto.setDriverId(null);
-//            dto.setDriverName(null);
-//            dto.setIsSelfDrive(true);
-//        }
-//
-//        // Status info
-//        if (booking.getStatus() != null) {
-//            dto.setStatusId(booking.getStatus().getId());
-//            dto.setStatusName(booking.getStatus().getStatusName());
-//        }
-//
-//        // Region info
-//        if (booking.getRegion() != null) {
-//            dto.setRegionId(booking.getRegion().getId());
-//            dto.setRegionName(booking.getRegion().getRegionName());
-//        }
-//
-//        // ✅ THÊM PROMO INFO
-//        if (booking.getPromo() != null) {
-//            dto.setPromoId(booking.getPromo().getId());
-//            dto.setPromoCode(booking.getPromo().getCode());
-//            dto.setPromoDescription(booking.getPromo().getDescription());
-//            dto.setDiscountPercentage(booking.getPromo().getDiscountPercentage());
-//        } else {
-//            dto.setPromoId(null);
-//            dto.setPromoCode(null);
-//            dto.setPromoDescription(null);
-//            dto.setDiscountPercentage(null);
-//        }
-//
-//        // ✅ THÊM EXTENSION STATUS INFO
-//        if (booking.getExtensionStatus() != null) {
-//            dto.setExtensionStatusId(booking.getExtensionStatus().getId());
-//
-//        }
-//
-//        return dto;
-//=======
 @Mapper(componentModel = "spring", uses = {UserMapper.class, CarMapper.class})
 public interface BookingMapper {
     @Mapping(source = "id", target = "bookingId")
@@ -161,6 +73,15 @@ public interface BookingMapper {
     @Mapping(target = "totalAmount", ignore = true)
     @Mapping(target = "totalPaidAmount", ignore = true)
     @Mapping(target = "paymentDetails", ignore = true)
+    @Mapping(target = "startDate", ignore = true)
+    @Mapping(target = "endDate", ignore = true)
+    @Mapping(target = "extensionStatusName", ignore = true)
+    @Mapping(target = "customerCashPaymentConfirmed", ignore = true)
+    @Mapping(target = "supplierCashPaymentConfirmed", ignore = true)
+    @Mapping(target = "hasCashDepositPending", ignore = true)
+    @Mapping(target = "hasPickupReport", ignore = true)
+    @Mapping(target = "hasReturnReport", ignore = true)
+    @Mapping(target = "ratings", ignore = true)
     BookingDTO toDTO(Booking entity);
 
     @Mapping(source = "bookingId", target = "id")
@@ -195,6 +116,4 @@ public interface BookingMapper {
     default Instant localDateTimeToInstant(LocalDateTime localDateTime) {
         return localDateTime != null ? localDateTime.atZone(ZoneId.systemDefault()).toInstant() : null;
     }
-
-    
 }

@@ -248,23 +248,40 @@ const BookingModal = ({ isOpen, onClose, car, onSubmitBooking }) => {
 
   const handleTimeSelect = (time, field) => {
     if (field === "pickupTime") {
-
+      // Validate: If pickup date is today, time must be after now
+      if (form.pickupDate) {
+        const today = new Date();
+        const [year, month, day] = form.pickupDate.split("-").map(Number);
+        const pickupDate = new Date(year, month - 1, day);
+        const isToday =
+          today.getFullYear() === pickupDate.getFullYear() &&
+          today.getMonth() === pickupDate.getMonth() &&
+          today.getDate() === pickupDate.getDate();
+        if (isToday) {
+          const [hour, minute] = time.split(":").map(Number);
+          const selected = new Date(year, month - 1, day, hour, minute);
+          if (selected <= today) {
+            setFormErrors({ ...formErrors, [field]: "Giờ nhận xe phải sau thời gian hiện tại." });
+            return;
+          }
+        }
+      }
       setForm((prev) => ({
         ...prev,
         [field]: time,
         dropoffTime: prev.dropoffTime || time,
-      }))
+      }));
     } else {
       if (form.pickupDate === form.dropoffDate && form.pickupTime) {
         if (time <= form.pickupTime) {
-          setFormErrors({ ...formErrors, [field]: "Giờ trả xe phải sau giờ nhận xe" })
-          return
+          setFormErrors({ ...formErrors, [field]: "Giờ trả xe phải sau giờ nhận xe" });
+          return;
         }
       }
-      setForm((prev) => ({ ...prev, [field]: time }))
+      setForm((prev) => ({ ...prev, [field]: time }));
     }
-    setShowTimePicker(null)
-    setFormErrors({ ...formErrors, [field]: "" })
+    setShowTimePicker(null);
+    setFormErrors({ ...formErrors, [field]: "" });
   }
 
   const formatDate = (dateString) => {

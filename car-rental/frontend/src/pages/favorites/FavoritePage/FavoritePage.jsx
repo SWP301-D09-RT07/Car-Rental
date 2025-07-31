@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { getFavorites, removeFavorite } from "../../../services/api"
+import { getFavorites, removeFavorite, getRatingsByCarId } from "../../../services/api"
 import FavoriteButton from "@/components/ui/FavoriteButton/FavoriteButton"
 import LoadingSpinner from "@/components/ui/Loading/LoadingSpinner.jsx"
 import { useLocation } from 'react-router-dom';
@@ -11,6 +11,7 @@ import { formatVND } from '@/utils/format'
 const FavoritePage = () => {
   const location = useLocation();
   const [favorites, setFavorites] = useState([])
+  const [ratingsMap, setRatingsMap] = useState({}) // { [carId]: { averageRating, ratingCount } }
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [removingId, setRemovingId] = useState(null)
@@ -25,8 +26,33 @@ const FavoritePage = () => {
       setLoading(true)
       setError(null)
       const data = await getFavorites()
-      console.log("Favorites API data:", data)
       setFavorites(data)
+      // Fetch ratings for all cars in favorites
+      if (Array.isArray(data) && data.length > 0) {
+        const ratingsResults = await Promise.all(
+          data.map(async (fav) => {
+            const carId = fav.carId || fav.car?.id
+            if (!carId) return [null, null]
+            try {
+              const ratings = await getRatingsByCarId(carId)
+              if (ratings && ratings.length > 0) {
+                const totalScore = ratings.reduce((sum, r) => sum + (r.ratingScore || 0), 0)
+                const averageRating = Math.round((totalScore / ratings.length) * 10) / 10
+                return [carId, { averageRating, ratingCount: ratings.length }]
+              } else {
+                return [carId, { averageRating: null, ratingCount: 0 }]
+              }
+            } catch {
+              return [carId, { averageRating: null, ratingCount: 0 }]
+            }
+          })
+        )
+        const ratingsObj = {}
+        ratingsResults.forEach(([carId, rating]) => {
+          if (carId) ratingsObj[carId] = rating
+        })
+        setRatingsMap(ratingsObj)
+      }
     } catch (err) {
       setError("Không thể tải danh sách yêu thích")
     } finally {
@@ -422,15 +448,35 @@ useEffect(() => {
                       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                         <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <i
-                                key={star}
-                                className={`ri-star-${star <= Math.floor(favorite.car?.rating || 4.8) ? "fill" : "line"} text-yellow-400 text-sm`}
-                              ></i>
-                            ))}
+                            {(() => {
+                              const carId = favorite.carId || favorite.car?.id
+                              const ratingObj = ratingsMap[carId] || {}
+                              const rating = ratingObj.averageRating ?? favorite.car?.rating ?? 4.8
+                              return [1,2,3,4,5].map((star) => {
+                                if (star <= Math.floor(rating)) {
+                                  return <i key={star} className="ri-star-fill text-yellow-400 text-sm"></i>;
+                                } else if (star - rating <= 0.5 && star - rating > 0) {
+                                  return <i key={star} className="ri-star-half-line text-yellow-400 text-sm"></i>;
+                                } else {
+                                  return <i key={star} className="ri-star-line text-yellow-400 text-sm"></i>;
+                                }
+                              })
+                            })()}
                           </div>
-                          <span className="text-sm text-gray-600 font-medium">{favorite.car?.rating || 4.8}</span>
-                          <span className="text-xs text-gray-400">({favorite.car?.reviewCount || 12})</span>
+                          <span className="text-sm text-gray-600 font-medium">
+                            {(() => {
+                              const carId = favorite.carId || favorite.car?.id
+                              const ratingObj = ratingsMap[carId] || {}
+                              return ratingObj.averageRating ?? favorite.car?.rating ?? 4.8
+                            })()}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            ({(() => {
+                              const carId = favorite.carId || favorite.car?.id
+                              const ratingObj = ratingsMap[carId] || {}
+                              return ratingObj.ratingCount ?? favorite.car?.reviewCount ?? 12
+                            })()} )
+                          </span>
                         </div>
                         <div className="text-xs text-gray-500">
                           {new Date(favorite.createdAt || Date.now()).toLocaleDateString("vi-VN")}
@@ -529,7 +575,7 @@ useEffect(() => {
                           <div className="flex flex-col items-end gap-4">
                             <div className="text-right">
                               <div className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                                {favorite.car?.dailyRate ? `${(favorite.car.dailyRate / 1000).toFixed(0)}K` : "500K"}
+                                {formatVND(favorite.car?.dailyRate || 500000)}
                               </div>
                               <div className="text-sm text-gray-500">/ ngày</div>
                             </div>
