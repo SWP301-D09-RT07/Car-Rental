@@ -3,6 +3,7 @@
 import { useState, useContext, useEffect } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { useForm } from "react-hook-form"
+import { FaCarSide } from "react-icons/fa"
 import { AuthContext } from "../../store/AuthContext"
 import { login, register } from "@/services/api"
 import PhoneOtpVerification from '../../components/Common/PhoneOtpVerification';
@@ -21,7 +22,6 @@ const LoginRegisterPage = () => {
   const [countryCode, setCountryCode] = useState('+84');
   const navigate = useNavigate();
   const [rememberMe, setRememberMe] = useState(false);
-  const [isPhoneVerified, setIsPhoneVerified] = useState(false);
   const [pendingPhone, setPendingPhone] = useState('');
   const [showOtpModal, setShowOtpModal] = useState(false);
 
@@ -146,7 +146,6 @@ const LoginRegisterPage = () => {
     try {
       const fullPhone = `${countryCode}${data.phone}`;
       setPendingPhone(fullPhone);
-      setIsPhoneVerified(false);
       setShowOtpModal(true);
       // Không gọi API đăng ký ở đây
     } finally {
@@ -155,7 +154,6 @@ const LoginRegisterPage = () => {
   };
 
   const handlePhoneVerified = async () => {
-    setIsPhoneVerified(true);
     setShowOtpModal(false);
     // Lưu trạng thái otpVerified và số điện thoại đã xác thực vào localStorage
     if (pendingPhone) {
@@ -195,7 +193,7 @@ const LoginRegisterPage = () => {
         }, 1000);
         return;
       }
-      const response = await register(userData);
+      await register(userData);
       showToast('Đăng ký thành công! Vui lòng đăng nhập.', 'success');
       setTimeout(() => {
         setRegisterActive(false);
@@ -301,12 +299,18 @@ const LoginRegisterPage = () => {
           <div className="w-full max-w-md">
             {/* Header */}
             <div className="text-center mb-8">
-              <Link to="/" className="inline-flex items-center gap-2 text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center text-white">
-                  <i className="ri-car-line"></i>
-                </div>
-                RentCar
-              </Link>
+{/* Logo */}
+                        <Link to="/" className="flex items-center group">
+                            <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-3 rounded-2xl mr-3 group-hover:scale-110 transition-all duration-300 shadow-xl group-hover:shadow-2xl">
+                                <FaCarSide className="text-xl text-white" />
+                            </div>
+                            <div>
+                                <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                                    DriveLuxe
+                                </span>
+                                <p className="text-xs text-gray-500 -mt-1">Premium Car Rental</p>
+                            </div>
+                        </Link>
               <p className="text-gray-600">Dịch vụ cho thuê xe cao cấp</p>
             </div>
 

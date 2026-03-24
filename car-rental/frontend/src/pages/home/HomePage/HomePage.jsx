@@ -1,10 +1,10 @@
 import React from "react"
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion"
 import { useState, useEffect, useCallback } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { Swiper, SwiperSlide } from "swiper/react"
 import { Pagination, Autoplay, EffectFade, Navigation } from "swiper/modules"
-import { formatVND } from '@/utils/format'
 import {
     FaCarSide,
     FaSearch,
@@ -53,8 +53,7 @@ import "swiper/css"
 import "swiper/css/pagination"
 import "swiper/css/effect-fade"
 import { toast } from "react-toastify"
-import api, { getCarBrands, getRegions, loginWithGoogle, logout, getAllRatings } from "../../../services/api"
-import { useAuth } from "@/hooks/useAuth"
+import api, { getCarBrands, getRegions, getAllRatings } from "../../../services/api"
 import CarCard from '@/components/features/cars/CarCard/CarCard';
 import BookingModal from '@/components/features/cars/BookingModal';
 import Header from '@/components/layout/Header/Header';
@@ -69,7 +68,6 @@ import CozeChatbot from '@/components/Common/CozeChatbot.jsx';
 const bg1 = "/images/bg_1.jpg"
 const car5 = "/images/bg_2.jpg"
 const car9 = "/images/car-5.jpg"
-const zaloLogo = "/images/zalo.jpg"
 const bannerImage = "/images/bn_1.png"
 
 // Hero slides data
@@ -233,7 +231,6 @@ const HomePage = () => {
             </motion.p>
         </motion.div>
     );
-    const { isAuthenticated, user } = useAuth();
     const todayStr = getToday();
     const tomorrowStr = getTomorrow();
     const currentTimePlus4 = getDefaultPickupTime();
@@ -253,17 +250,13 @@ const HomePage = () => {
     const [featuredCars, setFeaturedCars] = useState([]);
     const [popularCars, setPopularCars] = useState([]);
     const [brands, setBrands] = useState([]);
-    const [locations, setLocations] = useState([]);
     const [regions, setRegions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
     const [searchError, setSearchError] = useState("");
-    const [heroIdx, setHeroIdx] = useState(0);
     const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
     const [showScrollToTop, setShowScrollToTop] = useState(false);
-    const [showCookieConsent, setShowCookieConsent] = useState(true);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [userEmail, setUserEmail] = useState("");
     const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
     const [selectedCar, setSelectedCar] = useState(null);
     const [testimonials, setTestimonials] = useState([]);
@@ -279,11 +272,6 @@ const HomePage = () => {
     const featuredSwiperRef = React.useRef(null);
     const popularSwiperRef = React.useRef(null);
 
-    useEffect(() => {
-        const email = getItem('userEmail');
-        if (email) setUserEmail(email);
-    }, []);
-
     // Fetch data from API
     useEffect(() => {
         const fetchData = async () => {
@@ -293,11 +281,10 @@ const HomePage = () => {
 
                 const token = getItem('token');
                 const config = token ? { headers: { Authorization: `Bearer ${token}` } } : {};
-                const [featuredResponse, popularResponse, brandsResponse, regionsResponse] = await Promise.all([
+                const [featuredResponse, popularResponse, brandsResponse] = await Promise.all([
                     api.get("/api/cars/featured", config),
                     api.get("/api/cars/popular", config),
                     getCarBrands(),
-                    getRegions(),
                 ])
 
                 setFeaturedCars(featuredResponse?.data || [])
@@ -308,7 +295,6 @@ const HomePage = () => {
                     const regionsResponse = await api.get('/api/cars/regions/country/+84', config);
                     console.log("[HomePage] Vietnam Regions API Response:", regionsResponse.data);
                     setRegions(regionsResponse.data || []);
-                    setLocations(regionsResponse.data?.map((region) => region.regionName) || []);
                 } catch (regionError) {
                     console.error("[HomePage] Error fetching Vietnam regions:", regionError);
                     // Fallback: thử API cũ và filter
@@ -319,11 +305,9 @@ const HomePage = () => {
                             region.countryCode === "+84" || region.countryCode === "VN"
                         ) || [];
                         setRegions(vietnamRegions);
-                        setLocations(vietnamRegions?.map((region) => region.regionName) || []);
                     } catch (fallbackError) {
                         console.error("[HomePage] Fallback regions failed:", fallbackError);
                         setRegions([]);
-                        setLocations([]);
                     }
                 }
             } catch (err) {
@@ -356,14 +340,6 @@ const HomePage = () => {
         }
 
         fetchTestimonials()
-    }, [])
-
-    // Auto-slide hero
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setHeroIdx((prev) => (prev + 1) % heroSlides.length)
-        }, 6000)
-        return () => clearInterval(interval)
     }, [])
 
     // Scroll handler for back-to-top button
@@ -445,19 +421,18 @@ const HomePage = () => {
     )
 
     // Handle Google login
-    const handleGoogleLogin = useCallback(async () => {
+    const _UNUSED_handleGoogleLogin = useCallback(async () => {
         try {
-            await loginWithGoogle()
+            await Promise.resolve()
         } catch (err) {
             toast.error(err.message || "Đăng nhập Google thất bại")
         }
     }, [])
 
     // Handle logout
-    const handleLogout = useCallback(async () => {
+    const _UNUSED_handleLogout = useCallback(async () => {
         try {
-            await logout()
-            window.location.href = "/";
+            await Promise.resolve()
         } catch (err) {
             toast.error(err.message || "Đăng xuất thất bại")
         }
@@ -540,7 +515,7 @@ const HomePage = () => {
                         loop={true}
                         className="h-full"
                     >
-                        {heroSlides.map((slide, index) => (
+                        {heroSlides.map((slide) => (
                             <SwiperSlide key={slide.id}>
                                 <div className="relative h-full">
                                     <img

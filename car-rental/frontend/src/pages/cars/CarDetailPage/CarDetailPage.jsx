@@ -486,6 +486,19 @@ const CarDetailPage = () => {
 
 
   const handleBookNow = () => {
+    // Log dữ liệu car, supplier, userDetail khi mở modal Booking
+    console.log('[handleBookNow] car:', car)
+    if (car && car.supplier) {
+      console.log('[handleBookNow] car.supplier:', car.supplier)
+      if (car.supplier.userDetail) {
+        console.log('[handleBookNow] car.supplier.userDetail:', car.supplier.userDetail)
+        console.log('[handleBookNow] car.supplier.userDetail.address:', car.supplier.userDetail.address)
+      } else {
+        console.log('[handleBookNow] car.supplier.userDetail is missing')
+      }
+    } else {
+      console.log('[handleBookNow] car.supplier is missing')
+    }
     setIsBookingModalOpen(true)
   }
 

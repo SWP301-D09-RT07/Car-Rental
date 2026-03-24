@@ -20,14 +20,13 @@ const BookingModal = ({ isOpen, onClose, car, onSubmitBooking }) => {
   console.log('[BookingModal] render - isOpen:', isOpen, '| car:', car, '| onClose:', typeof onClose, '| onSubmitBooking:', typeof onSubmitBooking);
   if (!isOpen) {
     console.warn('[BookingModal] Không render vì isOpen =', isOpen);
-    return null;
+    console.warn('[BookingModal] Delay early return until hooks are initialized');
   }
   if (!car) {
     console.warn('[BookingModal] Không render vì thiếu car:', car);
-    return null;
+    console.warn('[BookingModal] Delay early return until hooks are initialized');
   }
   const { isAuthenticated, user } = useAuth()
-  const [userProfile, setUserProfile] = useState(null)
   const [userAddress, setUserAddress] = useState("")
   const [form, setForm] = useState({
     pickupDate: "",
@@ -49,15 +48,32 @@ const BookingModal = ({ isOpen, onClose, car, onSubmitBooking }) => {
   const [carRatings, setCarRatings] = useState({ averageRating: null, ratingCount: 0 })
   const [loadingRatings, setLoadingRatings] = useState(false)
 
+  if (!isOpen) {
+    console.warn('[BookingModal] KhÃ´ng render vÃ¬ isOpen =', isOpen);
+    console.warn('[BookingModal] Render will stop after hooks complete');
+  }
+
+  if (!car) {
+    console.warn('[BookingModal] KhÃ´ng render vÃ¬ thiáº¿u car:', car);
+    console.warn('[BookingModal] Render will stop after hooks complete');
+  }
+
   useEffect(() => {
     if (car && isOpen) {
+      // Lấy địa chỉ supplier đúng chuẩn: car.supplier.userDetail.address
+      let supplierAddress = ""
+      if (car.supplier && car.supplier.userDetail && car.supplier.userDetail.address) {
+        supplierAddress = car.supplier.userDetail.address
+      } else if (car.supplierAddress) {
+        supplierAddress = car.supplierAddress
+      }
       setForm({
         pickupDate: "",
         pickupTime: "",
         dropoffDate: "",
         dropoffTime: "",
-        pickupLocation: "",
-        dropoffLocation: "",
+        pickupLocation: supplierAddress,
+        dropoffLocation: supplierAddress,
         termsAgreed: false,
       })
       setFormErrors({})
@@ -130,12 +146,11 @@ const BookingModal = ({ isOpen, onClose, car, onSubmitBooking }) => {
     try {
       const profile = await getProfile()
       if (profile && profile.userDetail?.address) {
-        setUserProfile(profile)
         setUserAddress(profile.userDetail.address)
       }
     } catch (error) {
-      if (user) {
-        setUserProfile({ username: user.username, role: user.role })
+      if (user?.userDetail?.address) {
+        setUserAddress(user.userDetail.address)
       }
     }
   }
@@ -183,7 +198,6 @@ const BookingModal = ({ isOpen, onClose, car, onSubmitBooking }) => {
     const year = currentMonth.getFullYear()
     const month = currentMonth.getMonth()
     const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
     const startDate = new Date(firstDay)
     startDate.setDate(startDate.getDate() - firstDay.getDay())
 

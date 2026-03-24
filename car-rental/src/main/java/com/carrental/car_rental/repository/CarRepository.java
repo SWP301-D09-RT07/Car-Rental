@@ -48,8 +48,16 @@ public interface CarRepository extends JpaRepository<Car, Integer>, JpaSpecifica
     @Query("SELECT c FROM Car c JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status WHERE c.status.id = :statusId AND c.isDeleted = false")
     List<Car> findByStatusIdAndIsDeletedFalse(Integer statusId);
 
-    @Query(value = "EXEC sp_GetAvailableCars :startDate, :endDate", nativeQuery = true)
-    List<Car> findAvailableCars(Instant startDate, Instant endDate);
+    @Query("SELECT c FROM Car c " +
+           "WHERE c.isDeleted = false " +
+           "AND NOT EXISTS (" +
+           "    SELECT 1 FROM Booking b " +
+           "    WHERE b.car = c " +
+           "    AND b.isDeleted = false " +
+           "    AND b.startDate < :endDate " +
+           "    AND b.endDate > :startDate" +
+           ")")
+    List<Car> findAvailableCars(@Param("startDate") Instant startDate, @Param("endDate") Instant endDate);
 
     @Query("SELECT c FROM Car c JOIN FETCH c.supplier s LEFT JOIN FETCH s.userDetail JOIN FETCH c.brand JOIN FETCH c.fuelType JOIN FETCH c.region JOIN FETCH c.status LEFT JOIN FETCH c.images i WHERE c.id = :id AND c.isDeleted = false AND (i.isDeleted = false OR i.isDeleted IS NULL)")
     Optional<Car> findByIdWithRelations(@Param("id") Integer id);

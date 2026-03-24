@@ -896,14 +896,65 @@ const BookingConfirmationPage = () => {
   }
 
   // Khi xác thực OTP thành công
-  const handleOtpVerified = () => {
+  const handleOtpVerified = async () => {
     setOtpVerified(true)
     setShowOtpModal(false)
     lastConfirmedPhone.current = pendingOtpPhone
     localStorage.setItem("lastConfirmedPhone", pendingOtpPhone)
     localStorage.setItem("otpVerified", "true")
-    // Gọi lại handleConfirm để tiếp tục flow chuyển trang
-    setTimeout(() => handleConfirm(), 0)
+    
+    // Thực hiện logic xác nhận và chuyển trang ngay lập tức
+    try {
+      setIsLoading(true)
+      
+      // Save form data
+      saveFormData({
+        fullName: contactInfo.fullName,
+        phone: contactInfo.phone,
+        email: contactInfo.email,
+        pickupAddress: contactInfo.pickupAddress,
+        dropoffAddress: contactInfo.dropoffAddress,
+        withDriver: withDriver,
+        deliveryRequested: deliveryRequested,
+      })
+      
+      // Prepare booking info
+      const bookingInfo = {
+        carId: bookingData.carId,
+        pickupLocation: contactInfo.pickupAddress,
+        dropoffLocation: contactInfo.dropoffAddress,
+        pickupDateTime: bookingData.pickupDateTime,
+        dropoffDateTime: bookingData.dropoffDateTime,
+        withDriver: withDriver,
+        deliveryRequested: deliveryRequested,
+        seatNumber: car?.numOfSeats,
+      }
+      
+      // Save to localStorage
+      localStorage.setItem("lastBookingInfo", JSON.stringify(bookingInfo))
+      localStorage.setItem("lastPriceBreakdown", JSON.stringify(priceBreakdown))
+      localStorage.setItem("lastCustomerInfo", JSON.stringify(contactInfo))
+      
+      // Navigate to payment page
+      const navigationData = {
+        bookingInfo: bookingInfo,
+        priceBreakdown,
+        depositAmount: priceBreakdown.deposit,
+        collateralAmount: 5000000,
+        withDriver,
+        deliveryRequested,
+        customerInfo: { ...contactInfo },
+      }
+      
+      toast.success("Xác thực thành công! Chuyển đến trang thanh toán.")
+      navigate("/payment", { state: navigationData })
+      
+    } catch (err) {
+      console.error("Lỗi khi chuyển đến thanh toán:", err)
+      toast.error(err.message || "Không thể xử lý yêu cầu. Vui lòng thử lại.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleContactInfoChange = (e) => {
