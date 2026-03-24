@@ -64,8 +64,6 @@ const SupplierCarDashboard = () => {
   const [carStats, setCarStats] = useState([]);
   const [revenueData, setRevenueData] = useState({});
   const [monthlyStats, setMonthlyStats] = useState(null);
-  const [popularCars, setPopularCars] = useState([]);
-  const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [carsData, setCarsData] = useState([]);
   const [mostPopularCar, setMostPopularCar] = useState(null);
@@ -184,7 +182,7 @@ const SupplierCarDashboard = () => {
           }
         });
 
-        const popularCarsArray = Object.entries(carBookingCount)
+        Object.entries(carBookingCount)
           .map(([model, count]) => ({ model, bookings: count }))
           .sort((a, b) => b.bookings - a.bookings)
           .slice(0, 5);
@@ -210,7 +208,7 @@ const SupplierCarDashboard = () => {
         }
 
         // Generate recent activities
-        const activities = [
+        const _UNUSED_activities = [
           { type: 'booking', message: 'Đơn đặt xe mới từ khách hàng Nguyễn Văn A', time: '5 phút trước', icon: FaClipboardList, color: 'text-blue-600' },
           { type: 'payment', message: 'Nhận được thanh toán 2.500.000 VNĐ', time: '15 phút trước', icon: FaDollarSign, color: 'text-green-600' },
           { type: 'car', message: 'Xe Toyota Camry đã được trả về', time: '1 giờ trước', icon: FaCar, color: 'text-purple-600' },
@@ -237,11 +235,8 @@ const SupplierCarDashboard = () => {
           { name: 'Trạng thái', data: carStatusStats }
         ]);
 
-        setPopularCars(popularCarsArray);
-        setRecentActivities(activities);
-        
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error(`Error fetching dashboard data: ${error?.message || 'Unknown error'}`);
         const errorMessage = error.response?.data?.message || error.message || 'Không thể tải dữ liệu tổng quan';
         toast.error(errorMessage);
       } finally {
@@ -288,7 +283,6 @@ const SupplierCarDashboard = () => {
     if (selected === "dashboard") {
       setLoading(true);
       // Trigger refresh
-      const event = new Date();
       await new Promise(resolve => setTimeout(resolve, 500)); // Small delay for UX
       window.location.reload(); // Simple refresh - you can make this more sophisticated
     }
@@ -332,7 +326,7 @@ const SupplierCarDashboard = () => {
     const stats = monthlyStats || {};
 
     // Lọc danh sách xe đã duyệt (không lấy xe có status 'pending' hoặc 'pending_approval')
-    const filteredCars = Array.isArray(carsData) ? carsData.filter(car => {
+    const _UNUSED_filteredCars = Array.isArray(carsData) ? carsData.filter(car => {
       const st = (car.statusName || car.status?.statusName || '').toLowerCase();
       return st !== 'pending' && st !== 'pending_approval';
     }) : [];
@@ -348,7 +342,7 @@ const SupplierCarDashboard = () => {
     // ... existing code ...
     // Tính số xe mới tháng này và tháng trước
     const newCarsThisMonth = getNewCarsByMonth(cars, 0);
-    const newCarsLastMonth = getNewCarsByMonth(cars, 1);
+    const _UNUSED_newCarsLastMonth = getNewCarsByMonth(cars, 1);
     // Tính phần trăm tăng/giảm đơn đặt, doanh thu, khách hàng mới
     const bookingPercent = getPercentChange(stats.bookingsByMonth);
     const revenuePercent = getPercentChange(stats.revenueByMonth);

@@ -3,6 +3,12 @@ import axiosRetry from 'axios-retry';
 import { getToken } from "@/utils/auth"
 import { getItem } from "@/utils/auth";
 
+const toSafeErrorMessage = (error, fallback = 'Unknown error') =>
+    error?.response?.data?.message ||
+    error?.response?.data?.error ||
+    error?.message ||
+    fallback;
+
 // Cấu hình base URL
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -48,7 +54,7 @@ api.interceptors.request.use(
         return config;
     },
     (error) => {
-        console.error('[API Request Error]', error);
+        console.error(`[API Request Error] ${toSafeErrorMessage(error)}`);
         return Promise.reject(error);
     }
 );
@@ -60,7 +66,9 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        console.error('[API Response Error]', error.response?.status, error.config?.url, error.message);
+        const status = error?.response?.status ?? 'unknown';
+        const url = error?.config?.url ?? 'unknown';
+        console.error(`[API Response Error] status=${status} url=${url} message=${toSafeErrorMessage(error)}`);
         console.log('[API Response Error] Current auth state:');
         console.log('[API Response Error] - Token:', getItem('token') ? 'Có' : 'Không có');
         console.log('[API Response Error] - Username:', getItem('username'));

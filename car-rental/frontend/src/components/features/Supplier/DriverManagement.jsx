@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { FaUser, FaPlus, FaEdit, FaTrash, FaSearch, FaFilter, FaArrowLeft } from "react-icons/fa";
+import { FaUser, FaPlus, FaEdit, FaTrash, FaSearch, FaFilter } from "react-icons/fa";
 import LoadingSpinner from "@/components/ui/Loading/LoadingSpinner";
-import ErrorMessage from "@/components/ui/ErrorMessage/ErrorMessage";
 import DriverForm from "./DriverForm";
 import { getSupplierDrivers, createSupplierDriver, updateSupplierDriver, deleteSupplierDriver } from '../../../services/api';
 
@@ -15,7 +14,7 @@ const DriverManagement = () => {
   const [filterStatus, setFilterStatus] = useState("all");
 
   // Mock data - thay thế bằng API call thực tế
-  const mockDrivers = [
+  const _UNUSED_mockDrivers = [
     {
       id: 1,
       name: "Nguyễn Văn A",

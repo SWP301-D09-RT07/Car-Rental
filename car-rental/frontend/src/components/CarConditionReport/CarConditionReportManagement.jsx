@@ -8,10 +8,7 @@ import {
     FaTimes,
     FaDownload,
     FaExclamationTriangle,
-    FaCar,
-    FaUser,
-    FaCalendarAlt,
-    FaChartBar
+    FaCar
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingSpinner from '@/components/ui/Loading/LoadingSpinner';
@@ -22,7 +19,8 @@ import {
     confirmCarConditionReport,
     exportCarConditionReports 
 } from '@/services/api';
-import { motion, AnimatePresence } from 'framer-motion';
+// eslint-disable-next-line no-unused-vars
+import { motion } from 'framer-motion';
 import './CarConditionReportManagement.scss';
 
 // Helper để loại bỏ filter không hợp lệ

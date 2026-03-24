@@ -12,7 +12,7 @@ const menuItems = [
   { key: "profile", label: "Hồ sơ cá nhân", icon: <FaUser /> },
   { key: "chat", label: "Chat/hỗ trợ khách hàng", icon: <FaComments /> },
   { key: "insurance", label: "Bảo hiểm", icon: <FaClipboardList /> },
-  { key: "driver", label: "Quản lý tài xế", icon: <FaCar /> },
+  { key: "drivers", label: "Quản lý tài xế", icon: <FaCar /> },
 ];
 
 const SupplierSidebar = ({ user, selected, setSelected, onLogout }) => {
